@@ -1,0 +1,14 @@
+[package]
+name = "metani"
+version = "0.1.0"
+authors = ["Ben J Woodcroft <donttrustben@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+finch = { git = "https://github.com/onecodex/finch-rs", rev = "5dc21d072c0bbd758532eff70871d101ed69e573" } # So mash_files can work in parallel. Presumably will be integrated in v0.3
+clap = "2.*"
+log = "0.4.*"
+env_logger = "0.7.*"
+checkm = { git = "https://github.com/wwood/checkm-rs", rev = "bb27e903a8920bc8ed48944c155a7ae9a4a8b1d5" }
