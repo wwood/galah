@@ -1,6 +1,7 @@
 use checkm::GenomeQuality;
 use finch::distance::distance;
 use finch::serialization::Sketch;
+use rayon::prelude::*;
 
 #[macro_use]
 extern crate log;
@@ -32,10 +33,13 @@ pub fn print_metaani_distances(
 
     // Print distances
     info!("Computing and printing ANI values ..");
-    for (i, genome1_fasta_path) in genome_fasta_paths.iter().enumerate() {
+    genome_fasta_paths.into_par_iter().enumerate().for_each(|(i, genome1_fasta_path)| {
         for j in (i+1)..genome_fasta_paths.len() {
+            // TODO: Finch distance calculated twice, which is not necessary.
+            let finch = distance(&sketches.sketches[i].hashes, &sketches.sketches[j].hashes, "", "", true)
+                .expect("Failed to calculate finch distance");
             
-            println!("{}\t{}\t{}",
+            println!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                 genome1_fasta_path,
                 genome_fasta_paths[j],
                 (1.0-metaani_dist(
@@ -44,10 +48,17 @@ pub fn print_metaani_distances(
                     &genome_qualities[i],
                     &genome_qualities[j],
                     kmer_length
-                ))*100.
+                ))*100.,
+                finch.mashDistance,
+                &sketches.sketches[i].seqLength.unwrap(),
+                &sketches.sketches[j].seqLength.unwrap(),
+                &genome_qualities[i].completeness,
+                &genome_qualities[i].contamination,
+                &genome_qualities[j].completeness,
+                &genome_qualities[j].contamination,
             );
         }
-    }
+    })
 }
 
 // pub fn metaani_clusters(

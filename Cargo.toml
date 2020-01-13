@@ -12,3 +12,4 @@ clap = "2.*"
 log = "0.4.*"
 env_logger = "0.7.*"
 checkm = { git = "https://github.com/wwood/checkm-rs", rev = "bb27e903a8920bc8ed48944c155a7ae9a4a8b1d5" }
+rayon = "1.0"

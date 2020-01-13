@@ -12,6 +12,7 @@ extern crate log;
 extern crate env_logger;
 use log::LevelFilter;
 use env_logger::Builder;
+extern crate rayon;
 
 fn main(){
     let app = build_cli();
@@ -25,6 +26,13 @@ fn main(){
 
             let n_hashes = value_t!(m.value_of("num-hashes"), usize).unwrap();
             let kmer_length = value_t!(m.value_of("kmer-length"), u8).unwrap();
+
+            let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
+
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build_global()
+                .expect("Programming error: rayon initialised multiple times");
 
             info!("Reading CheckM tab table ..");
             let checkm = checkm::CheckMTabTable::read_file_path(
@@ -152,5 +160,10 @@ fn build_cli() -> App<'static, 'static> {
                 .arg(Arg::with_name("kmer-length")
                     .long("kmer-length")
                     .takes_value(true)
-                    .default_value("21")))
+                    .default_value("21"))
+                .arg(Arg::with_name("threads")
+                    .short("-t")
+                    .long("threads")
+                    .default_value("1")
+                    .takes_value(true)))
 }
