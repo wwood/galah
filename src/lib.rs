@@ -33,6 +33,19 @@ pub fn print_metaani_distances(
 
     // Print distances
     info!("Computing and printing ANI values ..");
+
+    println!("\
+        genome1\t\
+        genome2\t\
+        metani_dist\t\
+        finch_dist\t\
+        genome1_length\t\
+        genome2_length\t\
+        genome1_completeness\t\
+        genome1_contamination\t\
+        genome2_completeness\t\
+        genome2_contamination");
+
     genome_fasta_paths.into_par_iter().enumerate().for_each(|(i, genome1_fasta_path)| {
         for j in (i+1)..genome_fasta_paths.len() {
             // TODO: Finch distance calculated twice, which is not necessary.
