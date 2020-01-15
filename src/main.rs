@@ -18,6 +18,42 @@ fn main(){
     set_log_level(&matches, false);
 
     match matches.subcommand_name() {
+        Some("cluster") => {
+            let m = matches.subcommand_matches("cluster").unwrap();
+            set_log_level(m, true);
+
+            let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build_global()
+                .expect("Programming error: rayon initialised multiple times");
+
+            let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m);
+            let v2: Vec<&str> = genome_fasta_files.iter().map(|s| &**s).collect();
+            info!("Clustering {} genomes ..", genome_fasta_files.len());
+
+            let ani = value_t!(m.value_of("ani"), f32).unwrap();
+            let n_hashes = value_t!(m.value_of("num-hashes"), usize).unwrap();
+            let kmer_length = value_t!(m.value_of("kmer-length"), u8).unwrap();
+            let clusters = match m.value_of("method") {
+                Some("minhash") => galah::minhash_clusterer::minhash_clusters(
+                    &v2, ani, n_hashes, kmer_length, None),
+                Some("minhash+fastani") => galah::minhash_clusterer::minhash_clusters(
+                    &v2, 
+                    value_t!(m.value_of("minhash-prethreshold"), f32).expect("Failed to parse --minhash-prethreshold parameter"),
+                    n_hashes, kmer_length, Some(ani)),
+                _ => unreachable!()
+            };
+            info!("Found {} genome clusters", clusters.len());
+
+            for cluster in clusters {
+                let rep_index = cluster[0];
+                for genome_index in cluster {
+                    println!("{}\t{}", v2[rep_index], v2[genome_index]);
+                }
+            }
+            info!("Finished printing genome clusters");
+        },
         Some("dist") => {
             let m = matches.subcommand_matches("dist").unwrap();
             set_log_level(m, true);
@@ -164,4 +200,61 @@ fn build_cli() -> App<'static, 'static> {
                     .long("threads")
                     .default_value("1")
                     .takes_value(true)))
+
+        .subcommand(
+            SubCommand::with_name("cluster")
+                .about("Cluster FASTA files by average nucleotide identity")
+                .arg(Arg::with_name("ani")
+                        .long("ani")
+                        .takes_value(true)
+                        .required(true))
+                .arg(Arg::with_name("num-hashes")
+                    .long("num-hashes")
+                    .takes_value(true)
+                    .default_value("1000"))
+                .arg(Arg::with_name("kmer-length")
+                    .long("kmer-length")
+                    .takes_value(true)
+                    .default_value("21"))
+                .arg(Arg::with_name("minhash-prethreshold")
+                    .long("minhash-prethreshold")
+                    .takes_value(true)
+                    .default_value("90"))
+                .arg(Arg::with_name("genome-fasta-files")
+                        .short("f")
+                        .long("genome-fasta-files")
+                        .multiple(true)
+                        .conflicts_with("genome-fasta-directory")
+                        .conflicts_with("single-genome")
+                        .required_unless_one(
+                            &["genome-fasta-directory"])
+                        .takes_value(true))
+                .arg(Arg::with_name("genome-fasta-directory")
+                        .long("genome-fasta-directory")
+                        .conflicts_with("separator")
+                        .conflicts_with("genome-fasta-files")
+                        .conflicts_with("single-genome")
+                        .required_unless_one(
+                            &["genome-fasta-files"])
+                        .takes_value(true))
+                .arg(Arg::with_name("genome-fasta-extension")
+                        .short("x")
+                        .long("genome-fasta-extension")
+                        // Unsure why, but uncommenting causes test failure (in
+                        // genome mode, not sure about here) - clap bug?
+                        //.requires("genome-fasta-directory")
+                        .default_value("fna")
+                        .takes_value(true))
+
+                .arg(Arg::with_name("method")
+                    .long("method")
+                    .possible_values(&["minhash+fastani","minhash"])
+                    .default_value("minhash+fastani")
+                    .takes_value(true))
+                .arg(Arg::with_name("threads")
+                    .short("-t")
+                    .long("threads")
+                    .default_value("1")
+                    .takes_value(true)))
+            
 }
