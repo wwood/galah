@@ -1,6 +1,6 @@
 [package]
-name = "metani"
-version = "0.1.0"
+name = "galah"
+version = "0.0.1"
 authors = ["Ben J Woodcroft <donttrustben@gmail.com>"]
 edition = "2018"
 
@@ -13,3 +13,8 @@ log = "0.4.*"
 env_logger = "0.7.*"
 checkm = { git = "https://github.com/wwood/checkm-rs", rev = "bb27e903a8920bc8ed48944c155a7ae9a4a8b1d5" }
 rayon = "1.0"
+csv = "1.1"
+
+[dependencies.partitions]
+version = "0.2.*"
+features = ["compact"]

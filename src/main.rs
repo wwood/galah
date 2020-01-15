@@ -1,6 +1,4 @@
-extern crate metani;
-
-use metani::*;
+extern crate galah;
 
 extern crate clap;
 use clap::*;
@@ -49,7 +47,7 @@ fn main(){
             info!("Linked {} genomes to their CheckM quality", qualities.len());
 
             info!("Printing distances ..");
-            print_metaani_distances(
+            galah::ani_correction::print_metaani_distances(
                 &genome_fasta_files.iter().map(|s| s.as_str()).collect::<Vec<_>>().as_slice(),
                 qualities.as_slice(),
                 n_hashes, kmer_length);
