@@ -37,8 +37,9 @@ pub fn print_metaani_distances(
     println!("\
         genome1\t\
         genome2\t\
-        metani_dist\t\
+        metani\t\
         finch_dist\t\
+        completeness_corrected_finch_ani\t\
         genome1_length\t\
         genome2_length\t\
         genome1_completeness\t\
@@ -51,8 +52,11 @@ pub fn print_metaani_distances(
             // TODO: Finch distance calculated twice, which is not necessary.
             let finch = distance(&sketches.sketches[i].hashes, &sketches.sketches[j].hashes, "", "", true)
                 .expect("Failed to calculate finch distance");
+
+            let corrected = 1.0136269*(1.0-finch.mashDistance)*100. -
+                (1.3970929*(genome_qualities[i].completeness*genome_qualities[j].completeness) as f64);
             
-            println!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            println!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                 genome1_fasta_path,
                 genome_fasta_paths[j],
                 (1.0-metaani_dist(
@@ -63,6 +67,7 @@ pub fn print_metaani_distances(
                     kmer_length
                 ))*100.,
                 finch.mashDistance,
+                corrected,
                 &sketches.sketches[i].seqLength.unwrap(),
                 &sketches.sketches[j].seqLength.unwrap(),
                 &genome_qualities[i].completeness,
@@ -129,15 +134,15 @@ fn metani_corrected_jaccard_distance(
     let finch = distance(&sketch1.hashes, &sketch2.hashes, "", "", true)
         .expect("Failed to calculate distance by sketch comparison");
 
-    let comp1 = quality1.completeness;
-    let comp2 = quality2.completeness;
+    // let comp1 = quality1.completeness;
+    // let comp2 = quality2.completeness;
 
-    let cont_fix1 = comp1 / (comp1 + quality1.contamination);
-    let cont_fix2 = comp2 / (comp2 + quality2.contamination);
+    // let cont_fix1 = comp1 / (comp1 + quality1.contamination);
+    // let cont_fix2 = comp2 / (comp2 + quality2.contamination);
 
     let attempt1 = finch.commonHashes as f32 / finch.totalHashes as f32
-        / quality1.completeness / quality2.completeness
-        / cont_fix1 / cont_fix2;
+        / quality1.completeness / quality2.completeness;
+        // / cont_fix1 / cont_fix2;
     if attempt1 > 1.0 {
         1.0
     } else {
