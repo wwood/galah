@@ -11,7 +11,7 @@ finch = { git = "https://github.com/onecodex/finch-rs", rev = "5dc21d072c0bbd758
 clap = "2.*"
 log = "0.4.*"
 env_logger = "0.7.*"
-checkm = { git = "https://github.com/wwood/checkm-rs", rev = "bb27e903a8920bc8ed48944c155a7ae9a4a8b1d5" }
+checkm = { git = "https://github.com/wwood/checkm-rs", rev = "7a3f527d10e559f9886bd235ea0fd82858d182c3" }
 rayon = "1.0"
 csv = "1.1"
 

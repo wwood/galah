@@ -29,8 +29,29 @@ fn main(){
                 .expect("Programming error: rayon initialised multiple times");
 
             let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m);
-            let v2: Vec<&str> = genome_fasta_files.iter().map(|s| &**s).collect();
-            info!("Clustering {} genomes ..", genome_fasta_files.len());
+
+            let v2: Vec<&str> = match m.is_present("checkm-tab-table") {
+                false => {
+                    warn!("Since CheckM input is missing, genomes are not being ordered by quality. Instead the order of their input is being used");
+                    genome_fasta_files.iter().map(|s| &**s).collect()
+                },
+                true => {
+                    info!("Reading CheckM tab table ..");
+                    let checkm = checkm::CheckMTabTable::read_file_path(m.value_of("checkm-tab-table").unwrap());
+
+                    info!("Ordering genomes by CheckM quality: completeness - 4*contamination");
+                    let v2 = checkm.order_fasta_paths_by_completeness_minus_4contamination(
+                        &genome_fasta_files.iter().map(|s| &**s).collect(),
+                        Some(value_t!(m.value_of("min-completeness"), f32).expect("Failed to parse min-completeness to float") / 100.0),
+                        Some(value_t!(m.value_of("max-contamination"), f32).expect("Failed to parse max-contamination to float") / 100.0))
+                        .unwrap();
+                    info!("Read in genome qualities for {} genomes. {} passed quality thresholds", 
+                        checkm.genome_to_quality.len(), 
+                        v2.len());
+                    v2
+                }
+            };
+            info!("Clustering {} genomes ..", v2.len());
 
             let ani = value_t!(m.value_of("ani"), f32).unwrap();
             let n_hashes = value_t!(m.value_of("num-hashes"), usize).unwrap();
@@ -205,9 +226,20 @@ fn build_cli() -> App<'static, 'static> {
             SubCommand::with_name("cluster")
                 .about("Cluster FASTA files by average nucleotide identity")
                 .arg(Arg::with_name("ani")
-                        .long("ani")
-                        .takes_value(true)
-                        .required(true))
+                    .long("ani")
+                    .takes_value(true)
+                    .required(true))
+                .arg(Arg::with_name("checkm-tab-table")
+                    .long("checkm-tab-table")
+                    .takes_value(true))
+                .arg(Arg::with_name("min-completeness")
+                    .long("min-completeness")
+                    .takes_value(true)
+                    .default_value("0"))
+                .arg(Arg::with_name("max-contamination")
+                    .long("max-contamination")
+                    .takes_value(true)
+                    .default_value("0"))
                 .arg(Arg::with_name("num-hashes")
                     .long("num-hashes")
                     .takes_value(true)
