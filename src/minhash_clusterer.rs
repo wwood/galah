@@ -104,6 +104,7 @@ pub fn minhash_clusters(
                         cluster.iter().map(|within_index| original_genome_indices[*within_index]).collect()
                     );
                 }
+                debug!("Finished proccessing pre-cluster {}", precluster_id);
             });
             return all_clusters.into_inner().unwrap();
         }
@@ -177,27 +178,39 @@ fn find_minhash_fastani_representatives(
     let mut fastani_cache: BTreeMap<(usize, usize), Option<f32>> = BTreeMap::new();
 
     for (i, sketch1) in sketches.iter().enumerate() {
-        // Gather a list of all genomes which pass the minhash threshold.
-        let potential_refs: Vec<_> = clusters_to_return.iter().filter( |j| {
-            let sketch2: &Sketch = &sketches[**j];
-            distance(&sketch1.hashes, &sketch2.hashes, "", "", true)
-                .expect("Failed to calculate distance by sketch comparison")
-                .mashDistance
-                <= minhash_ani_threshold
+        // Gather a list of all genomes which pass the minhash threshold, sorted
+        // so highest ANIs are first
+        let mut minhash_indices_and_distances: Vec<_> = clusters_to_return.iter().map( |j| {
+            let sketch2: &Sketch = &sketches[*j];
+            (
+                j,
+                distance(&sketch1.hashes, &sketch2.hashes, "", "", true)
+                    .expect("Failed to calculate distance by sketch comparison")
+                    .mashDistance
+            )
         }).collect();
+        minhash_indices_and_distances.sort_unstable_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
+        let potential_refs: Vec<_> = minhash_indices_and_distances
+            .into_iter()
+            .filter( |(_,minhash_dist)| *minhash_dist <= minhash_ani_threshold )
+            .map( |(rep_index,_)| *rep_index )
+            .collect();
 
         // FastANI all potential reps against the current genome
-        let fastanis = calculate_fastani_many_to_one_pairwise(
-            potential_refs.iter().map(|ref_index| genomes[**ref_index]).collect::<Vec<_>>().as_slice(),
-            genomes[i]);
+        let fastanis = calculate_fastani_many_to_one_pairwise_stop_early(
+            potential_refs.iter().map(|ref_index| genomes[*ref_index]).collect::<Vec<_>>().as_slice(),
+            genomes[i],
+            fastani_threshold);
         let mut is_rep = true;
         for (potential_ref, fastani) in potential_refs.into_iter().zip(fastanis.iter()) {
             // The reps always have a lower index that the genome under
             // consideration, and the cache key is in ascending order.
-            fastani_cache.insert((*potential_ref,i), *fastani);
             match fastani {
-                Some(ani) => if *ani >= fastani_threshold {
-                    is_rep = false
+                Some(ani) => {
+                    fastani_cache.insert((potential_ref,i), *fastani);
+                    if *ani >= fastani_threshold {
+                        is_rep = false
+                    }
                 },
                 None => {}
             }
@@ -274,17 +287,9 @@ fn calculate_fastani_many_to_one(
     return to_return;
 }
 
-/// Calculate FastANI values, submitting each genome pair in parallel.
-fn calculate_fastani_many_to_one_pairwise(
-    query_genome_paths: &[&str],
-    ref_genome_path: &str)
--> Vec<Option<f32>> {
-
-    query_genome_paths.par_iter().map(|query_genome| {
-        calculate_fastani(query_genome, ref_genome_path)
-    }).collect()
-}
-
+/// Calculate FastANI values, submitting each genome pair in parallel until one
+/// passes the ani_threshold. Then stop. Return a list of FastANI values.
+/// These need to be screened to determine if any passed the threshold.
 fn calculate_fastani_many_to_one_pairwise_stop_early(
     query_genome_paths: &[&str],
     ref_genome_path: &str,
@@ -302,7 +307,7 @@ fn calculate_fastani_many_to_one_pairwise_stop_early(
         }
     });
 
-    return to_return.into_inner().unwrap();
+    return to_return.into_inner().unwrap()
 }
 
 fn calculate_fastani(fasta1: &str, fasta2: &str) -> Option<f32> {
