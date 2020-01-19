@@ -40,10 +40,14 @@ fn main(){
                     let checkm = checkm::CheckMTabTable::read_file_path(m.value_of("checkm-tab-table").unwrap());
 
                     info!("Ordering genomes by CheckM quality: completeness - 4*contamination");
+                    let max_contamination = match m.is_present("max-contamination") {
+                        true => Some(value_t!(m.value_of("max-contamination"), f32).expect("Failed to parse max-contamination to float") / 100.0),
+                        false => None
+                    };
                     let v2 = checkm.order_fasta_paths_by_completeness_minus_4contamination(
                         &genome_fasta_files.iter().map(|s| &**s).collect(),
                         Some(value_t!(m.value_of("min-completeness"), f32).expect("Failed to parse min-completeness to float") / 100.0),
-                        Some(value_t!(m.value_of("max-contamination"), f32).expect("Failed to parse max-contamination to float") / 100.0))
+                        max_contamination)
                         .unwrap();
                     info!("Read in genome qualities for {} genomes. {} passed quality thresholds", 
                         checkm.genome_to_quality.len(), 
@@ -238,8 +242,7 @@ fn build_cli() -> App<'static, 'static> {
                     .default_value("0"))
                 .arg(Arg::with_name("max-contamination")
                     .long("max-contamination")
-                    .takes_value(true)
-                    .default_value("0"))
+                    .takes_value(true))
                 .arg(Arg::with_name("num-hashes")
                     .long("num-hashes")
                     .takes_value(true)
