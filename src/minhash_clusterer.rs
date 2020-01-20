@@ -39,6 +39,9 @@ pub fn minhash_clusters(
         .expect("Failed to create finch sketches for input genomes");
     info!("Finished sketching genomes for clustering.");
 
+    assert!(minhash_ani > 1.0);
+    assert!(fastani_threshold.unwrap_or(99.0) > 1.0);
+
     let distance_threshold: f64 = (100.0 - minhash_ani as f64)/100.0;
     assert!(distance_threshold >= 0.0);
     assert!(distance_threshold < 1.0);

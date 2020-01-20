@@ -30,33 +30,20 @@ fn main(){
 
             let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m);
 
-            let v2: Vec<&str> = match galah::cluster_argument_parsing::filter_genomes_through_checkm(&genome_fasta_files, &m) {
-                Ok(genomes) => genomes,
-                Err(e) => {
-                    error!("{}", e);
-                    std::process::exit(1);
-                }
-            };
-            info!("Clustering {} genomes ..", v2.len());
+            let galah = galah::cluster_argument_parsing::generate_galah_clusterer(&genome_fasta_files, &m)
+                .expect("Failed to parse galah clustering arguments correctly");
 
-            let ani = value_t!(m.value_of("ani"), f32).unwrap();
-            let n_hashes = value_t!(m.value_of("num-hashes"), usize).unwrap();
-            let kmer_length = value_t!(m.value_of("kmer-length"), u8).unwrap();
-            let clusters = match m.value_of("method") {
-                Some("minhash") => galah::minhash_clusterer::minhash_clusters(
-                    &v2, ani, n_hashes, kmer_length, None),
-                Some("minhash+fastani") => galah::minhash_clusterer::minhash_clusters(
-                    &v2, 
-                    value_t!(m.value_of("minhash-prethreshold"), f32).expect("Failed to parse --minhash-prethreshold parameter"),
-                    n_hashes, kmer_length, Some(ani)),
-                _ => unreachable!()
-            };
+            let passed_genomes = &galah.genome_fasta_paths;
+            info!("Clustering {} genomes ..", passed_genomes.len());
+            let clusters = galah.cluster();
+
             info!("Found {} genome clusters", clusters.len());
+
 
             for cluster in clusters {
                 let rep_index = cluster[0];
                 for genome_index in cluster {
-                    println!("{}\t{}", v2[rep_index], v2[genome_index]);
+                    println!("{}\t{}", passed_genomes[rep_index], passed_genomes[genome_index]);
                 }
             }
             info!("Finished printing genome clusters");
