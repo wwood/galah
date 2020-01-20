@@ -18,7 +18,7 @@ pub enum ClusteringDistanceMethod {
     }
 }
 
-pub fn filter_genomes_through_checkm<'a>(
+fn filter_genomes_through_checkm<'a>(
     genome_fasta_files: &'a Vec<String>,
     clap_matches: &clap::ArgMatches)
     -> std::result::Result<Vec<&'a str>, String> {
