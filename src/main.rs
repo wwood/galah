@@ -30,7 +30,13 @@ fn main(){
 
             let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m);
 
-            let v2: Vec<&str> = galah::cluster_argument_parsing::filter_genomes_through_checkm(&genome_fasta_files, &m);
+            let v2: Vec<&str> = match galah::cluster_argument_parsing::filter_genomes_through_checkm(&genome_fasta_files, &m) {
+                Ok(genomes) => genomes,
+                Err(e) => {
+                    error!("{}", e);
+                    std::process::exit(1);
+                }
+            };
             info!("Clustering {} genomes ..", v2.len());
 
             let ani = value_t!(m.value_of("ani"), f32).unwrap();
