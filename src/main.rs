@@ -30,31 +30,7 @@ fn main(){
 
             let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m);
 
-            let v2: Vec<&str> = match m.is_present("checkm-tab-table") {
-                false => {
-                    warn!("Since CheckM input is missing, genomes are not being ordered by quality. Instead the order of their input is being used");
-                    genome_fasta_files.iter().map(|s| &**s).collect()
-                },
-                true => {
-                    info!("Reading CheckM tab table ..");
-                    let checkm = checkm::CheckMTabTable::read_file_path(m.value_of("checkm-tab-table").unwrap());
-
-                    info!("Ordering genomes by CheckM quality: completeness - 4*contamination");
-                    let max_contamination = match m.is_present("max-contamination") {
-                        true => Some(value_t!(m.value_of("max-contamination"), f32).expect("Failed to parse max-contamination to float") / 100.0),
-                        false => None
-                    };
-                    let v2 = checkm.order_fasta_paths_by_completeness_minus_4contamination(
-                        &genome_fasta_files.iter().map(|s| &**s).collect(),
-                        Some(value_t!(m.value_of("min-completeness"), f32).expect("Failed to parse min-completeness to float") / 100.0),
-                        max_contamination)
-                        .unwrap();
-                    info!("Read in genome qualities for {} genomes. {} passed quality thresholds", 
-                        checkm.genome_to_quality.len(), 
-                        v2.len());
-                    v2
-                }
-            };
+            let v2: Vec<&str> = galah::cluster_argument_parsing::filter_genomes_through_checkm(&genome_fasta_files, &m);
             info!("Clustering {} genomes ..", v2.len());
 
             let ani = value_t!(m.value_of("ani"), f32).unwrap();
