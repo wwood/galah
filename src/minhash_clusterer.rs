@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use finch::distance::distance;
 use finch::serialization::Sketch;
 use rayon::prelude::*;
-use super::finish_command_safely;
+use bird_tool_utils::command::finish_command_safely;
 use partitions::partition_vec::PartitionVec;
 
 /// Given a list of genomes, return them clustered. If the fastani_threshold is
