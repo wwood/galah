@@ -3,24 +3,24 @@ extern crate galah;
 extern crate clap;
 use clap::*;
 use std::env;
-use std::process;
 
 #[macro_use]
 extern crate log;
-extern crate env_logger;
-use log::LevelFilter;
-use env_logger::Builder;
-extern crate rayon;
+
+extern crate bird_tool_utils;
+use bird_tool_utils::clap_utils::*;
+
+static PROGRAM_NAME: &str = "Galah";
 
 fn main(){
     let app = build_cli();
     let matches = app.clone().get_matches();
-    set_log_level(&matches, false);
+    set_log_level(&matches, false, PROGRAM_NAME);
 
     match matches.subcommand_name() {
         Some("cluster") => {
             let m = matches.subcommand_matches("cluster").unwrap();
-            set_log_level(m, true);
+            set_log_level(m, true, PROGRAM_NAME);
 
             let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
             rayon::ThreadPoolBuilder::new()
@@ -28,7 +28,7 @@ fn main(){
                 .build_global()
                 .expect("Programming error: rayon initialised multiple times");
 
-            let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m);
+            let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true).unwrap();
 
             let galah = galah::cluster_argument_parsing::generate_galah_clusterer(&genome_fasta_files, &m)
                 .expect("Failed to parse galah clustering arguments correctly");
@@ -50,7 +50,7 @@ fn main(){
         },
         Some("dist") => {
             let m = matches.subcommand_matches("dist").unwrap();
-            set_log_level(m, true);
+            set_log_level(m, true, PROGRAM_NAME);
 
             let n_hashes = value_t!(m.value_of("num-hashes"), usize).unwrap();
             let kmer_length = value_t!(m.value_of("kmer-length"), u8).unwrap();
@@ -67,7 +67,7 @@ fn main(){
                 m.value_of("checkm-tab-table").unwrap()
             );
 
-            let genome_fasta_files = parse_list_of_genome_fasta_files(&m);
+            let genome_fasta_files = parse_list_of_genome_fasta_files(&m, true).unwrap();
 
             let qualities = genome_fasta_files.iter().map(|fasta|
                 checkm.retrieve_via_fasta_path(fasta)
@@ -87,84 +87,12 @@ fn main(){
     }
 }
 
-fn set_log_level(matches: &clap::ArgMatches, is_last: bool) {
-    let mut log_level = LevelFilter::Info;
-    let mut specified = false;
-    if matches.is_present("verbose") {
-        specified = true;
-        log_level = LevelFilter::Debug;
-    }
-    if matches.is_present("quiet") {
-        specified = true;
-        log_level = LevelFilter::Error;
-    }
-    if specified || is_last {
-        let mut builder = Builder::new();
-        builder.filter_level(log_level);
-        if env::var("RUST_LOG").is_ok() {
-            builder.parse_filters(&env::var("RUST_LOG").unwrap());
-        }
-        if builder.try_init().is_err() {
-            panic!("Failed to set log level - has it been specified multiple times?")
-        }
-    }
-    if is_last {
-        info!("Cockatoo version {}", crate_version!());
-    }
-}
-
-fn parse_list_of_genome_fasta_files(m: &clap::ArgMatches) -> Vec<String> {
-    match m.is_present("genome-fasta-files") {
-        true => {
-            m.values_of("genome-fasta-files").unwrap().map(|s| s.to_string()).collect()
-        },
-        false => {
-            if m.is_present("genome-fasta-directory") {
-                let dir = m.value_of("genome-fasta-directory").unwrap();
-                let paths = std::fs::read_dir(dir).unwrap();
-                let mut genome_fasta_files: Vec<String> = vec!();
-                let extension = m.value_of("genome-fasta-extension").unwrap();
-                for path in paths {
-                    let file = path.unwrap().path();
-                    match file.extension() {
-                        Some(ext) => {
-                            if ext == extension {
-                                let s = String::from(file.to_string_lossy());
-                                genome_fasta_files.push(s);
-                            } else {
-                                info!(
-                                    "Not using directory entry '{}' as a genome FASTA file, as \
-                                     it does not end with the extension '{}'",
-                                    file.to_str().expect("UTF8 error in filename"),
-                                    extension);
-                            }
-                        },
-                        None => {
-                            info!("Not using directory entry '{}' as a genome FASTA file",
-                                  file.to_str().expect("UTF8 error in filename"));
-                        }
-                    }
-                }
-                if genome_fasta_files.len() == 0 {
-                    error!("Found 0 genomes from the genome-fasta-directory, cannot continue.");
-                    process::exit(1);
-                }
-                genome_fasta_files // return
-            } else {
-                error!("Either a separator (-s) or path(s) to genome FASTA files \
-                        (with -d or -f) must be given");
-                process::exit(1);
-            }
-        }
-    }
-}
-
 
 fn build_cli() -> App<'static, 'static> {
     let mut app = App::new("galah")
         .version(crate_version!())
         .author("Ben J. Woodcroft <benjwoodcroft near gmail.com>")
-        .about("Metagenome assembled genomes (MAGs) dereplicator / clusterer")
+        .about("Metagenome assembled genome (MAG) dereplicator / clusterer")
         .args_from_usage("-v, --verbose       'Print extra debug logging information'
              -q, --quiet         'Unless there is an error, do not print logging information'")
         .global_setting(AppSettings::ArgRequiredElseHelp);

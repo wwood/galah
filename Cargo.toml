@@ -14,6 +14,7 @@ env_logger = "0.7.*"
 checkm = { git = "https://github.com/wwood/checkm-rs", rev = "7a3f527d10e559f9886bd235ea0fd82858d182c3" }
 rayon = "1.0"
 csv = "1.1"
+bird_tool_utils = { git = "https://github.com/wwood/bird_tool_utils", rev = "c89e23a86fa60e3c62c801c1adb238113f1edbbc" }
 
 [dependencies.partitions]
 version = "0.2.*"
