@@ -1,6 +1,6 @@
 use std;
 use std::collections::{BTreeSet,BTreeMap};
-use std::io::{BufReader,Write};
+use std::io::BufReader;
 use std::sync::Mutex;
 use finch::distance::distance;
 use finch::serialization::Sketch;
@@ -67,7 +67,7 @@ pub fn minhash_clusters(
             let all_clusters: Mutex<Vec<Vec<usize>>> = Mutex::new(vec![]);
 
             // Convert single linkage data structure into just a list of list of indices
-            let mut preclusters: Vec<Vec<usize>> = minhash_preclusters.all_sets().map(|cluster| 
+            let mut preclusters: Vec<Vec<usize>> = minhash_preclusters.all_sets().map(|cluster|
                 cluster.map(|cluster_genome| *cluster_genome.1).collect()
             ).collect();
 
@@ -94,7 +94,7 @@ pub fn minhash_clusters(
                 );
                 debug!("In precluster {}, found {} genome representatives", precluster_id, clusters.len());
 
-                debug!("Assigning genomes to representatives by minhash+fastani in precluster {}..", 
+                debug!("Assigning genomes to representatives by minhash+fastani in precluster {}..",
                     precluster_id);
                 let clusters = find_minhash_fastani_memberships(
                     &clusters, precluster_sketches.as_slice(), precluster_genomes.as_slice(), calculated_fastanis, distance_threshold
@@ -118,7 +118,7 @@ pub fn minhash_clusters(
 /// Create sub-sets by single linkage clustering
 fn partition_sketches(
     sketches: &[Sketch],
-    distance_threshold: f64) 
+    distance_threshold: f64)
     -> PartitionVec<usize> {
 
     let to_return: Mutex<PartitionVec<usize>> = Mutex::new(PartitionVec::with_capacity(sketches.len()));
@@ -225,70 +225,17 @@ fn find_minhash_fastani_representatives(
     return (clusters_to_return, fastani_cache);
 }
 
-fn calculate_fastani_many_to_one(
+/// Calculate FastANI values, submitting each genome pair in parallel.
+fn calculate_fastani_many_to_one_pairwise(
     query_genome_paths: &[&str],
     ref_genome_path: &str)
--> Vec<Option<f32>> {
-    if query_genome_paths.len() == 0 {
-        return vec![];
-    }
+    -> Vec<Option<f32>> {
 
-    let mut query_to_index: BTreeMap<String,usize> = BTreeMap::new();
-    for (i, path) in query_genome_paths.iter().enumerate() {
-        query_to_index.insert(path.to_string(), i);
-    }
-    
-    let mut cmd = std::process::Command::new("fastANI");
-    cmd
-        .arg("-o")
-        .arg("/dev/stdout")
-        .arg("--queryList")
-        .arg("/dev/stdin")
-        .arg("--ref")
-        .arg(&ref_genome_path)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-    debug!("Running fastANI command: {:?}", &cmd);
-    let mut process = cmd.spawn().expect(&format!("Failed to spawn {}", "fastANI"));
-    let stdout = process.stdout.as_mut().unwrap();
-    let stdout_reader = BufReader::new(stdout);
-
-    {
-        let mut stdin = process.stdin.take().unwrap();
-        for query in query_genome_paths {
-            writeln!(stdin, "{}", query).expect("Failed to write to FastANI stdin");
-        }
-        stdin.flush().expect("Failed to flush FastANI stdin");
-    }
-
-    let mut rdr = csv::ReaderBuilder::new()
-        .delimiter(b'\t')
-        .has_headers(false)
-        .from_reader(stdout_reader);
-
-    let mut to_return = vec![None; query_genome_paths.len()];
-
-    for record_res in rdr.records() {
-        match record_res {
-            Ok(record) => {
-                assert!(record.len() == 5);
-                let ani: f32 = record[2].parse().expect("Failed to convert fastani ANI to float value");
-                let query_name = &record[0];
-                let query_index: usize = *query_to_index.get(query_name)
-                    .expect(&format!("FastANI parse error: Failed to know what query genome {} is", query_name));
-                to_return[query_index] = Some(ani);
-                debug!("FastANI of {} against {} was {}", ref_genome_path, query_name, ani);
-            },
-            Err(e) => {
-                error!("Error parsing fastani output: {}", e);
-                std::process::exit(1);
-            }
-        }
-    }
-    finish_command_safely(process, "FastANI");
-    return to_return;
+    query_genome_paths.par_iter().map(|query_genome| {
+        calculate_fastani(query_genome, ref_genome_path)
+    }).collect()
 }
+
 
 /// Calculate FastANI values, submitting each genome pair in parallel until one
 /// passes the ani_threshold. Then stop. Return a list of FastANI values.
@@ -344,7 +291,7 @@ fn calculate_fastani(fasta1: &str, fasta2: &str) -> Option<f32> {
                 if to_return.is_some() {
                     error!("Unexpectedly found >1 result from fastANI");
                     std::process::exit(1);
-                    
+
                 }
                 to_return = Some(ani);
             },
@@ -402,7 +349,7 @@ fn find_minhash_fastani_memberships(
     calculated_fastanis: BTreeMap<(usize, usize), Option<f32>>,
     minhash_threshold: f64
 ) -> Vec<Vec<usize>> {
-    
+
     let mut rep_to_index = BTreeMap::new();
     for (i, rep) in representatives.iter().enumerate() {
         rep_to_index.insert(rep, i);
@@ -431,7 +378,7 @@ fn find_minhash_fastani_memberships(
                 }
             }).collect();
 
-            let new_fastanis = calculate_fastani_many_to_one(
+            let new_fastanis = calculate_fastani_many_to_one_pairwise(
                 &potential_refs.iter().map(|ref_i| genomes[**ref_i]).collect::<Vec<_>>(),
                 genomes[i],
             );
