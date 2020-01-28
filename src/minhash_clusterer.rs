@@ -260,7 +260,7 @@ fn calculate_fastani_many_to_one_pairwise_stop_early(
     return to_return.into_inner().unwrap()
 }
 
-fn calculate_fastani(fasta1: &str, fasta2: &str) -> Option<f32> {
+pub fn calculate_fastani(fasta1: &str, fasta2: &str) -> Option<f32> {
     let mut cmd = std::process::Command::new("fastANI");
     cmd
         .arg("-o")

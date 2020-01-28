@@ -48,6 +48,21 @@ fn main(){
             }
             info!("Finished printing genome clusters");
         },
+        Some("cluster-validate") => {
+            let m = matches.subcommand_matches("cluster-validate").unwrap();
+            set_log_level(m, true, PROGRAM_NAME);
+
+            let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build_global()
+                .expect("Programming error: rayon initialised multiple times");
+
+            let ani = galah::cluster_argument_parsing::parse_percentage(&m, "ani");
+
+            galah::cluster_validation::validate_clusters(m.value_of("cluster-file").unwrap(), ani.unwrap().unwrap());
+
+        },
         Some("dist") => {
             let m = matches.subcommand_matches("dist").unwrap();
             set_log_level(m, true, PROGRAM_NAME);
@@ -95,7 +110,26 @@ fn build_cli() -> App<'static, 'static> {
         .about("Metagenome assembled genome (MAG) dereplicator / clusterer")
         .args_from_usage("-v, --verbose       'Print extra debug logging information'
              -q, --quiet         'Unless there is an error, do not print logging information'")
-        .global_setting(AppSettings::ArgRequiredElseHelp);
+        .global_setting(AppSettings::ArgRequiredElseHelp)
+        .subcommand(
+            SubCommand::with_name("cluster-validate")
+                .about("Verify clustering results")
+
+                .arg(Arg::with_name("cluster-file")
+                    .long("cluster-file")
+                    .required(true)
+                    .help("Output of 'cluster' subcommand")
+                    .takes_value(true))
+                .arg(Arg::with_name("ani")
+                    .long("ani")
+                    .required(true)
+                    .help("ANI to validate against")
+                    .takes_value(true))
+                .arg(Arg::with_name("threads")
+                    .long("threads")
+                    .default_value("1")
+                    .takes_value(true)));
+
         // .subcommand(
         //     SubCommand::with_name("dist")
         //         .about("Calculate pairwise distances between a set of genomes")

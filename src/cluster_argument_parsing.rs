@@ -97,7 +97,7 @@ pub fn generate_galah_clusterer<'a>(
 }
 
 
-fn parse_percentage(m: &clap::ArgMatches, parameter: &str) -> std::result::Result<Option<f32>,String> {
+pub fn parse_percentage(m: &clap::ArgMatches, parameter: &str) -> std::result::Result<Option<f32>,String> {
     match m.is_present(parameter) {
         true => {
             let mut percentage = value_t!(m.value_of(parameter), f32).unwrap();
