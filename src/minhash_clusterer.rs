@@ -261,6 +261,25 @@ fn calculate_fastani_many_to_one_pairwise_stop_early(
 }
 
 pub fn calculate_fastani(fasta1: &str, fasta2: &str) -> Option<f32> {
+    let one = calculate_fastani_one_way(fasta1,fasta2);
+    match one {
+        None => return None,
+        Some(first) => {
+            let two = calculate_fastani_one_way(fasta2,fasta1);
+            match two {
+                None => return None,
+                Some(second) => return Some(
+                    if first > second {
+                        first
+                    } else {
+                        second
+                    })
+            }
+        }
+    }
+}
+
+fn calculate_fastani_one_way(fasta1: &str, fasta2: &str) -> Option<f32> {
     let mut cmd = std::process::Command::new("fastANI");
     cmd
         .arg("-o")
