@@ -355,6 +355,8 @@ fn find_minhash_fastani_memberships(
         rep_to_index.insert(rep, i);
     }
 
+    debug!("Before re-assignment, fastani cache is {:#?}", calculated_fastanis);
+
     let to_return: Mutex<Vec<Vec<usize>>> = Mutex::new(vec![vec![]; representatives.len()]);
     let calculated_fastanis_lock = Mutex::new(calculated_fastanis);
 
@@ -413,6 +415,7 @@ fn find_minhash_fastani_memberships(
                         None => None
                     }
                 };
+                debug!("Between rep {} {} and genome {} {}, after decaching found fastani {:?}", rep, genomes[*rep], i, genomes[i], fastani);
 
                 if fastani.is_some() && (best_rep_min_ani.is_none() || fastani.unwrap() > best_rep_min_ani.unwrap()) {
                     best_rep = Some(rep);
