@@ -2,6 +2,9 @@ use std;
 use std::collections::{BTreeSet,BTreeMap};
 use std::io::BufReader;
 use std::sync::Mutex;
+
+use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
+
 use finch::distance::distance;
 use finch::serialization::Sketch;
 use rayon::prelude::*;
@@ -178,10 +181,10 @@ fn find_minhash_fastani_representatives(
     genomes: &[&str],
     minhash_ani_threshold: f64,
     fastani_threshold: f32)
-    -> (BTreeSet<usize>, BTreeMap<(usize, usize), Option<f32>>) {
+    -> (BTreeSet<usize>, SortedPairGenomeDistanceCache) {
 
     let mut clusters_to_return: BTreeSet<usize> = BTreeSet::new();
-    let mut fastani_cache: BTreeMap<(usize, usize), Option<f32>> = BTreeMap::new();
+    let mut fastani_cache = SortedPairGenomeDistanceCache::new();
 
     for (i, sketch1) in sketches.iter().enumerate() {
         // Gather a list of all genomes which pass the minhash threshold, sorted
@@ -372,7 +375,7 @@ fn find_minhash_fastani_memberships(
     representatives: &BTreeSet<usize>,
     sketches: &[&Sketch],
     genomes: &[&str],
-    calculated_fastanis: BTreeMap<(usize, usize), Option<f32>>,
+    calculated_fastanis: SortedPairGenomeDistanceCache,
     minhash_threshold: f64
 ) -> Vec<Vec<usize>> {
 
@@ -394,12 +397,7 @@ fn find_minhash_fastani_memberships(
     sketches.par_iter().enumerate().for_each( |(i, sketch1)| {
         if !representatives.contains(&i) {
             let potential_refs: Vec<&usize> = representatives.into_iter().filter(|rep| {
-                let (min_i, max_i) = if i < **rep {
-                    (i, **rep)
-                } else {
-                    (**rep, i)
-                };
-                if calculated_fastanis_lock.lock().unwrap().contains_key(&(min_i,max_i)) {
+                if calculated_fastanis_lock.lock().unwrap().contains_key(&(i,**rep)) {
                     false // FastANI not needed since already cached
                 } else {
                     let minhash_dist = distance(&sketch1.hashes, &sketches[**rep].hashes, "", "", true)
@@ -414,12 +412,7 @@ fn find_minhash_fastani_memberships(
                 genomes[i],
             );
             for (ref_i, ani_opt) in potential_refs.iter().zip(new_fastanis.iter()) {
-                let (min_i, max_i) = if i < **ref_i {
-                    (i, **ref_i)
-                } else {
-                    (**ref_i, i)
-                };
-                calculated_fastanis_lock.lock().unwrap().insert((min_i,max_i), *ani_opt);
+                calculated_fastanis_lock.lock().unwrap().insert((i,**ref_i), *ani_opt);
             };
 
             // TODO: Is there FastANI bugs here? Donovan/Pierre seem to think so
