@@ -28,6 +28,7 @@ pub fn minhash_clusters(
         strand_filter: 0f32,
     };
     info!("Sketching genomes for clustering ..");
+    debug!("Genomes: {:#?}", genomes);
     let sketches = finch::mash_files(
         genomes,
         n_hashes,
@@ -67,9 +68,11 @@ pub fn minhash_clusters(
             let all_clusters: Mutex<Vec<Vec<usize>>> = Mutex::new(vec![]);
 
             // Convert single linkage data structure into just a list of list of indices
-            let mut preclusters: Vec<Vec<usize>> = minhash_preclusters.all_sets().map(|cluster|
-                cluster.map(|cluster_genome| *cluster_genome.1).collect()
-            ).collect();
+            let mut preclusters: Vec<Vec<usize>> = minhash_preclusters.all_sets().map(|cluster| {
+                let mut indices: Vec<_> = cluster.map(|cluster_genome| *cluster_genome.1).collect();
+                indices.sort_unstable();
+                indices
+            }).collect();
 
             // Sort preclusters so bigger clusters are started before smaller
             preclusters.sort_unstable_by( |c1, c2| c2.len().cmp(&c1.len()));
@@ -206,10 +209,13 @@ fn find_minhash_fastani_representatives(
             fastani_threshold);
         let mut is_rep = true;
         for (potential_ref, fastani) in potential_refs.into_iter().zip(fastanis.iter()) {
+            debug!("Read in fastani {:?} from ref {} {} and genome {} {}", 
+                fastani, potential_ref, genomes[potential_ref], i, genomes[i]);
             // The reps always have a lower index that the genome under
             // consideration, and the cache key is in ascending order.
             match fastani {
                 Some(ani) => {
+                    debug!("Inserting into cache {}/{} {:?}", potential_ref, i, *fastani);
                     fastani_cache.insert((potential_ref,i), *fastani);
                     if *ani >= fastani_threshold {
                         is_rep = false
@@ -219,6 +225,7 @@ fn find_minhash_fastani_representatives(
             }
         }
         if is_rep {
+            debug!("Genome designated representative: {} {}", i, genomes[i]);
             clusters_to_return.insert(i);
         }
     }
@@ -379,10 +386,13 @@ fn find_minhash_fastani_memberships(
     let to_return: Mutex<Vec<Vec<usize>>> = Mutex::new(vec![vec![]; representatives.len()]);
     let calculated_fastanis_lock = Mutex::new(calculated_fastanis);
 
+    // Push all reps first so they are at the beginning of the list.
+    for i in representatives.iter() {
+        to_return.lock().unwrap()[rep_to_index[&i]].push(*i)
+    };
+
     sketches.par_iter().enumerate().for_each( |(i, sketch1)| {
-        if representatives.contains(&i) {
-            to_return.lock().unwrap()[rep_to_index[&i]].push(i);
-        } else {
+        if !representatives.contains(&i) {
             let potential_refs: Vec<&usize> = representatives.into_iter().filter(|rep| {
                 let (min_i, max_i) = if i < **rep {
                     (i, **rep)
@@ -390,7 +400,7 @@ fn find_minhash_fastani_memberships(
                     (**rep, i)
                 };
                 if calculated_fastanis_lock.lock().unwrap().contains_key(&(min_i,max_i)) {
-                    true // FastANI not needed since already cached
+                    false // FastANI not needed since already cached
                 } else {
                     let minhash_dist = distance(&sketch1.hashes, &sketches[**rep].hashes, "", "", true)
                     .expect("Failed to calculate distance by sketch comparison")
@@ -403,11 +413,11 @@ fn find_minhash_fastani_memberships(
                 &potential_refs.iter().map(|ref_i| genomes[**ref_i]).collect::<Vec<_>>(),
                 genomes[i],
             );
-            for (ref_i, ani_opt) in new_fastanis.iter().enumerate() {
-                let (min_i, max_i) = if i < ref_i {
-                    (i, ref_i)
+            for (ref_i, ani_opt) in potential_refs.iter().zip(new_fastanis.iter()) {
+                let (min_i, max_i) = if i < **ref_i {
+                    (i, **ref_i)
                 } else {
-                    (ref_i, i)
+                    (**ref_i, i)
                 };
                 calculated_fastanis_lock.lock().unwrap().insert((min_i,max_i), *ani_opt);
             };
