@@ -3,6 +3,7 @@ pub mod minhash_clusterer;
 pub mod cluster_argument_parsing;
 pub mod cluster_validation;
 pub mod sorted_pair_genome_distance_cache;
+pub mod dashing;
 
 #[macro_use]
 extern crate log;

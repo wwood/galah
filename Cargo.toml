@@ -15,6 +15,7 @@ checkm = { git = "https://github.com/wwood/checkm-rs", rev = "7a3f527d10e559f988
 rayon = "1.0"
 csv = "1.1"
 bird_tool_utils = { git = "https://github.com/wwood/bird_tool_utils", rev = "e19b897ee75a965d37ce679ca856d5fed822904d" }
+tempfile = "3.*"
 
 [dependencies.partitions]
 version = "0.2.*"
