@@ -4,204 +4,156 @@ use std::io::BufReader;
 use std::sync::Mutex;
 
 use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
+use crate::dashing;
 
-use finch::distance::distance;
-use finch::serialization::Sketch;
 use rayon::prelude::*;
 use bird_tool_utils::command::finish_command_safely;
 use partitions::partition_vec::PartitionVec;
 
 /// Given a list of genomes, return them clustered. If the fastani_threshold is
-/// set, use minhash for first pass analysis, then fastani as the actual threshold.
+/// set, use dashing for first pass analysis, then fastani as the actual threshold.
 // TODO: Test whether this is a good enough procedure or if there are nasties
 // e.g. failure to cluster bad quality genomes.
 pub fn minhash_clusters(
     genomes: &[&str],
-    minhash_ani: f32,
-    n_hashes: usize,
-    kmer_length: u8,
-    fastani_threshold: Option<f32>,
+    precluster_ani: f32,
+    fastani_threshold: f32,
 ) -> Vec<Vec<usize>> {
 
-    // Generate sketches for all input files
-    let mut filter = finch::filtering::FilterParams { // dummy, no filtering is applied.
-        filter_on: None,
-        abun_filter: (None, None),
-        err_filter: 0f32,
-        strand_filter: 0f32,
-    };
-    info!("Sketching genomes for clustering ..");
-    debug!("Genomes: {:#?}", genomes);
-    let sketches = finch::mash_files(
-        genomes,
-        n_hashes,
-        n_hashes,
-        kmer_length,
-        &mut filter,
-        true,
-        0)
-        .expect("Failed to create finch sketches for input genomes");
-    info!("Finished sketching genomes for clustering.");
+    // Dashing all the genomes together
+    assert!(precluster_ani > 1.0);
+    info!("Running dashing to get approximate distances ..");
+    let dashing_cache = dashing::distances(genomes, precluster_ani / 100.0);
+    info!("Finished dashing genomes against each other.");
 
-    assert!(minhash_ani > 1.0);
-    assert!(fastani_threshold.unwrap_or(99.0) > 1.0);
+    assert!(fastani_threshold > 1.0);
 
-    let distance_threshold: f64 = (100.0 - minhash_ani as f64)/100.0;
-    assert!(distance_threshold >= 0.0);
-    assert!(distance_threshold < 1.0);
+    info!("Preclustering ..");
+    let minhash_preclusters = partition_sketches(genomes, &dashing_cache);
+    trace!("Found preclusters: {:?}", minhash_preclusters);
 
-    match fastani_threshold {
-        None => {
-            // Straight up minhash clustering.
+    let all_clusters: Mutex<Vec<Vec<usize>>> = Mutex::new(vec![]);
 
-            // Greedily find reps
-            info!("Finding cluster representatives by minhash ..");
-            let clusters = find_minhash_representatives(&sketches.sketches, distance_threshold);
+    // Convert single linkage data structure into just a list of list of indices
+    let mut preclusters: Vec<Vec<usize>> = minhash_preclusters.all_sets().map(|cluster| {
+        let mut indices: Vec<_> = cluster.map(|cluster_genome| *cluster_genome.1).collect();
+        indices.sort_unstable();
+        indices
+    }).collect();
 
-            // Reassign non-reps based so they are assigned to the nearest
-            // representative.
-            info!("Assigning genomes to representatives by minhash ..");
-            return find_minhash_memberships(&clusters, &sketches.sketches);
-        },
-        Some(fastani_threshold) => {
-            info!("Preclustering by MinHash ..");
-            let minhash_preclusters = partition_sketches(&sketches.sketches, distance_threshold);
-            trace!("Found minhash_preclusters: {:?}", minhash_preclusters);
+    // Sort preclusters so bigger clusters are started before smaller
+    preclusters.sort_unstable_by( |c1, c2| c2.len().cmp(&c1.len()));
+    debug!("After sorting, found preclusters {:?}", preclusters);
+    info!("Found {} preclusters. The largest contained {} genomes",
+        preclusters.len(), preclusters[0].len());
 
-            let all_clusters: Mutex<Vec<Vec<usize>>> = Mutex::new(vec![]);
-
-            // Convert single linkage data structure into just a list of list of indices
-            let mut preclusters: Vec<Vec<usize>> = minhash_preclusters.all_sets().map(|cluster| {
-                let mut indices: Vec<_> = cluster.map(|cluster_genome| *cluster_genome.1).collect();
-                indices.sort_unstable();
-                indices
-            }).collect();
-
-            // Sort preclusters so bigger clusters are started before smaller
-            preclusters.sort_unstable_by( |c1, c2| c2.len().cmp(&c1.len()));
-            debug!("After sorting, found preclusters {:?}", preclusters);
-            info!("Found {} preclusters. The largest contained {} genomes",
-                preclusters.len(), preclusters[0].len());
-
-            info!("Finding representative genomes and assigning all genomes to these ..");
-            preclusters.par_iter().enumerate().for_each( |(precluster_id, original_genome_indices)| {
-                let mut precluster_sketches = vec![];
-                let mut precluster_genomes = vec![];
-                for original_genome_index in original_genome_indices {
-                    precluster_sketches.push(&sketches.sketches[*original_genome_index]);
-                    precluster_genomes.push(genomes[*original_genome_index]);
-                }
-                debug!("Clustering pre-cluster {}, with genome indices {:?}", precluster_id, original_genome_indices);
-
-                debug!("Calculating genome representatives by minhash+fastani in precluster {} ..",
-                    precluster_id);
-                let (clusters, calculated_fastanis) = find_minhash_fastani_representatives(
-                    precluster_sketches.as_slice(), precluster_genomes.as_slice(), distance_threshold, fastani_threshold
-                );
-                debug!("In precluster {}, found {} genome representatives", precluster_id, clusters.len());
-
-                debug!("Assigning genomes to representatives by minhash+fastani in precluster {}..",
-                    precluster_id);
-                let clusters = find_minhash_fastani_memberships(
-                    &clusters, precluster_sketches.as_slice(), precluster_genomes.as_slice(), calculated_fastanis, distance_threshold
-                );
-                // Indices here are within this single linkage cluster only, so
-                // here we map them back to their original indices, and then
-                // insert back into the original array.
-                for cluster in clusters {
-                    all_clusters.lock().unwrap().push(
-                        cluster.iter().map(|within_index| original_genome_indices[*within_index]).collect()
-                    );
-                }
-                debug!("Finished proccessing pre-cluster {}", precluster_id);
-            });
-            return all_clusters.into_inner().unwrap();
+    info!("Finding representative genomes and assigning all genomes to these ..");
+    preclusters.par_iter().enumerate().for_each( |(precluster_id, original_genome_indices)| {
+        let precluster_dashing_cache = dashing_cache.transform_ids(original_genome_indices);
+        let mut precluster_genomes = vec![];
+        for original_genome_index in original_genome_indices {
+            precluster_genomes.push(genomes[*original_genome_index]);
         }
-    }
+        debug!("Clustering pre-cluster {}, with genome indices {:?}", precluster_id, original_genome_indices);
+        trace!("Found precluster dashing cache {:#?}", precluster_dashing_cache);
 
+        debug!("Calculating genome representatives by dashing+fastani in precluster {} ..",
+            precluster_id);
+        let (clusters, calculated_fastanis) = find_dashing_fastani_representatives(
+            &precluster_dashing_cache, precluster_genomes.as_slice(), fastani_threshold
+        );
+        debug!("In precluster {}, found {} genome representatives", precluster_id, clusters.len());
+
+        debug!("Assigning genomes to representatives by dashing+fastani in precluster {}..",
+            precluster_id);
+        let clusters = find_dashing_fastani_memberships(
+            &clusters, &precluster_dashing_cache, precluster_genomes.as_slice(), calculated_fastanis
+        );
+        // Indices here are within this single linkage cluster only, so
+        // here we map them back to their original indices, and then
+        // insert back into the original array.
+        for cluster in clusters {
+            all_clusters.lock().unwrap().push(
+                cluster.iter().map(|within_index| original_genome_indices[*within_index]).collect()
+            );
+        }
+        debug!("Finished proccessing pre-cluster {}", precluster_id);
+    });
+    return all_clusters.into_inner().unwrap();
 }
 
 /// Create sub-sets by single linkage clustering
 fn partition_sketches(
-    sketches: &[Sketch],
-    distance_threshold: f64)
+    genomes: &[&str],
+    dashing_cache: &SortedPairGenomeDistanceCache)
     -> PartitionVec<usize> {
 
-    let to_return: Mutex<PartitionVec<usize>> = Mutex::new(PartitionVec::with_capacity(sketches.len()));
-    for (i, _) in sketches.iter().enumerate() {
-        to_return.lock().unwrap().push(i);
+    let mut to_return: PartitionVec<usize> = PartitionVec::with_capacity(genomes.len());
+    for (i, _) in genomes.iter().enumerate() {
+        to_return.push(i);
     }
 
-    sketches.par_iter().enumerate().for_each(|(i, sketch1)| {
-        sketches[0..i].par_iter().enumerate().for_each(|(j, sketch2)| {
+    genomes.iter().enumerate().for_each(|(i, _)| {
+        genomes[0..i].iter().enumerate().for_each(|(j, _)| {
             trace!("Testing precluster between {} and {}", i, j);
-            if distance(&sketch1.hashes, &sketch2.hashes, "", "", true)
-                .expect("Failed to calculate distance by sketch comparison")
-                .mashDistance
-                <= distance_threshold {
-
+            if dashing_cache.contains_key(&(i,j)) {
                 debug!("During preclustering, found a match between genomes {} and {}", i, j);
-                to_return.lock().unwrap().union(i,j)
+                to_return.union(i,j)
             }
         });
     });
-    return to_return.into_inner().unwrap();
-}
-
-/// Choose representatives, greedily assigning based on the min_ani threshold.
-fn find_minhash_representatives(
-    sketches: &[Sketch],
-    ani_threshold: f64)
-    -> BTreeSet<usize> {
-
-    let mut to_return: BTreeSet<usize> = BTreeSet::new();
-
-    for (i, sketch1) in sketches.iter().enumerate() {
-        let mut is_rep = true;
-        for j in &to_return {
-            let sketch2: &Sketch = &sketches[*j];
-            if distance(&sketch1.hashes, &sketch2.hashes, "", "", true)
-                .expect("Failed to calculate distance by sketch comparison")
-                .mashDistance
-                <= ani_threshold {
-
-                is_rep = false;
-                break;
-            }
-        }
-        if is_rep {
-            to_return.insert(i);
-        }
-    }
     return to_return;
 }
 
-fn find_minhash_fastani_representatives(
-    sketches: &[&Sketch],
+// /// Choose representatives, greedily assigning based on the min_ani threshold.
+// fn find_minhash_representatives(
+//     sketches: &[Sketch],
+//     ani_threshold: f64)
+//     -> BTreeSet<usize> {
+
+//     let mut to_return: BTreeSet<usize> = BTreeSet::new();
+
+//     for (i, sketch1) in sketches.iter().enumerate() {
+//         let mut is_rep = true;
+//         for j in &to_return {
+//             let sketch2: &Sketch = &sketches[*j];
+//             if distance(&sketch1.hashes, &sketch2.hashes, "", "", true)
+//                 .expect("Failed to calculate distance by sketch comparison")
+//                 .mashDistance
+//                 <= ani_threshold {
+
+//                 is_rep = false;
+//                 break;
+//             }
+//         }
+//         if is_rep {
+//             to_return.insert(i);
+//         }
+//     }
+//     return to_return;
+// }
+
+fn find_dashing_fastani_representatives(
+    dashing_cache: &SortedPairGenomeDistanceCache,
     genomes: &[&str],
-    minhash_ani_threshold: f64,
     fastani_threshold: f32)
     -> (BTreeSet<usize>, SortedPairGenomeDistanceCache) {
 
     let mut clusters_to_return: BTreeSet<usize> = BTreeSet::new();
     let mut fastani_cache = SortedPairGenomeDistanceCache::new();
 
-    for (i, sketch1) in sketches.iter().enumerate() {
+    for (i, _) in genomes.iter().enumerate() {
         // Gather a list of all genomes which pass the minhash threshold, sorted
         // so highest ANIs are first
-        let mut minhash_indices_and_distances: Vec<_> = clusters_to_return.iter().map( |j| {
-            let sketch2: &Sketch = &sketches[*j];
-            (
-                j,
-                distance(&sketch1.hashes, &sketch2.hashes, "", "", true)
-                    .expect("Failed to calculate distance by sketch comparison")
-                    .mashDistance
-            )
-        }).collect();
+        let mut minhash_indices_and_distances: Vec<_> = clusters_to_return
+            .iter()
+            .map( |j| (j, dashing_cache.get(&(i,*j))))
+            .filter(|(_, ani_opt)| ani_opt.is_some())
+            .map(|(j, ani_opt)| (j,ani_opt.unwrap()))
+            .collect();
         minhash_indices_and_distances.sort_unstable_by(|a,b| a.1.partial_cmp(&b.1).unwrap());
         let potential_refs: Vec<_> = minhash_indices_and_distances
             .into_iter()
-            .filter( |(_,minhash_dist)| *minhash_dist <= minhash_ani_threshold )
             .map( |(rep_index,_)| *rep_index )
             .collect();
 
@@ -336,47 +288,46 @@ fn calculate_fastani_one_way(fasta1: &str, fasta2: &str) -> Option<f32> {
 }
 
 
-/// For each genome (sketch) assign it to the closest representative genome:
-fn find_minhash_memberships(
-    representatives: &BTreeSet<usize>,
-    sketches: &[Sketch],
-) -> Vec<Vec<usize>> {
+// /// For each genome (sketch) assign it to the closest representative genome:
+// fn find_minhash_memberships(
+//     representatives: &BTreeSet<usize>,
+//     sketches: &[Sketch],
+// ) -> Vec<Vec<usize>> {
 
-    let mut rep_to_index = BTreeMap::new();
-    for (i, rep) in representatives.iter().enumerate() {
-        rep_to_index.insert(rep, i);
-    }
+//     let mut rep_to_index = BTreeMap::new();
+//     for (i, rep) in representatives.iter().enumerate() {
+//         rep_to_index.insert(rep, i);
+//     }
 
-    let mut to_return: Vec<Vec<usize>> = vec![vec![]; representatives.len()];
-    for (i, sketch1) in sketches.iter().enumerate() {
-        if representatives.contains(&i) {
-            to_return[rep_to_index[&i]].push(i);
-        } else {
-            let mut best_rep_min_ani = None;
-            let mut best_rep = None;
-            for rep in representatives.iter() {
-                let dist = distance(&sketch1.hashes, &sketches[*rep].hashes, "", "", true)
-                    .expect("Failed to calculate distance by sketch comparison")
-                    .mashDistance;
-                if best_rep_min_ani.is_none() || dist < best_rep_min_ani.unwrap() {
-                    best_rep = Some(rep);
-                    best_rep_min_ani = Some(dist);
-                }
-            }
-            to_return[rep_to_index[best_rep.unwrap()]].push(i);
-        }
-    }
-    return to_return;
-}
+//     let mut to_return: Vec<Vec<usize>> = vec![vec![]; representatives.len()];
+//     for (i, sketch1) in sketches.iter().enumerate() {
+//         if representatives.contains(&i) {
+//             to_return[rep_to_index[&i]].push(i);
+//         } else {
+//             let mut best_rep_min_ani = None;
+//             let mut best_rep = None;
+//             for rep in representatives.iter() {
+//                 let dist = distance(&sketch1.hashes, &sketches[*rep].hashes, "", "", true)
+//                     .expect("Failed to calculate distance by sketch comparison")
+//                     .mashDistance;
+//                 if best_rep_min_ani.is_none() || dist < best_rep_min_ani.unwrap() {
+//                     best_rep = Some(rep);
+//                     best_rep_min_ani = Some(dist);
+//                 }
+//             }
+//             to_return[rep_to_index[best_rep.unwrap()]].push(i);
+//         }
+//     }
+//     return to_return;
+// }
 
 /// Given a list of representative genomes and a list of genomes, assign each
 /// genome to the closest representative.
-fn find_minhash_fastani_memberships(
+fn find_dashing_fastani_memberships(
     representatives: &BTreeSet<usize>,
-    sketches: &[&Sketch],
+    dashing_cache: &SortedPairGenomeDistanceCache,
     genomes: &[&str],
-    calculated_fastanis: SortedPairGenomeDistanceCache,
-    minhash_threshold: f64
+    calculated_fastanis: SortedPairGenomeDistanceCache
 ) -> Vec<Vec<usize>> {
 
     let mut rep_to_index = BTreeMap::new();
@@ -394,16 +345,13 @@ fn find_minhash_fastani_memberships(
         to_return.lock().unwrap()[rep_to_index[&i]].push(*i)
     };
 
-    sketches.par_iter().enumerate().for_each( |(i, sketch1)| {
+    genomes.par_iter().enumerate().for_each( |(i, _)| {
         if !representatives.contains(&i) {
             let potential_refs: Vec<&usize> = representatives.into_iter().filter(|rep| {
                 if calculated_fastanis_lock.lock().unwrap().contains_key(&(i,**rep)) {
                     false // FastANI not needed since already cached
                 } else {
-                    let minhash_dist = distance(&sketch1.hashes, &sketches[**rep].hashes, "", "", true)
-                    .expect("Failed to calculate distance by sketch comparison")
-                    .mashDistance;
-                    minhash_dist < minhash_threshold
+                    dashing_cache.contains_key(&(i,**rep))
                 }
             }).collect();
 
@@ -459,45 +407,45 @@ mod tests {
         let _ = env_logger::builder().is_test(true).try_init();
     }
 
-    #[test]
-    fn test_minhash_hello_world() {
-        init();
-        let clusters = minhash_clusters(
-            &["tests/data/abisko4/73.20120800_S1X.13.fna",
-              "tests/data/abisko4/73.20120600_S2D.19.fna",
-              "tests/data/abisko4/73.20120700_S3X.12.fna",
-              "tests/data/abisko4/73.20110800_S2D.13.fna",
-            ],
-            95.0,
-            1000,
-            21,
-            None,
-        );
-        assert_eq!(
-            vec![vec![0,1,2,3]],
-            clusters
-        )
-    }
+    // #[test]
+    // fn test_minhash_hello_world() {
+    //     init();
+    //     let clusters = minhash_clusters(
+    //         &["tests/data/abisko4/73.20120800_S1X.13.fna",
+    //           "tests/data/abisko4/73.20120600_S2D.19.fna",
+    //           "tests/data/abisko4/73.20120700_S3X.12.fna",
+    //           "tests/data/abisko4/73.20110800_S2D.13.fna",
+    //         ],
+    //         95.0,
+    //         1000,
+    //         21,
+    //         None,
+    //     );
+    //     assert_eq!(
+    //         vec![vec![0,1,2,3]],
+    //         clusters
+    //     )
+    // }
 
-    #[test]
-    fn test_minhash_two_clusters() {
-        init();
-        let clusters = minhash_clusters(
-            &["tests/data/abisko4/73.20120800_S1X.13.fna",
-              "tests/data/abisko4/73.20120600_S2D.19.fna",
-              "tests/data/abisko4/73.20120700_S3X.12.fna",
-              "tests/data/abisko4/73.20110800_S2D.13.fna",
-            ],
-            98.0,
-            1000,
-            21,
-            None,
-        );
-        assert_eq!(
-            vec![vec![0,1,3],vec![2]],
-            clusters
-        )
-    }
+    // #[test]
+    // fn test_minhash_two_clusters() {
+    //     init();
+    //     let clusters = minhash_clusters(
+    //         &["tests/data/abisko4/73.20120800_S1X.13.fna",
+    //           "tests/data/abisko4/73.20120600_S2D.19.fna",
+    //           "tests/data/abisko4/73.20120700_S3X.12.fna",
+    //           "tests/data/abisko4/73.20110800_S2D.13.fna",
+    //         ],
+    //         98.0,
+    //         1000,
+    //         21,
+    //         None,
+    //     );
+    //     assert_eq!(
+    //         vec![vec![0,1,3],vec![2]],
+    //         clusters
+    //     )
+    // }
 
     #[test]
     fn test_minhash_fastani_hello_world() {
@@ -508,10 +456,8 @@ mod tests {
               "tests/data/abisko4/73.20120700_S3X.12.fna",
               "tests/data/abisko4/73.20110800_S2D.13.fna",
             ],
+            90.0,
             95.0,
-            1000,
-            21,
-            Some(95.0),
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(
@@ -529,10 +475,8 @@ mod tests {
               "tests/data/abisko4/73.20120700_S3X.12.fna",
               "tests/data/abisko4/73.20110800_S2D.13.fna",
             ],
+            90.0,
             98.0,
-            1000,
-            21,
-            Some(98.0),
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(
@@ -551,9 +495,27 @@ mod tests {
               "tests/data/abisko4/73.20110800_S2D.13.fna",
             ],
             90.0,
-            1000,
-            21,
-            Some(98.0),
+            98.0,
+        );
+        for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
+        assert_eq!(
+            vec![vec![0,1,3],vec![2]],
+            clusters
+        )
+    }
+
+
+    #[test]
+    fn test_minhash_fastani_two_clusters_high_minhash_ani() {
+        init();
+        let mut clusters = minhash_clusters(
+            &["tests/data/abisko4/73.20120800_S1X.13.fna",
+              "tests/data/abisko4/73.20120600_S2D.19.fna",
+              "tests/data/abisko4/73.20120700_S3X.12.fna",
+              "tests/data/abisko4/73.20110800_S2D.13.fna",
+            ],
+            99.0, // 99% excludes 20120700_S3X.12 
+            90.0,
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(

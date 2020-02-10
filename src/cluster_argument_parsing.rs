@@ -6,8 +6,6 @@ use super::minhash_clusterer;
 pub struct GalahClusterer<'a> {
     pub genome_fasta_paths: Vec<&'a str>,
     ani: f32,
-    n_hashes: usize,
-    kmer_length: u8,
     distance_method: ClusteringDistanceMethod
 }
 
@@ -87,9 +85,6 @@ pub fn generate_galah_clusterer<'a>(
                 ani: parse_percentage(&clap_matches, "ani")
                     .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of("ani")))
                     .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of("ani"))),
-                n_hashes: value_t!(clap_matches.value_of("num-hashes"), usize).unwrap(),
-                kmer_length: value_t!(clap_matches.value_of("kmer-length"), u8)
-                    .expect(&format!("Failed to parse kmer-length '{:?}'", clap_matches.value_of("kmer-length"))),
                 distance_method: distance_method
             })
         },
@@ -119,11 +114,10 @@ pub fn parse_percentage(m: &clap::ArgMatches, parameter: &str) -> std::result::R
 impl GalahClusterer<'_> {
     pub fn cluster(&self) -> Vec<Vec<usize>> {
         match self.distance_method {
-            ClusteringDistanceMethod::MinHash => minhash_clusterer::minhash_clusters(
-                &self.genome_fasta_paths, self.ani*100., self.n_hashes, self.kmer_length, None),
+            ClusteringDistanceMethod::MinHash => unimplemented!(),
             ClusteringDistanceMethod::MinhashFastani{ minhash_prethreshold } =>
                 minhash_clusterer::minhash_clusters(
-                    &self.genome_fasta_paths, minhash_prethreshold*100., self.n_hashes, self.kmer_length, Some(self.ani*100.))
+                    &self.genome_fasta_paths, minhash_prethreshold*100., self.ani*100.)
         }
     }
 }

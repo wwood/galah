@@ -46,4 +46,25 @@ impl SortedPairGenomeDistanceCache {
             self.internal.contains_key(&(genome_ids.1,genome_ids.0))
         }
     }
+
+    /// Create a new cache containing a subset of distances. 
+    pub fn transform_ids(
+        &self,
+        input_ids: &[usize]
+    ) -> SortedPairGenomeDistanceCache {
+        let mut to_return = SortedPairGenomeDistanceCache::new();
+        for (i, genome_id1) in input_ids.iter().enumerate() {
+            for (j, genome_id2) in ((i+1)..input_ids.len()).enumerate() {
+                trace!("Testing {} / {} i.e. {} / {}", i, j, genome_id1, genome_id2);
+                match self.get(&(*genome_id1, genome_id2)) {
+                    Some(ani_opt) => {
+                        trace!("yes");
+                        to_return.insert((i, j+i+1), *ani_opt)
+                    },
+                    None => {}
+                }
+            }
+        }
+        return to_return;
+    }
 }
