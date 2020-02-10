@@ -1,8 +1,9 @@
 
-//use rayon::prelude::*;
 use std;
 use std::process;
 use crate::minhash_clusterer::calculate_fastani;
+
+use rayon::prelude::*;
 
 pub fn validate_clusters(clustering_file: &str, ani_threshold: f32) {
     let ani = ani_threshold*100.;
@@ -13,9 +14,9 @@ pub fn validate_clusters(clustering_file: &str, ani_threshold: f32) {
     debug!("Clusters were: {:#?}", clusters);
 
     // FastANI within each cluster - each should be within the threshold
-    for cluster in &clusters {
+    clusters.par_iter().for_each( |cluster| {
         let rep = &cluster[0];
-        for genome in cluster {
+        cluster.par_iter().for_each( |genome| {
             let fastani_res = calculate_fastani(&rep, &genome);
             match fastani_res {
                 Some(fastani) => {
@@ -29,13 +30,14 @@ pub fn validate_clusters(clustering_file: &str, ani_threshold: f32) {
                     error!("FastANI between {} and {} is not ok: fastani was too divergent", rep, genome);
                 }
             }
-        }
-    }
+        });
+    });
+    
     
     // FastANI between each representative - each should be further than the ANI
     let reps: Vec<&str> = clusters.iter().map(|c| c[0].as_str()).collect();
-    for (i, rep1) in reps.iter().enumerate() {
-        for (j, rep2) in reps.iter().enumerate() {
+    reps.par_iter().enumerate().for_each(|(i,rep1)| {
+        reps.par_iter().enumerate().for_each(|(j,rep2)| {
             if i<j {
                 let fastani_res = calculate_fastani(rep1, rep2);
                 match fastani_res {
@@ -47,12 +49,12 @@ pub fn validate_clusters(clustering_file: &str, ani_threshold: f32) {
                         }
                     },
                     None => {
-                        error!("FastANI between reps {} and {} is ok: fastani was too divergent", rep1, rep2);
+                        debug!("FastANI between reps {} and {} is ok: fastani was too divergent", rep1, rep2);
                     }
                 }
             }
-        }
-    }
+        });
+    });
 
 }
 
