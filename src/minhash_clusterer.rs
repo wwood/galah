@@ -503,24 +503,4 @@ mod tests {
             clusters
         )
     }
-
-
-    #[test]
-    fn test_minhash_fastani_two_clusters_high_minhash_ani() {
-        init();
-        let mut clusters = minhash_clusters(
-            &["tests/data/abisko4/73.20120800_S1X.13.fna",
-              "tests/data/abisko4/73.20120600_S2D.19.fna",
-              "tests/data/abisko4/73.20120700_S3X.12.fna",
-              "tests/data/abisko4/73.20110800_S2D.13.fna",
-            ],
-            99.0, // 99% excludes 20120700_S3X.12 
-            90.0,
-        );
-        for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
-        assert_eq!(
-            vec![vec![0,1,3],vec![2]],
-            clusters
-        )
-    }
 }

@@ -10,9 +10,8 @@ pub struct GalahClusterer<'a> {
 }
 
 pub enum ClusteringDistanceMethod {
-    MinHash,
-    MinhashFastani {
-        minhash_prethreshold: f32
+    DashingFastani {
+        prethreshold_ani: f32
     }
 }
 
@@ -68,24 +67,17 @@ pub fn generate_galah_clusterer<'a>(
         },
 
         Ok(v2) => {
-            let distance_method = match clap_matches.value_of("method") {
-                Some("minhash") => ClusteringDistanceMethod::MinHash,
-                Some("minhash+fastani") => ClusteringDistanceMethod::MinhashFastani {
-                    minhash_prethreshold: parse_percentage(clap_matches, "minhash-prethreshold")
-                        .expect(&format!("Failed to parse minhash prethreshold {:?}", clap_matches.value_of("minhash-prethreshold")))
-                        .expect(&format!("Failed to parse minhash prethreshold {:?}", clap_matches.value_of("minhash-prethreshold")))
-                },
-                _ => panic!("Unexpectedly found clustering method {}",
-                    clap_matches.value_of("method")
-                        .expect(&format!("Failed to parse method {:?}", clap_matches.value_of("method"))))
-            };
-
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
                 ani: parse_percentage(&clap_matches, "ani")
                     .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of("ani")))
                     .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of("ani"))),
-                distance_method: distance_method
+                distance_method: ClusteringDistanceMethod::DashingFastani  {
+                    prethreshold_ani: parse_percentage(clap_matches, "prethreshold-ani")
+                        .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani")))
+                        .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani")))
+                },
+                    
             })
         },
     }
@@ -114,10 +106,9 @@ pub fn parse_percentage(m: &clap::ArgMatches, parameter: &str) -> std::result::R
 impl GalahClusterer<'_> {
     pub fn cluster(&self) -> Vec<Vec<usize>> {
         match self.distance_method {
-            ClusteringDistanceMethod::MinHash => unimplemented!(),
-            ClusteringDistanceMethod::MinhashFastani{ minhash_prethreshold } =>
+            ClusteringDistanceMethod::DashingFastani{ prethreshold_ani } =>
                 minhash_clusterer::minhash_clusters(
-                    &self.genome_fasta_paths, minhash_prethreshold*100., self.ani*100.)
+                    &self.genome_fasta_paths, prethreshold_ani*100., self.ani*100.)
         }
     }
 }
@@ -144,29 +135,13 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .long("max-contamination")
             .help("Genomes with greater than this percentage of contamination are exluded")
             .takes_value(true))
-        .arg(Arg::with_name("num-hashes")
-            .long("num-hashes")
-            .help("Number of hashes to use for each genome in MinHash")
-            .takes_value(true)
-            .default_value("1000"))
-        .arg(Arg::with_name("kmer-length")
-            .long("kmer-length")
-            .takes_value(true)
-            .help("Kmer length to use in MinHash")
-            .default_value("21"))
-        .arg(Arg::with_name("minhash-prethreshold")
+        .arg(Arg::with_name("prethreshold-ani")
             .long("minhash-prethreshold")
-            .help("When --method minhash+fastani is specified, require at least this MinHash-derived ANI for preclustering and to avoid FastANI on distant lineages within preclusters")
+            .help("Require at least this dashing-derived ANI for preclustering and to avoid FastANI on distant lineages within preclusters")
             .takes_value(true)
-            .default_value("90"))
-        .arg(Arg::with_name("method")
-            .long("method")
-            .possible_values(&["minhash+fastani","minhash"])
-            .default_value("minhash+fastani")
-            .help("ANI calculation method: 'minhash+fastani' for rough calculation with minhash combined with accurate calculation with FastANI, 'minhash' for minhash only.")
-            .takes_value(true))
+            .default_value("95"))
         .arg(Arg::with_name("threads")
-            .short("-t")
+            .short("t")
             .long("threads")
             .help("Number of CPU threads to use")
             .default_value("1")
