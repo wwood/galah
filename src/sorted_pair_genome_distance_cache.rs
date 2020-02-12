@@ -47,24 +47,67 @@ impl SortedPairGenomeDistanceCache {
         }
     }
 
-    /// Create a new cache containing a subset of distances. 
+    /// Create a new cache containing a subset of distances.
     pub fn transform_ids(
         &self,
         input_ids: &[usize]
     ) -> SortedPairGenomeDistanceCache {
         let mut to_return = SortedPairGenomeDistanceCache::new();
         for (i, genome_id1) in input_ids.iter().enumerate() {
-            for (j, genome_id2) in ((i+1)..input_ids.len()).enumerate() {
+            for j in (i+1)..input_ids.len() {
+                let genome_id2 = input_ids[j];
                 trace!("Testing {} / {} i.e. {} / {}", i, j, genome_id1, genome_id2);
                 match self.get(&(*genome_id1, genome_id2)) {
                     Some(ani_opt) => {
                         trace!("yes");
-                        to_return.insert((i, j+i+1), *ani_opt)
+                        to_return.insert((i, j), *ani_opt)
                     },
                     None => {}
                 }
             }
         }
         return to_return;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn init() {
+        let _ = env_logger::builder().is_test(true).try_init();
+    }
+
+    #[test]
+    fn test_transform_hello_world() {
+        init();
+
+        let mut cache = SortedPairGenomeDistanceCache::new();
+        cache.insert((1,2), Some(0.99));
+
+        assert_eq!("SortedPairGenomeDistanceCache { internal: {} }",
+            format!("{:?}", cache.transform_ids(&[0,3])));
+        assert_eq!("SortedPairGenomeDistanceCache { internal: {(0, 1): Some(0.99)} }",
+            format!("{:?}", cache.transform_ids(&[1,2])));
+        assert_eq!("SortedPairGenomeDistanceCache { internal: {} }",
+            format!("{:?}", cache.transform_ids(&[1,3])));
+    }
+
+    #[test]
+    fn test_transform_multiple() {
+        init();
+
+        let mut cache = SortedPairGenomeDistanceCache::new();
+        cache.insert((1,2), Some(0.99));
+        cache.insert((1,4), Some(0.98));
+
+        assert_eq!("SortedPairGenomeDistanceCache { internal: {} }",
+            format!("{:?}", cache.transform_ids(&[0,3])));
+        assert_eq!("SortedPairGenomeDistanceCache { internal: {(0, 1): Some(0.99)} }",
+            format!("{:?}", cache.transform_ids(&[1,2])));
+        assert_eq!("SortedPairGenomeDistanceCache { internal: {(0, 1): Some(0.98)} }",
+            format!("{:?}", cache.transform_ids(&[1,4])));
+        assert_eq!("SortedPairGenomeDistanceCache { internal: {(0, 1): Some(0.99), (0, 2): Some(0.98)} }",
+            format!("{:?}", cache.transform_ids(&[1,2,4])));
     }
 }
