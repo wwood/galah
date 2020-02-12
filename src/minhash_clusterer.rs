@@ -18,12 +18,13 @@ pub fn minhash_clusters(
     genomes: &[&str],
     precluster_ani: f32,
     fastani_threshold: f32,
+    threads: usize
 ) -> Vec<Vec<usize>> {
 
     // Dashing all the genomes together
     assert!(precluster_ani > 1.0);
     info!("Running dashing to get approximate distances ..");
-    let dashing_cache = dashing::distances(genomes, precluster_ani / 100.0);
+    let dashing_cache = dashing::distances(genomes, precluster_ani / 100.0, threads);
     info!("Finished dashing genomes against each other.");
 
     assert!(fastani_threshold > 1.0);
@@ -458,6 +459,7 @@ mod tests {
             ],
             90.0,
             95.0,
+            1,
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(
@@ -477,6 +479,7 @@ mod tests {
             ],
             90.0,
             98.0,
+            1,
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(
@@ -496,6 +499,7 @@ mod tests {
             ],
             90.0,
             98.0,
+            1,
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(

@@ -7,7 +7,7 @@ use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
 use tempfile;
 use bird_tool_utils::command::finish_command_safely;
 
-pub fn distances(genome_fasta_paths: &[&str], min_ani: f32)
+pub fn distances(genome_fasta_paths: &[&str], min_ani: f32, threads: usize)
 -> SortedPairGenomeDistanceCache {
     // Create a tempfile to list all the fasta file paths
     let mut tf = tempfile::Builder::new()
@@ -27,6 +27,8 @@ pub fn distances(genome_fasta_paths: &[&str], min_ani: f32)
         .arg("cmp")
         .arg("-o")
         .arg("/dev/null")
+        .arg("--nthreads")
+        .arg(&format!("{}",threads))
         .arg("-M")
         // so that the order of the output remains consistent. Could get around
         // this by finding the indices afterwards but eh.

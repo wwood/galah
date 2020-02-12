@@ -6,7 +6,8 @@ use super::minhash_clusterer;
 pub struct GalahClusterer<'a> {
     pub genome_fasta_paths: Vec<&'a str>,
     ani: f32,
-    distance_method: ClusteringDistanceMethod
+    distance_method: ClusteringDistanceMethod,
+    threads: usize,
 }
 
 pub enum ClusteringDistanceMethod {
@@ -77,7 +78,7 @@ pub fn generate_galah_clusterer<'a>(
                         .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani")))
                         .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani")))
                 },
-                    
+                threads: value_t!(clap_matches.value_of("threads"), usize).expect("Failed to parse --threads argument"),
             })
         },
     }
@@ -108,7 +109,7 @@ impl GalahClusterer<'_> {
         match self.distance_method {
             ClusteringDistanceMethod::DashingFastani{ prethreshold_ani } =>
                 minhash_clusterer::minhash_clusters(
-                    &self.genome_fasta_paths, prethreshold_ani*100., self.ani*100.)
+                    &self.genome_fasta_paths, prethreshold_ani*100., self.ani*100., self.threads)
         }
     }
 }
