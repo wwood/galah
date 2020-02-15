@@ -122,7 +122,7 @@ fn build_cli() -> App<'static, 'static> {
                     .takes_value(true))
                 .arg(Arg::with_name("ani")
                     .long("ani")
-                    .required(true)
+                    .default_value("99")
                     .help("ANI to validate against")
                     .takes_value(true))
                 .arg(Arg::with_name("threads")

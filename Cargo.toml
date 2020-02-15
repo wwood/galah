@@ -1,8 +1,17 @@
 [package]
 name = "galah"
-version = "0.0.1"
-authors = ["Ben J Woodcroft <donttrustben@gmail.com>"]
+version = "0.1.0"
+authors = ["Ben Woodcroft <benjwoodcroft@gmail.com>"]
 edition = "2018"
+license = "GPL-3.0"
+description = "Microbial genome dereplicator"
+homepage = "https://github.com/wwood/galah"
+repository = "https://github.com/wwood/galah"
+documentation = "https://github.com/wwood/galah"
+readme = "README.md"
+exclude = [ # Max upload is 10MB, as of writing test data was 31MB
+  "tests/*",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
