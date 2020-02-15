@@ -59,6 +59,8 @@ pub fn generate_galah_clusterer<'a>(
     clap_matches: &clap::ArgMatches)
     -> std::result::Result<GalahClusterer<'a>,String> {
 
+    crate::external_command_checker::check_for_fastani();
+    crate::external_command_checker::check_for_dashing();
 
     match filter_genomes_through_checkm(
         &genome_fasta_paths, &clap_matches) {
