@@ -15,12 +15,12 @@ static PROGRAM_NAME: &str = "Galah";
 fn main(){
     let app = build_cli();
     let matches = app.clone().get_matches();
-    set_log_level(&matches, false, PROGRAM_NAME);
+    set_log_level(&matches, false, PROGRAM_NAME, crate_version!());
 
     match matches.subcommand_name() {
         Some("cluster") => {
             let m = matches.subcommand_matches("cluster").unwrap();
-            set_log_level(m, true, PROGRAM_NAME);
+            set_log_level(m, true, PROGRAM_NAME, crate_version!());
 
             let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
             rayon::ThreadPoolBuilder::new()
@@ -50,7 +50,7 @@ fn main(){
         },
         Some("cluster-validate") => {
             let m = matches.subcommand_matches("cluster-validate").unwrap();
-            set_log_level(m, true, PROGRAM_NAME);
+            set_log_level(m, true, PROGRAM_NAME, crate_version!());
 
             let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
             rayon::ThreadPoolBuilder::new()
@@ -65,7 +65,7 @@ fn main(){
         },
         Some("dist") => {
             let m = matches.subcommand_matches("dist").unwrap();
-            set_log_level(m, true, PROGRAM_NAME);
+            set_log_level(m, true, PROGRAM_NAME, crate_version!());
 
             let n_hashes = value_t!(m.value_of("num-hashes"), usize).unwrap();
             let kmer_length = value_t!(m.value_of("kmer-length"), u8).unwrap();
