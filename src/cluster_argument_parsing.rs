@@ -1,5 +1,6 @@
 use std;
 use clap::*;
+use bird_tool_utils::clap_utils::*;
 
 use super::minhash_clusterer;
 
@@ -14,6 +15,37 @@ pub enum ClusteringDistanceMethod {
     DashingFastani {
         prethreshold_ani: f32
     }
+}
+
+pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
+    let m = matches.subcommand_matches("cluster").unwrap();
+    set_log_level(m, true, "Galah", crate_version!());
+
+    let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build_global()
+        .expect("Programming error: rayon initialised multiple times");
+
+    let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true).unwrap();
+
+    let galah = generate_galah_clusterer(&genome_fasta_files, &m)
+        .expect("Failed to parse galah clustering arguments correctly");
+
+    let passed_genomes = &galah.genome_fasta_paths;
+    info!("Clustering {} genomes ..", passed_genomes.len());
+    let clusters = galah.cluster();
+
+    info!("Found {} genome clusters", clusters.len());
+
+
+    for cluster in clusters {
+        let rep_index = cluster[0];
+        for genome_index in cluster {
+            println!("{}\t{}", passed_genomes[rep_index], passed_genomes[genome_index]);
+        }
+    }
+    info!("Finished printing genome clusters");
 }
 
 fn filter_genomes_through_checkm<'a>(
