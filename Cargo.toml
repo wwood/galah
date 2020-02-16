@@ -20,11 +20,10 @@ finch = { git = "https://github.com/onecodex/finch-rs", rev = "5dc21d072c0bbd758
 clap = "2.*"
 log = "0.4.*"
 env_logger = "0.7.*"
-checkm = { git = "https://github.com/wwood/checkm-rs", rev = "7a3f527d10e559f9886bd235ea0fd82858d182c3" }
+checkm = "0.0.1"
 rayon = "1.0"
 csv = "1.1"
-bird_tool_utils = { git = "https://github.com/wwood/bird_tool_utils", rev = "d4866b6935907fd97a4cb3d7fe1525bbbce884b7" }
-#bird_tool_utils = { path = "../bird_tool_utils" }
+bird_tool_utils = "0.1.0"
 tempfile = "3.*"
 
 [dependencies.partitions]
