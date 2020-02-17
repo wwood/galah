@@ -2,13 +2,11 @@ use std;
 use clap::*;
 use bird_tool_utils::clap_utils::*;
 
-use super::minhash_clusterer;
-
 pub struct GalahClusterer<'a> {
     pub genome_fasta_paths: Vec<&'a str>,
-    ani: f32,
-    distance_method: ClusteringDistanceMethod,
-    threads: usize,
+    pub ani: f32,
+    pub distance_method: ClusteringDistanceMethod,
+    pub threads: usize,
 }
 
 pub enum ClusteringDistanceMethod {
@@ -142,7 +140,7 @@ impl GalahClusterer<'_> {
     pub fn cluster(&self) -> Vec<Vec<usize>> {
         match self.distance_method {
             ClusteringDistanceMethod::DashingFastani{ prethreshold_ani } =>
-                minhash_clusterer::minhash_clusters(
+                crate::clusterer::cluster(
                     &self.genome_fasta_paths, prethreshold_ani*100., self.ani*100., self.threads)
         }
     }

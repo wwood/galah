@@ -1,7 +1,7 @@
 
 use std;
 use std::process;
-use crate::minhash_clusterer::calculate_fastani;
+use crate::clusterer::calculate_fastani;
 
 use rayon::prelude::*;
 

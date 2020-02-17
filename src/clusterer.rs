@@ -14,7 +14,7 @@ use partitions::partition_vec::PartitionVec;
 /// set, use dashing for first pass analysis, then fastani as the actual threshold.
 // TODO: Test whether this is a good enough procedure or if there are nasties
 // e.g. failure to cluster bad quality genomes.
-pub fn minhash_clusters(
+pub fn cluster(
     genomes: &[&str],
     precluster_ani: f32,
     fastani_threshold: f32,
@@ -451,7 +451,7 @@ mod tests {
     #[test]
     fn test_minhash_fastani_hello_world() {
         init();
-        let mut clusters = minhash_clusters(
+        let mut clusters = cluster(
             &["tests/data/abisko4/73.20120800_S1X.13.fna",
               "tests/data/abisko4/73.20120600_S2D.19.fna",
               "tests/data/abisko4/73.20120700_S3X.12.fna",
@@ -471,7 +471,7 @@ mod tests {
     #[test]
     fn test_minhash_fastani_two_clusters_same_ani() {
         init();
-        let mut clusters = minhash_clusters(
+        let mut clusters = cluster(
             &["tests/data/abisko4/73.20120800_S1X.13.fna",
               "tests/data/abisko4/73.20120600_S2D.19.fna",
               "tests/data/abisko4/73.20120700_S3X.12.fna",
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn test_minhash_fastani_two_clusters_low_minhash_ani() {
         init();
-        let mut clusters = minhash_clusters(
+        let mut clusters = cluster(
             &["tests/data/abisko4/73.20120800_S1X.13.fna",
               "tests/data/abisko4/73.20120600_S2D.19.fna",
               "tests/data/abisko4/73.20120700_S3X.12.fna",
