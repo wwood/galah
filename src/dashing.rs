@@ -40,7 +40,7 @@ pub fn distances(genome_fasta_paths: &[&str], min_ani: f32, threads: usize)
     debug!("Running dashing command: {:?}", &cmd);
 
     // Parse the distances
-    let mut process = cmd.spawn().expect(&format!("Failed to spawn {}", "fastANI"));
+    let mut process = cmd.spawn().expect(&format!("Failed to spawn {}", "dashing"));
     let stdout = process.stdout.as_mut().unwrap();
     let stdout_reader = BufReader::new(stdout);
 

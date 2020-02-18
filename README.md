@@ -1,6 +1,17 @@
-Galah - more scalable metagenome assembled genome (MAG) dereplication.
+- [Galah](#galah)
+- [Installation](#installation)
+  - [Development](#development)
+  - [Dependencies](#dependencies)
+- [Usage](#usage)
+  - [Precluster ANI](#precluster-ani)
+  - [License](#license)
+
+# Galah
 
 [![Travis](https://img.shields.io/travis/wwood/galah.svg?style=flat-square)](https://travis-ci.org/wwood/galah)
+
+Galah aims to be a more scalable metagenome assembled genome (MAG)
+dereplication framework.
 
 Galah uses a greedy clustering approach to speed up genome dereplication,
 relative to e.g. [dRep](https://drep.readthedocs.io/), particularly when there
@@ -25,14 +36,21 @@ If CheckM qualities are not used, then:
 # Installation
 
 Galah is not currently available on bioconda, though it can (or will soon be) be
-used indirectly through [CoverM](https://github.com/wwood/CoverM), which is
-available on bioconda.
+installed and used indirectly through [CoverM](https://github.com/wwood/CoverM),
+which is available on bioconda.
 
-To install Galah separately, after installing
+Currently Galah can only be installed following the [development](#development)
+instructions below. Hopefully soon it will be available on crates.io.
+
+## Development
+
+To run an unreleased version of Galah, after installing
 [Rust](https://www.rust-lang.org/):
 
 ```
-cargo install galah
+git clone https://github.com/wwood/galah
+cd galah
+cargo run -- cluster ...etc...
 ```
 
 ## Dependencies
@@ -41,16 +59,6 @@ Galah relies on these 3rd party tools, which must be installed separately.
 
 * Dashing v0.4.0 https://github.com/dnbaker/dashing
 * FastANI v1.3 https://github.com/ParBLiSS/FastANI
-
-## Development
-
-```
-To run an unreleased version of Galah, after installing Rust:
-
-git clone https://github.com/wwood/galah
-cd galah
-cargo run -- cluster ...etc...
-```
 
 # Usage
 For clustering a set of genomes at 99% ANI:
