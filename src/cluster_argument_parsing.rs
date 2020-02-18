@@ -46,7 +46,7 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
     info!("Finished printing genome clusters");
 }
 
-fn filter_genomes_through_checkm<'a>(
+pub fn filter_genomes_through_checkm<'a>(
     genome_fasta_files: &'a Vec<String>,
     clap_matches: &clap::ArgMatches)
     -> std::result::Result<Vec<&'a str>, String> {
