@@ -10,14 +10,15 @@
 
 [![Travis](https://img.shields.io/travis/wwood/galah.svg?style=flat-square)](https://travis-ci.org/wwood/galah)
 
-Galah aims to be a more scalable metagenome assembled genome (MAG)
-dereplication framework.
+Galah aims to be a more scalable metagenome assembled genome (MAG) dereplication
+method. That is, it clusters microbial genomes together based on their average
+nucleotide identity (ANI), and chooses a single member of each cluster as the
+representative.
 
 Galah uses a greedy clustering approach to speed up genome dereplication,
 relative to e.g. [dRep](https://drep.readthedocs.io/), particularly when there
 are many closely related genomes (i.e. >95% ANI). Generated cluster
-representatives have 2 properties. If the average nucleotide identity (ANI)
-threshold was set to 99%, then:
+representatives have 2 properties. If the ANI threshold was set to 99%, then:
 
 1. Each representative is <99% ANI to each other representative.
 2. All members are >=99% ANI to the representative.
@@ -32,6 +33,9 @@ If CheckM qualities are not used, then:
 
 3. Each representative genome was specified to galah before other members of the
    cluster.
+
+The overall greedy clustering approach was largely inspired by the work of
+Donovan Parks, as described in [this publication](https://www.biorxiv.org/content/10.1101/771964v2.abstract).
 
 # Installation
 
@@ -65,7 +69,8 @@ For clustering a set of genomes at 99% ANI:
 ```
 galah cluster --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna >clusters
 ```
-There are several other options for specifying genomes. See `galah cluster --help` for more information.
+There are several other options for specifying genomes, ANI cutoffs, etc. See
+`galah cluster --help` for more information.
 
 ## Precluster ANI
 Similar to dRep, galah operates in two stages. In the first, a fast
