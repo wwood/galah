@@ -6,6 +6,10 @@
   - [Precluster ANI](#precluster-ani)
   - [License](#license)
 
+![Galah image][galah]
+
+By David Cook Wildlife Photography - originally posted to Flickr as Galah (Eolophus roseicapillus), CC BY 2.0, https://commons.wikimedia.org/w/index.php?curid=8388233
+
 # Galah
 
 [![Travis](https://img.shields.io/travis/wwood/galah.svg?style=flat-square)](https://travis-ci.org/wwood/galah)
@@ -87,3 +91,5 @@ Galah is made available under GPL3+. See LICENSE.txt for details. Copyright Ben
 Woodcroft.
 
 Developed by Ben Woodcroft at the [Australian Centre for Ecogenomics](http://ecogenomic.org).
+
+[galah]: Eolophus_roseicapilla_-Wamboin,_NSW,_Australia_-juvenile-8.smaller.jpg
