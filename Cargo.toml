@@ -16,7 +16,6 @@ exclude = [ # Max upload is 10MB, as of writing test data was 31MB
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-finch = { git = "https://github.com/onecodex/finch-rs", rev = "5dc21d072c0bbd758532eff70871d101ed69e573" } # So mash_files can work in parallel. Presumably will be integrated in v0.3
 clap = "2.*"
 log = "0.4.*"
 env_logger = "0.7.*"

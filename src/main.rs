@@ -4,7 +4,6 @@ extern crate clap;
 use clap::*;
 use std::env;
 
-#[macro_use]
 extern crate log;
 
 extern crate bird_tool_utils;
@@ -35,41 +34,6 @@ fn main(){
 
             galah::cluster_validation::validate_clusters(m.value_of("cluster-file").unwrap(), ani.unwrap().unwrap());
 
-        },
-        Some("dist") => {
-            let m = matches.subcommand_matches("dist").unwrap();
-            set_log_level(m, true, PROGRAM_NAME, crate_version!());
-
-            let n_hashes = value_t!(m.value_of("num-hashes"), usize).unwrap();
-            let kmer_length = value_t!(m.value_of("kmer-length"), u8).unwrap();
-
-            let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
-
-            rayon::ThreadPoolBuilder::new()
-                .num_threads(num_threads)
-                .build_global()
-                .expect("Programming error: rayon initialised multiple times");
-
-            info!("Reading CheckM tab table ..");
-            let checkm = checkm::CheckMTabTable::read_file_path(
-                m.value_of("checkm-tab-table").unwrap()
-            );
-
-            let genome_fasta_files = parse_list_of_genome_fasta_files(&m, true).unwrap();
-
-            let qualities = genome_fasta_files.iter().map(|fasta|
-                checkm.retrieve_via_fasta_path(fasta)
-                    .expect(&format!("Failed to link genome fasta file {} to a CheckM quality", fasta))
-                )
-                .collect::<Vec<_>>();
-            info!("Linked {} genomes to their CheckM quality", qualities.len());
-
-            info!("Printing distances ..");
-            galah::ani_correction::print_metaani_distances(
-                &genome_fasta_files.iter().map(|s| s.as_str()).collect::<Vec<_>>().as_slice(),
-                qualities.as_slice(),
-                n_hashes, kmer_length);
-            info!("Finished");
         },
         _ => panic!("Programming error")
     }
