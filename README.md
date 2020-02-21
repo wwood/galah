@@ -1,9 +1,12 @@
 - [Galah](#galah)
-- [Installation](#installation)
-  - [Development](#development)
-  - [Dependencies](#dependencies)
-- [Usage](#usage)
-  - [Precluster ANI](#precluster-ani)
+  - [Installation](#installation)
+    - [Install through the bioconda package](#install-through-the-bioconda-package)
+    - [Pre-compiled binary](#pre-compiled-binary)
+    - [Compiling from source](#compiling-from-source)
+    - [Development](#development)
+    - [Dependencies](#dependencies)
+  - [Usage](#usage)
+    - [Precluster ANI](#precluster-ani)
   - [License](#license)
 
 ![Galah image][galah]
@@ -41,16 +44,36 @@ If CheckM qualities are not used, then:
 The overall greedy clustering approach was largely inspired by the work of
 Donovan Parks, as described in [this publication](https://www.biorxiv.org/content/10.1101/771964v2.abstract).
 
-# Installation
+## Installation
 
-Galah is not currently available on bioconda, though it can (or will soon be) be
-installed and used indirectly through [CoverM](https://github.com/wwood/CoverM),
-which is available on bioconda.
+### Install through the bioconda package
 
-Currently Galah can only be installed following the [development](#development)
-instructions below. Hopefully soon it will be available on crates.io.
+CoverM can be installed through the [bioconda](https://bioconda.github.io/user/install.html) conda channel. After initial setup of conda and the bioconda channel, it can be installed with
 
-## Development
+```
+conda install galah
+```
+Galah can also be used indirectly through
+[CoverM](https://github.com/wwood/CoverM), which is also available on bioconda.
+
+### Pre-compiled binary
+
+Galah can be installed by downloading statically compiled binaries, available on
+the [releases page](https://github.com/wwood/Galah/releases).
+
+Third party dependencies listed below are required for this method.
+
+### Compiling from source
+
+Galah can also be installed from source, using the cargo build system after
+installing [Rust](https://www.rust-lang.org/).
+
+```
+cargo install galah
+```
+Third party dependencies listed below are required for this method.
+
+### Development
 
 To run an unreleased version of Galah, after installing
 [Rust](https://www.rust-lang.org/):
@@ -60,15 +83,16 @@ git clone https://github.com/wwood/galah
 cd galah
 cargo run -- cluster ...etc...
 ```
+Third party dependencies listed below are required for this method.
 
-## Dependencies
+### Dependencies
 
 Galah relies on these 3rd party tools, which must be installed separately.
 
 * Dashing v0.4.0 https://github.com/dnbaker/dashing
 * FastANI v1.3 https://github.com/ParBLiSS/FastANI
 
-# Usage
+## Usage
 For clustering a set of genomes at 99% ANI:
 ```
 galah cluster --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna >clusters
@@ -76,7 +100,7 @@ galah cluster --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna >cl
 There are several other options for specifying genomes, ANI cutoffs, etc. See
 `galah cluster --help` for more information.
 
-## Precluster ANI
+### Precluster ANI
 Similar to dRep, galah operates in two stages. In the first, a fast
 pre-clustering distance ([dashing](https://github.com/dnbaker/dashing)) is
 calculated between each pair of genomes. Genome pairs are only considered as
