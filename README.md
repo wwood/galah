@@ -34,15 +34,21 @@ If [CheckM](https://ecogenomics.github.io/CheckM/) genome qualities were
 specified, then the clusters have an additional property:
 
 3. Each representative genome has a better quality score than other members of
-   the cluster.
+   the cluster. Each genome is assigned a quality score based on the formula
+   "completeness - 4*contamination".
 
 If CheckM qualities are not used, then:
 
-3. Each representative genome was specified to galah before other members of the
+1. Each representative genome was specified to galah before other members of the
    cluster.
 
 The overall greedy clustering approach was largely inspired by the work of
-Donovan Parks, as described in [this publication](https://www.biorxiv.org/content/10.1101/771964v2.abstract).
+Donovan Parks, as described in [this
+publication](https://www.biorxiv.org/content/10.1101/771964v2.abstract). It
+operates in 3 steps. In the first step, genomes are assigned as representative
+if no genomes of higher quality are >99% ANI. In the second step, each
+non-representative genome is assigned to the representative genome it has the
+highest ANI with.
 
 ## Installation
 
