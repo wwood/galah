@@ -2,6 +2,8 @@ use std;
 use clap::*;
 use bird_tool_utils::clap_utils::*;
 
+use crate::genome_info_file;
+
 pub struct GalahClusterer<'a> {
     pub genome_fasta_paths: Vec<&'a str>,
     pub ani: f32,
@@ -51,15 +53,23 @@ pub fn filter_genomes_through_checkm<'a>(
     clap_matches: &clap::ArgMatches)
     -> std::result::Result<Vec<&'a str>, String> {
 
-    match clap_matches.is_present("checkm-tab-table") {
+    match clap_matches.is_present("checkm-tab-table") || clap_matches.is_present("genome-info") {
         false => {
             warn!("Since CheckM input is missing, genomes are not being ordered by quality. Instead the order of their input is being used");
             Ok(genome_fasta_files.iter().map(|s| &**s).collect())
         },
         true => {
-            info!("Reading CheckM tab table ..");
-            let checkm = checkm::CheckMTabTable::read_file_path(
-                clap_matches.value_of("checkm-tab-table").unwrap());
+            let checkm = if clap_matches.is_present("checkm-tab-table") {
+                info!("Reading CheckM tab table ..");
+                checkm::CheckMTabTable::read_file_path(
+                    clap_matches.value_of("checkm-tab-table").unwrap())
+            } else if clap_matches.is_present("genome-info") {
+                info!("Reading genome info file {}", clap_matches.value_of("genome-info").unwrap());
+                genome_info_file::read_genome_info_file(clap_matches.value_of("genome-info").unwrap())
+                    .expect("Error parsing genomeInfo file")
+            } else {
+                panic!("Programming error");
+            };
 
             let max_contamination = match parse_percentage(clap_matches, "max-contamination") {
                 Ok(fraction_opt) => fraction_opt,
@@ -158,6 +168,10 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
         .arg(Arg::with_name("checkm-tab-table")
             .long("checkm-tab-table")
             .help("Output of CheckM lineage_wf/taxonomy_wf/qa with --tab_table specified")
+            .takes_value(true))
+        .arg(Arg::with_name("genome-info")
+            .long("genome-info")
+            .help("genomeInfo file in same format as dRep i.e. a CSV with three header columns, first line 'genome,completeness,contamination'.")
             .takes_value(true))
         .arg(Arg::with_name("min-completeness")
             .long("min-completeness")
