@@ -3,9 +3,22 @@ use std::io::BufReader;
 use std::io::Write;
 
 use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
+use crate::PreclusterDistanceFinder;
 
 use tempfile;
 use bird_tool_utils::command::finish_command_safely;
+
+pub struct DashingPreclusterer {
+    /// Fraction, not percentage
+    pub min_ani: f32, 
+    pub threads: usize,
+}
+
+impl PreclusterDistanceFinder for DashingPreclusterer {
+    fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache {
+        distances(genome_fasta_paths, self.min_ani, self.threads)
+    }
+}
 
 pub fn distances(genome_fasta_paths: &[&str], min_ani: f32, threads: usize)
 -> SortedPairGenomeDistanceCache {
@@ -22,6 +35,7 @@ pub fn distances(genome_fasta_paths: &[&str], min_ani: f32, threads: usize)
     }
 
     // Run dashing to get distances
+    info!("Running dashing to get approximate distances ..");
     let mut cmd = std::process::Command::new("dashing");
     cmd
         .arg("cmp")
@@ -74,6 +88,7 @@ pub fn distances(genome_fasta_paths: &[&str], min_ani: f32, threads: usize)
     }
     finish_command_safely(process, "dashing");
     debug!("Found dashing distances: {:#?}", distances);
+    info!("Finished dashing genomes against each other.");
 
     return distances;
 }

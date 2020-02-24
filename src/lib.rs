@@ -12,3 +12,11 @@ extern crate log;
 extern crate rayon;
 extern crate partitions;
 extern crate clap;
+
+
+
+use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
+
+pub trait PreclusterDistanceFinder {
+    fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache;
+}

@@ -4,17 +4,22 @@ use bird_tool_utils::clap_utils::*;
 
 use crate::genome_info_file;
 
+pub enum Preclusterer {
+    Dashing {
+        min_ani: f32, 
+        threads: usize,
+    },
+    Finch {
+        min_ani: f32,
+        num_kmers: usize,
+        kmer_length: u8,
+    }
+}
+
 pub struct GalahClusterer<'a> {
     pub genome_fasta_paths: Vec<&'a str>,
     pub ani: f32,
-    pub distance_method: ClusteringDistanceMethod,
-    pub threads: usize,
-}
-
-pub enum ClusteringDistanceMethod {
-    DashingFastani {
-        prethreshold_ani: f32
-    }
+    pub preclusterer: Preclusterer,
 }
 
 pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
@@ -100,7 +105,6 @@ pub fn generate_galah_clusterer<'a>(
     -> std::result::Result<GalahClusterer<'a>,String> {
 
     crate::external_command_checker::check_for_fastani();
-    crate::external_command_checker::check_for_dashing();
 
     match filter_genomes_through_checkm(
         &genome_fasta_paths, &clap_matches) {
@@ -110,17 +114,31 @@ pub fn generate_galah_clusterer<'a>(
         },
 
         Ok(v2) => {
+            let threads = value_t!(clap_matches.value_of("threads"), usize).expect("Failed to parse --threads argument");
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
                 ani: parse_percentage(&clap_matches, "ani")
                     .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of("ani")))
                     .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of("ani"))),
-                distance_method: ClusteringDistanceMethod::DashingFastani  {
-                    prethreshold_ani: parse_percentage(clap_matches, "prethreshold-ani")
-                        .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani")))
-                        .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani")))
+                preclusterer: match clap_matches.value_of("precluster-method").unwrap() {
+                    "dashing" => {
+                        crate::external_command_checker::check_for_dashing();
+                        Preclusterer::Dashing {
+                            min_ani: parse_percentage(clap_matches, "prethreshold-ani")
+                                .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani")))
+                                .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani"))),
+                            threads: threads
+                        }
+                    },
+                    "finch" => Preclusterer::Finch {
+                        min_ani: parse_percentage(clap_matches, "prethreshold-ani")
+                            .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani")))
+                            .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani"))),
+                        num_kmers: 1000,
+                        kmer_length: 21,
+                    },
+                    _ => panic!("Programming error")
                 },
-                threads: value_t!(clap_matches.value_of("threads"), usize).expect("Failed to parse --threads argument"),
             })
         },
     }
@@ -148,10 +166,37 @@ pub fn parse_percentage(m: &clap::ArgMatches, parameter: &str) -> std::result::R
 
 impl GalahClusterer<'_> {
     pub fn cluster(&self) -> Vec<Vec<usize>> {
-        match self.distance_method {
-            ClusteringDistanceMethod::DashingFastani{ prethreshold_ani } =>
+        let genomes = &self.genome_fasta_paths;
+        let ani = self.ani*100.;
+        match self.preclusterer {
+            Preclusterer::Dashing {
+                min_ani,
+                threads,
+            } => {
                 crate::clusterer::cluster(
-                    &self.genome_fasta_paths, prethreshold_ani*100., self.ani*100., self.threads)
+                    genomes,
+                    &crate::dashing::DashingPreclusterer {
+                        min_ani: min_ani,
+                        threads: threads
+                    },
+                    ani
+                )
+            }
+            Preclusterer::Finch {
+                min_ani,
+                num_kmers,
+                kmer_length,
+            } => {
+                crate::clusterer::cluster(
+                    genomes,
+                    &crate::finch::FinchPreclusterer {
+                        min_ani: min_ani,
+                        num_kmers: num_kmers,
+                        kmer_length: kmer_length,
+                    },
+                    ani
+                )
+            }
         }
     }
 }
@@ -187,6 +232,11 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .help("Require at least this dashing-derived ANI for preclustering and to avoid FastANI on distant lineages within preclusters")
             .takes_value(true)
             .default_value("95"))
+        .arg(Arg::with_name("precluster-method")
+            .long("precluster-method")
+            .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash")
+            .possible_values(&["dashing","finch"])
+            .takes_value(true))
         .arg(Arg::with_name("threads")
             .short("t")
             .long("threads")

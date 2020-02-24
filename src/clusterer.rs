@@ -4,30 +4,24 @@ use std::io::BufReader;
 use std::sync::Mutex;
 
 use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
-use crate::dashing;
+use crate::PreclusterDistanceFinder;
 
 use rayon::prelude::*;
 use bird_tool_utils::command::finish_command_safely;
 use partitions::partition_vec::PartitionVec;
 
-/// Given a list of genomes, return them clustered. If the fastani_threshold is
-/// set, use dashing for first pass analysis, then fastani as the actual threshold.
-// TODO: Test whether this is a good enough procedure or if there are nasties
-// e.g. failure to cluster bad quality genomes.
-pub fn cluster(
+/// Given a list of genomes, return them clustered. Use dashing for first pass
+/// analysis, then fastani as the actual threshold.
+pub fn cluster<P: PreclusterDistanceFinder>(
     genomes: &[&str],
-    precluster_ani: f32,
+    preclusterer: &P,
     fastani_threshold: f32,
-    threads: usize
 ) -> Vec<Vec<usize>> {
 
-    // Dashing all the genomes together
-    assert!(precluster_ani > 1.0);
-    info!("Running dashing to get approximate distances ..");
-    let dashing_cache = dashing::distances(genomes, precluster_ani / 100.0, threads);
-    info!("Finished dashing genomes against each other.");
-
     assert!(fastani_threshold > 1.0);
+
+    // Dashing all the genomes together
+    let dashing_cache = preclusterer.distances(genomes);
 
     info!("Preclustering ..");
     let minhash_preclusters = partition_sketches(genomes, &dashing_cache);
@@ -457,9 +451,12 @@ mod tests {
               "tests/data/abisko4/73.20120700_S3X.12.fna",
               "tests/data/abisko4/73.20110800_S2D.13.fna",
             ],
-            90.0,
+            crate::finch::FinchPreclusterer {
+                min_ani: 0.9,
+                num_kmers: 1000,
+                kmer_length: 21
+            },
             95.0,
-            1,
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(
@@ -477,9 +474,12 @@ mod tests {
               "tests/data/abisko4/73.20120700_S3X.12.fna",
               "tests/data/abisko4/73.20110800_S2D.13.fna",
             ],
-            90.0,
+            crate::finch::FinchPreclusterer {
+                min_ani: 0.9,
+                num_kmers: 1000,
+                kmer_length: 21
+            },
             98.0,
-            1,
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(
@@ -497,9 +497,12 @@ mod tests {
               "tests/data/abisko4/73.20120700_S3X.12.fna",
               "tests/data/abisko4/73.20110800_S2D.13.fna",
             ],
-            90.0,
+            crate::finch::FinchPreclusterer {
+                min_ani: 0.9,
+                num_kmers: 1000,
+                kmer_length: 21
+            },
             98.0,
-            1,
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(
