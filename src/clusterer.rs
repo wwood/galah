@@ -451,7 +451,7 @@ mod tests {
               "tests/data/abisko4/73.20120700_S3X.12.fna",
               "tests/data/abisko4/73.20110800_S2D.13.fna",
             ],
-            crate::finch::FinchPreclusterer {
+            &crate::finch::FinchPreclusterer {
                 min_ani: 0.9,
                 num_kmers: 1000,
                 kmer_length: 21
@@ -474,7 +474,7 @@ mod tests {
               "tests/data/abisko4/73.20120700_S3X.12.fna",
               "tests/data/abisko4/73.20110800_S2D.13.fna",
             ],
-            crate::finch::FinchPreclusterer {
+            &crate::finch::FinchPreclusterer {
                 min_ani: 0.9,
                 num_kmers: 1000,
                 kmer_length: 21
@@ -497,7 +497,7 @@ mod tests {
               "tests/data/abisko4/73.20120700_S3X.12.fna",
               "tests/data/abisko4/73.20110800_S2D.13.fna",
             ],
-            crate::finch::FinchPreclusterer {
+            &crate::finch::FinchPreclusterer {
                 min_ani: 0.9,
                 num_kmers: 1000,
                 kmer_length: 21
