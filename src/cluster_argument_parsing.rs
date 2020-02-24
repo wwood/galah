@@ -85,16 +85,29 @@ pub fn filter_genomes_through_checkm<'a>(
                 Err(e) => return Err(e)
             };
 
-            info!("Ordering genomes by CheckM quality: completeness - 4*contamination");
-            let v2 = checkm.order_fasta_paths_by_completeness_minus_4contamination(
-                &genome_fasta_files.iter().map(|s| &**s).collect(),
-                min_completeness,
-                max_contamination)
-                .unwrap();
+            let sorted_thresholded_genomes = match clap_matches.value_of("quality-formula").unwrap() {
+                "completeness-4contamination" => {
+                    info!("Ordering genomes by quality formula: completeness - 4*contamination");
+                    checkm.order_fasta_paths_by_completeness_minus_4contamination(
+                        &genome_fasta_files.iter().map(|s| &**s).collect(),
+                        min_completeness,
+                        max_contamination)
+                        .unwrap()
+                },
+                "completeness-5contamination" => {
+                    info!("Ordering genomes by quality formula: completeness - 5*contamination");
+                    checkm.order_fasta_paths_by_completeness_minus_5contamination(
+                        &genome_fasta_files.iter().map(|s| &**s).collect(),
+                        min_completeness,
+                        max_contamination)
+                        .unwrap()
+                },
+                _ => panic!("Programming error")
+            };
             info!("Read in genome qualities for {} genomes. {} passed quality thresholds",
                 checkm.genome_to_quality.len(),
-                v2.len());
-            Ok(v2)
+                sorted_thresholded_genomes.len());
+            Ok(sorted_thresholded_genomes)
         }
     }
 }
@@ -226,6 +239,14 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
         .arg(Arg::with_name("max-contamination")
             .long("max-contamination")
             .help("Genomes with greater than this percentage of contamination are exluded")
+            .takes_value(true))
+        .arg(Arg::with_name("quality-formula")
+            .long("quality-formula")
+            .help("Scoring function for genome quality")
+            .possible_values(&[
+                "completeness-4contamination",
+                "completeness-5contamination"])
+            .default_value("completeness-4contamination")
             .takes_value(true))
         .arg(Arg::with_name("prethreshold-ani")
             .long("prethreshold-ani")
