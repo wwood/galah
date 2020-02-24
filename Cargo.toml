@@ -24,7 +24,5 @@ rayon = "1.0"
 csv = "1.1"
 bird_tool_utils = "0.1.0"
 tempfile = "3.*"
-
-[dependencies.partitions]
-version = "0.2.*"
-features = ["compact"]
+finch = "0.3.*"
+partitions = { version = "0.2.*", features = ["compact"] }
