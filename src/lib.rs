@@ -6,6 +6,7 @@ pub mod dashing;
 pub mod finch;
 pub mod external_command_checker;
 pub mod genome_info_file;
+pub mod genome_stats;
 
 #[macro_use]
 extern crate log;
