@@ -4,6 +4,7 @@ use bird_tool_utils::clap_utils::*;
 use rayon::prelude::*;
 
 use crate::genome_info_file;
+use crate::genome_stats;
 
 pub enum Preclusterer {
     Dashing {
@@ -70,6 +71,9 @@ pub fn filter_genomes_through_checkm<'a>(
                 checkm::CheckMTabTable::read_file_path(
                     clap_matches.value_of("checkm-tab-table").unwrap())
             } else if clap_matches.is_present("genome-info") {
+                if clap_matches.value_of("quality-formula").unwrap() == "dRep" {
+                    return Err("The dRep quality formula cannot be used with --genome-info".to_string());
+                }
                 info!("Reading genome info file {}", clap_matches.value_of("genome-info").unwrap());
                 genome_info_file::read_genome_info_file(clap_matches.value_of("genome-info").unwrap())
                     .expect("Error parsing genomeInfo file")
@@ -105,25 +109,10 @@ pub fn filter_genomes_through_checkm<'a>(
                 },
                 "Parks2020_reduced" => {
                     info!("Calculating num_contigs etc. for genome quality assessment ..");
-                    let mut appraisal: Vec<_> = genome_fasta_files
-                        .par_iter()
-                        // convert to checkm::GenomeQuality
-                        .map(|fasta_file| {
-                            (
-                                fasta_file,
-                                checkm.retrieve_via_fasta_path(fasta_file)
-                                    .expect(&format!("Failed to find CheckM statistics for {}", fasta_file))
-                            )
-                        })
-                        // filter out poor checkm quality genomes
-                        .filter(|(_fasta_file, checkm_quality)| {
-                            checkm_quality.completeness >= min_completeness.unwrap() &&
-                            checkm_quality.contamination <= max_contamination.unwrap()
-                        })
-                        // calculate stats for good genomes
-                        .map(|(fasta_file, checkm_quality)| {
-                            (fasta_file, checkm_quality, crate::genome_stats::calculate_genome_stats(fasta_file))
-                        })
+                    let genome_appraisals = filter_and_calculate_genome_stats(
+                        genome_fasta_files, &checkm, min_completeness, max_contamination);
+                    let mut appraisal: Vec<_> = genome_appraisals
+                        .iter()
                         // Calculate quality score
                         .map(|(fasta_file, checkm_quality, stats)| {
                             let score = checkm_quality.completeness as f64 *100.
@@ -138,8 +127,32 @@ pub fn filter_genomes_through_checkm<'a>(
 
                     // sort descending
                     appraisal.sort_by(|a,b| b.1.partial_cmp(&a.1).expect("Arithmetic error while calculating genome quality"));
-                    appraisal.into_iter().map(|(f,_)| &**f).collect::<Vec<_>>()
-                }
+                    appraisal.into_iter().map(|(f,_)| f.as_str()).collect::<Vec<_>>()
+                },
+                "dRep" => {
+                    info!("Calculating num_contigs etc. for genome quality assessment ..");
+                    let genome_appraisals = filter_and_calculate_genome_stats(
+                        genome_fasta_files, &checkm, min_completeness, max_contamination);
+                    let mut appraisal: Vec<_> = genome_appraisals
+                        .iter()
+                        // Calculate quality score
+                        // completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log(N50)
+                        // It's log10 specifically, see https://github.com/MrOlm/drep/blob/3ca43f20ec2b43c2c826d2f50e5473d54f4a4510/drep/d_choose.py#L202
+                        .map(|(fasta_file, checkm_quality, stats)| {
+                            let score = checkm_quality.completeness as f64 *100.
+                                - 5.*checkm_quality.contamination as f64*100.
+                                + checkm_quality.contamination as f64 * checkm_quality.strain_heterogeneity as f64
+                                + 0.5*((stats.n50 as f64).log10());
+                            debug!("For genome {} found quality score {}, from checkm {:?} and stats {:?}",
+                                fasta_file, score, &checkm_quality, &stats);
+                            (fasta_file, score)
+                        })
+                        .collect();
+
+                    // sort descending
+                    appraisal.sort_by(|a,b| b.1.partial_cmp(&a.1).expect("Arithmetic error while calculating genome quality"));
+                    appraisal.into_iter().map(|(f,_)| f.as_str()).collect::<Vec<_>>()
+                },
                 _ => panic!("Programming error")
             };
             info!("Read in genome qualities for {} genomes. {} passed quality thresholds",
@@ -148,6 +161,35 @@ pub fn filter_genomes_through_checkm<'a>(
             Ok(sorted_thresholded_genomes)
         }
     }
+}
+
+fn filter_and_calculate_genome_stats<'a>(
+    genome_fasta_files: &'a Vec<String>,
+    checkm_stats: &checkm::CheckMResult,
+    min_completeness: Option<f32>,
+    max_contamination: Option<f32>)
+    -> Vec<(&'a String, checkm::GenomeQuality, genome_stats::GenomeAssemblyStats)> {
+
+    genome_fasta_files
+        .par_iter()
+        // convert to checkm::GenomeQuality
+        .map(|fasta_file| {
+            (
+                fasta_file,
+                checkm_stats.retrieve_via_fasta_path(fasta_file)
+                    .expect(&format!("Failed to find CheckM statistics for {}", fasta_file))
+            )
+        })
+        // filter out poor checkm quality genomes
+        .filter(|(_fasta_file, checkm_quality)| {
+            checkm_quality.completeness >= min_completeness.unwrap() &&
+            checkm_quality.contamination <= max_contamination.unwrap()
+        })
+        // calculate stats for good genomes
+        .map(|(fasta_file, checkm_quality)| {
+            (fasta_file, checkm_quality, crate::genome_stats::calculate_genome_stats(fasta_file))
+        })
+        .collect()
 }
 
 pub fn generate_galah_clusterer<'a>(
@@ -282,15 +324,17 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
         .arg(Arg::with_name("quality-formula")
             .long("quality-formula")
             .help("Scoring function for genome quality. \
-                'completeness-4contamination' for 'completeness-4*contamination', \
-                'completeness-5contamination' for 'completeness-5*contamination', \
                 'Parks2020_reduced' for 'completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000' \
                 which is reduced from a quality formula described in Parks et. al. 2020\
-                https://www.biorxiv.org/content/10.1101/771964v2.abstract")
+                https://www.biorxiv.org/content/10.1101/771964v2.abstract\
+                'completeness-4contamination' for 'completeness-4*contamination', \
+                'completeness-5contamination' for 'completeness-5*contamination', \
+                'dRep' for 'completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)'")
             .possible_values(&[
                 "completeness-4contamination",
                 "completeness-5contamination",
-                "Parks2020_reduced"])
+                "Parks2020_reduced",
+                "dRep"])
             .default_value("Parks2020_reduced")
             .takes_value(true))
         .arg(Arg::with_name("prethreshold-ani")

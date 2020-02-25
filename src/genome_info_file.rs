@@ -30,6 +30,7 @@ pub fn read_genome_info_file(file_path: &str) -> Result<checkm::CheckMResult, St
             checkm::GenomeQuality { 
                 completeness: completeness/100.,
                 contamination: contamination/100.,
+                strain_heterogeneity: 0., // Should not be used. This is enforced elsewhere.
             }) {
             None => {},
             Some(_) => {
@@ -61,11 +62,13 @@ mod tests {
         let mut map = std::collections::BTreeMap::new();
         map.insert("500kb".to_string(), checkm::GenomeQuality {
             completeness: 0.5,
-            contamination: 0.01
+            contamination: 0.01,
+            strain_heterogeneity: 0.,
         });
         map.insert("1mbp".to_string(), checkm::GenomeQuality {
             completeness: 1.0,
-            contamination: 0.
+            contamination: 0.,
+            strain_heterogeneity: 0.,
         });
         assert_eq!(genome_info.genome_to_quality, map);
     }
