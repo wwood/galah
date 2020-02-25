@@ -302,6 +302,7 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .long("precluster-method")
             .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash")
             .possible_values(&["dashing","finch"])
+            .default_value("dashing")
             .takes_value(true))
         .arg(Arg::with_name("threads")
             .short("t")
