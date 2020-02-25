@@ -1,12 +1,13 @@
 use std;
 use clap::*;
 use bird_tool_utils::clap_utils::*;
+use rayon::prelude::*;
 
 use crate::genome_info_file;
 
 pub enum Preclusterer {
     Dashing {
-        min_ani: f32, 
+        min_ani: f32,
         threads: usize,
     },
     Finch {
@@ -102,6 +103,43 @@ pub fn filter_genomes_through_checkm<'a>(
                         max_contamination)
                         .unwrap()
                 },
+                "Parks2020_reduced" => {
+                    info!("Calculating num_contigs etc. for genome quality assessment ..");
+                    let mut appraisal: Vec<_> = genome_fasta_files
+                        .par_iter()
+                        // convert to checkm::GenomeQuality
+                        .map(|fasta_file| {
+                            (
+                                fasta_file,
+                                checkm.retrieve_via_fasta_path(fasta_file)
+                                    .expect(&format!("Failed to find CheckM statistics for {}", fasta_file))
+                            )
+                        })
+                        // filter out poor checkm quality genomes
+                        .filter(|(_fasta_file, checkm_quality)| {
+                            checkm_quality.completeness >= min_completeness.unwrap() &&
+                            checkm_quality.contamination <= max_contamination.unwrap()
+                        })
+                        // calculate stats for good genomes
+                        .map(|(fasta_file, checkm_quality)| {
+                            (fasta_file, checkm_quality, crate::genome_stats::calculate_genome_stats(fasta_file))
+                        })
+                        // Calculate quality score
+                        .map(|(fasta_file, checkm_quality, stats)| {
+                            let score = checkm_quality.completeness as f64 *100.
+                                - 5.*checkm_quality.contamination as f64*100.
+                                - 5.*stats.num_contigs as f64/100.
+                                - 5.*stats.num_ambiguous_bases as f64/100000.;
+                            debug!("For genome {} found quality score {}, from checkm {:?} and stats {:?}",
+                                fasta_file, score, &checkm_quality, &stats);
+                            (fasta_file, score)
+                        })
+                        .collect();
+
+                    // sort descending
+                    appraisal.sort_by(|a,b| b.1.partial_cmp(&a.1).expect("Arithmetic error while calculating genome quality"));
+                    appraisal.into_iter().map(|(f,_)| &**f).collect::<Vec<_>>()
+                }
                 _ => panic!("Programming error")
             };
             info!("Read in genome qualities for {} genomes. {} passed quality thresholds",
@@ -239,14 +277,21 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
         .arg(Arg::with_name("max-contamination")
             .long("max-contamination")
             .help("Genomes with greater than this percentage of contamination are exluded")
+            .default_value("100")
             .takes_value(true))
         .arg(Arg::with_name("quality-formula")
             .long("quality-formula")
-            .help("Scoring function for genome quality")
+            .help("Scoring function for genome quality. \
+                'completeness-4contamination' for 'completeness-4*contamination', \
+                'completeness-5contamination' for 'completeness-5*contamination', \
+                'Parks2020_reduced' for 'completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000' \
+                which is reduced from a quality formula described in Parks et. al. 2020\
+                https://www.biorxiv.org/content/10.1101/771964v2.abstract")
             .possible_values(&[
                 "completeness-4contamination",
-                "completeness-5contamination"])
-            .default_value("completeness-4contamination")
+                "completeness-5contamination",
+                "Parks2020_reduced"])
+            .default_value("Parks2020_reduced")
             .takes_value(true))
         .arg(Arg::with_name("prethreshold-ani")
             .long("prethreshold-ani")
