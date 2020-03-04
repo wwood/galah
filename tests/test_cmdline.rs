@@ -109,4 +109,36 @@ mod tests {
         assert!(std::fs::symlink_metadata(out).unwrap().file_type().is_symlink());
         assert!(!extra_path.join("1mbp.fna").exists());
     }
+
+    #[test]
+    fn test_output_symlink_directory_names_clash(){
+        let td = tempfile::TempDir::new().unwrap();
+        let tdp = td.path();
+        let extra = &format!("{}_and",tdp.to_str().unwrap());
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--quality-formula",
+                "Parks2020_reduced",
+                "--genome-fasta-files",
+                "tests/data/set1_name_clash/500kb.fna",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--precluster-method", // only needed temporarily
+                "finch",
+                "--output-representative-fasta-directory",
+                extra])
+                .succeeds()
+                .stdout()
+                .is("")
+                .stderr()
+                .contains("One or more sequence files have the same file name")
+                .unwrap();
+        let extra_path = std::path::Path::new(extra);
+        let out = extra_path.join("500kb.fna");
+        assert!(extra_path.exists());
+        assert!(std::fs::symlink_metadata(out).unwrap().file_type().is_symlink());
+        assert!(extra_path.join("500kb.fna.1.fna").exists());
+        assert!(!extra_path.join("1mbp.fna").exists());
+    }
 }

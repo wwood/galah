@@ -97,13 +97,26 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
     }
     match output_representative_fasta_directory {
         Some(dir) => {
+            let mut some_names_clashed = false;
             for cluster in &clusters {
                 let rep = passed_genomes[cluster[0]];
-                let basename = std::path::Path::new(rep).file_name()
-                    .expect(&format!("Failed to find file_name from {}", rep));
                 let link = std::fs::canonicalize(rep)
                     .expect(&format!("Failed to convert representative path into an absolute path: {}", rep));
-                std::os::unix::fs::symlink(link, dir.join(basename))
+                
+                let basename = std::path::Path::new(rep).file_name()
+                    .expect(&format!("Failed to find file_name from {}", rep));
+                // Check that no output files have the same name. If so, add .1.fna, .2.fna etc.
+                let mut current_stab = dir.join(basename).to_str().unwrap().to_string();
+                let mut counter = 0usize;
+                while std::path::Path::new(&current_stab).exists() {
+                    if some_names_clashed == false {
+                        warn!("One or more sequence files have the same file name (e.g. ). Renaming clashes by adding .1.fna, .2.fna etc.");
+                        some_names_clashed = true;
+                    }
+                    counter += 1;
+                    current_stab = format!("{}.{}.fna",dir.join(basename).to_str().unwrap(),counter);
+                }
+                std::os::unix::fs::symlink(link, std::path::Path::new(&current_stab))
                     .expect(&format!("Failed to create symbolic link to representative genome {}", rep));
             }
         },
