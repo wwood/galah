@@ -1,4 +1,6 @@
 use std;
+use std::io::Write;
+
 use clap::*;
 use bird_tool_utils::clap_utils::*;
 use rayon::prelude::*;
@@ -39,6 +41,9 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
     let galah = generate_galah_clusterer(&genome_fasta_files, &m)
         .expect("Failed to parse galah clustering arguments correctly");
 
+    let output_clusters_file = Some(std::fs::File::create(m.value_of("output-cluster-definition").unwrap())
+        .expect("Failed to open output cluster definition file"));
+
     let passed_genomes = &galah.genome_fasta_paths;
     info!("Clustering {} genomes ..", passed_genomes.len());
     let clusters = galah.cluster();
@@ -46,11 +51,17 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
     info!("Found {} genome clusters", clusters.len());
 
 
-    for cluster in clusters {
-        let rep_index = cluster[0];
-        for genome_index in cluster {
-            println!("{}\t{}", passed_genomes[rep_index], passed_genomes[genome_index]);
-        }
+    match output_clusters_file {
+        Some(mut f) => {
+            for cluster in clusters {
+                let rep_index = cluster[0];
+                for genome_index in cluster {
+                    writeln!(f, "{}\t{}", passed_genomes[rep_index], passed_genomes[genome_index])
+                        .expect("Failed to write to output clusters file");
+                }
+            }
+        },
+        None => {}
     }
     info!("Finished printing genome clusters");
 }
@@ -353,6 +364,12 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .long("threads")
             .help("Number of CPU threads to use")
             .default_value("1")
+            .takes_value(true))
+        .arg(Arg::with_name("output-cluster-definition")
+            .short("o")
+            .long("output-cluster-definition")
+            .help("Output a file of representative<TAB>member lines")
+            .required(true)
             .takes_value(true));
 
     cluster_subcommand = bird_tool_utils::clap_utils::add_genome_specification_arguments(

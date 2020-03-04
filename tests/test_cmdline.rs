@@ -18,6 +18,8 @@ mod tests {
                 "tests/data/abisko4/73.20110800_S2M.16.fna",
                 "--precluster-method", // only needed temporarily
                 "finch",
+                "--output-cluster-definition",
+                "/dev/stdout",
                 "--checkm-tab-table",
                 "tests/data/abisko4/abisko4.csv"])
                 .succeeds()
@@ -42,6 +44,8 @@ mod tests {
                 "tests/data/abisko4/73.20110800_S2M.16.fna",
                 "--precluster-method", // only needed temporarily
                 "finch",
+                "--output-cluster-definition",
+                "/dev/stdout",
                 "--checkm-tab-table",
                 "tests/data/abisko4/abisko4.csv"])
                 .succeeds()
