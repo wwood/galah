@@ -141,4 +141,25 @@ mod tests {
         assert!(extra_path.join("500kb.fna.1.fna").exists());
         assert!(!extra_path.join("1mbp.fna").exists());
     }
+
+    #[test]
+    fn test_output_representative_list(){
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1_name_clash/500kb.fna",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--precluster-method", // only needed temporarily
+                "finch",
+                "--output-representative-list",
+                "/dev/stdout"])
+                .succeeds()
+                .stdout()
+                .is("
+                    tests/data/set1/500kb.fna\n\
+                    tests/data/set1_name_clash/500kb.fna\n")
+                .unwrap();
+    }
 }

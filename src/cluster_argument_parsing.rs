@@ -75,6 +75,11 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
         },
         None => None
     };
+    let output_representative_list = match m.value_of("output-representative-list") {
+        Some(o) => Some(std::fs::File::create(o)
+            .expect("Failed to open output representative list file")),
+        None => None
+    };
 
     let passed_genomes = &galah.genome_fasta_paths;
     info!("Clustering {} genomes ..", passed_genomes.len());
@@ -118,6 +123,16 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
                 }
                 std::os::unix::fs::symlink(link, std::path::Path::new(&current_stab))
                     .expect(&format!("Failed to create symbolic link to representative genome {}", rep));
+            }
+        },
+        None => {}
+    }
+    match output_representative_list {
+        Some(mut f) => {
+            for cluster in &clusters {
+                let rep_index = cluster[0];
+                writeln!(f, "{}", passed_genomes[rep_index])
+                    .expect("Failed to write to output representative list file");
             }
         },
         None => {}
@@ -428,12 +443,23 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .short("o")
             .long("output-cluster-definition")
             .help("Output a file of representative<TAB>member lines")
-            .required_unless_one(&["output-representative-fasta-directory"])
+            .required_unless_one(&[
+                "output-representative-fasta-directory",
+                "output-representative-list"])
             .takes_value(true))
         .arg(Arg::with_name("output-representative-fasta-directory")
             .long("output-representative-fasta-directory")
             .help("Symlink representative genomes into this directory")
-            .required_unless_one(&["output-cluster-definition"])
+            .required_unless_one(&[
+                "output-cluster-definition",
+                "output-representative-list"])
+            .takes_value(true))
+        .arg(Arg::with_name("output-representative-list")
+            .long("output-representative-list")
+            .help("Print newline separated list of paths to representatives into this directory")
+            .required_unless_one(&[
+                "output-representative-fasta-directory",
+                "output-cluster-definition"])
             .takes_value(true));
 
     cluster_subcommand = bird_tool_utils::clap_utils::add_genome_specification_arguments(
