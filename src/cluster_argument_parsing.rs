@@ -41,8 +41,40 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
     let galah = generate_galah_clusterer(&genome_fasta_files, &m)
         .expect("Failed to parse galah clustering arguments correctly");
 
-    let output_clusters_file = Some(std::fs::File::create(m.value_of("output-cluster-definition").unwrap())
-        .expect("Failed to open output cluster definition file"));
+    // Open file handles here so errors are caught before CPU-heavy clustering
+    let output_clusters_file = match m.value_of("output-cluster-definition") {
+        Some(o) => Some(std::fs::File::create(o)
+            .expect("Failed to open output cluster definition file")),
+        None => None
+    };
+    let output_representative_fasta_directory = match m.value_of("output-representative-fasta-directory") {
+        Some(ref d) => {
+            let path = std::path::Path::new(d.clone());
+            if path.exists() {
+                if path.is_dir() {
+                    if std::fs::read_dir(path)
+                        .expect(&format!("Error opening existing output directory {}", d))
+                        .collect::<Vec<_>>()
+                        .len() == 0 {
+
+                        info!("Using pre-existing but empty output-representative-fasta-directory")
+                    } else {
+                        error!("The output-representative-fasta-directory specified ({}) exists and is not empty", d);
+                        std::process::exit(1)
+                    }
+                } else {
+                    error!("The output-representative-fasta-directory path specified ({}) exists but is not a directory", d);
+                    std::process::exit(1)
+                }
+            } else {
+                info!("Creating output-representative-fasta-directory for ..");
+                std::fs::create_dir_all(path)
+                    .expect(&format!("Error creating output-representative-fasta-directory ({})", d))
+            }
+            Some(path)
+        },
+        None => None
+    };
 
     let passed_genomes = &galah.genome_fasta_paths;
     info!("Clustering {} genomes ..", passed_genomes.len());
@@ -53,12 +85,26 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
 
     match output_clusters_file {
         Some(mut f) => {
-            for cluster in clusters {
+            for cluster in &clusters {
                 let rep_index = cluster[0];
                 for genome_index in cluster {
-                    writeln!(f, "{}\t{}", passed_genomes[rep_index], passed_genomes[genome_index])
+                    writeln!(f, "{}\t{}", passed_genomes[rep_index], passed_genomes[*genome_index])
                         .expect("Failed to write to output clusters file");
                 }
+            }
+        },
+        None => {}
+    }
+    match output_representative_fasta_directory {
+        Some(dir) => {
+            for cluster in &clusters {
+                let rep = passed_genomes[cluster[0]];
+                let basename = std::path::Path::new(rep).file_name()
+                    .expect(&format!("Failed to find file_name from {}", rep));
+                let link = std::fs::canonicalize(rep)
+                    .expect(&format!("Failed to convert representative path into an absolute path: {}", rep));
+                std::os::unix::fs::symlink(link, dir.join(basename))
+                    .expect(&format!("Failed to create symbolic link to representative genome {}", rep));
             }
         },
         None => {}
@@ -369,7 +415,12 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .short("o")
             .long("output-cluster-definition")
             .help("Output a file of representative<TAB>member lines")
-            .required(true)
+            .required_unless_one(&["output-representative-fasta-directory"])
+            .takes_value(true))
+        .arg(Arg::with_name("output-representative-fasta-directory")
+            .long("output-representative-fasta-directory")
+            .help("Symlink representative genomes into this directory")
+            .required_unless_one(&["output-cluster-definition"])
             .takes_value(true));
 
     cluster_subcommand = bird_tool_utils::clap_utils::add_genome_specification_arguments(

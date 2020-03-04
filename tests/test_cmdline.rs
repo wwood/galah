@@ -55,4 +55,58 @@ mod tests {
                 tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20120800_S1D.21.fna\n")
                 .unwrap();
     }
+
+    #[test]
+    fn test_output_symlink_directory_dir_exists(){
+        let td = tempfile::TempDir::new().unwrap();
+        let tdp = td.path();
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--quality-formula",
+                "Parks2020_reduced",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--precluster-method", // only needed temporarily
+                "finch",
+                "--output-representative-fasta-directory",
+                tdp.to_str().unwrap()])
+                .succeeds()
+                .stdout()
+                .is("")
+                .unwrap();
+        let out = tdp.join("500kb.fna");
+        assert!(out.exists());
+        assert!(std::fs::symlink_metadata(out).unwrap().file_type().is_symlink());
+        assert!(!tdp.join("1mbp.fna").exists());
+    }
+
+    #[test]
+    fn test_output_symlink_directory_dir_doesnt_exist(){
+        let td = tempfile::TempDir::new().unwrap();
+        let tdp = td.path();
+        let extra = &format!("{}_and",tdp.to_str().unwrap());
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--quality-formula",
+                "Parks2020_reduced",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--precluster-method", // only needed temporarily
+                "finch",
+                "--output-representative-fasta-directory",
+                extra])
+                .succeeds()
+                .stdout()
+                .is("")
+                .unwrap();
+        let extra_path = std::path::Path::new(extra);
+        let out = extra_path.join("500kb.fna");
+        assert!(extra_path.exists());
+        assert!(std::fs::symlink_metadata(out).unwrap().file_type().is_symlink());
+        assert!(!extra_path.join("1mbp.fna").exists());
+    }
 }
