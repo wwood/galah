@@ -26,6 +26,13 @@ pub struct GalahClusterer<'a> {
     pub preclusterer: Preclusterer,
 }
 
+pub struct GalahClustererCommandDefinition {
+    pub dereplication_ani_argument: String,
+    pub dereplication_prethreshold_ani_argument: String,
+    pub dereplication_quality_formula_argument: String,
+    pub dereplication_precluster_method_argument: String,
+}
+
 pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
     let m = matches.subcommand_matches("cluster").unwrap();
     set_log_level(m, true, "Galah", crate_version!());
@@ -38,7 +45,12 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
 
     let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true).unwrap();
 
-    let galah = generate_galah_clusterer(&genome_fasta_files, &m)
+    let galah = generate_galah_clusterer(&genome_fasta_files, &m, &GalahClustererCommandDefinition {
+        dereplication_ani_argument: "ani".to_string(),
+        dereplication_prethreshold_ani_argument: "prethreshold-ani".to_string(),
+        dereplication_quality_formula_argument: "quality-formula".to_string(),
+        dereplication_precluster_method_argument: "precluster-method".to_string(),
+    })
         .expect("Failed to parse galah clustering arguments correctly");
 
     // Open file handles here so errors are caught before CPU-heavy clustering
@@ -142,7 +154,8 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
 
 pub fn filter_genomes_through_checkm<'a>(
     genome_fasta_files: &'a Vec<String>,
-    clap_matches: &clap::ArgMatches)
+    clap_matches: &clap::ArgMatches, 
+    argument_definition: &GalahClustererCommandDefinition)
     -> std::result::Result<Vec<&'a str>, String> {
 
     match clap_matches.is_present("checkm-tab-table") || clap_matches.is_present("genome-info") {
@@ -156,7 +169,7 @@ pub fn filter_genomes_through_checkm<'a>(
                 checkm::CheckMTabTable::read_file_path(
                     clap_matches.value_of("checkm-tab-table").unwrap())
             } else if clap_matches.is_present("genome-info") {
-                if clap_matches.value_of("quality-formula").unwrap() == "dRep" {
+                if clap_matches.value_of(&argument_definition.dereplication_quality_formula_argument).unwrap() == "dRep" {
                     return Err("The dRep quality formula cannot be used with --genome-info".to_string());
                 }
                 info!("Reading genome info file {}", clap_matches.value_of("genome-info").unwrap());
@@ -174,8 +187,10 @@ pub fn filter_genomes_through_checkm<'a>(
                 Ok(fraction_opt) => fraction_opt,
                 Err(e) => return Err(e)
             };
+            debug!("{:?}", clap_matches);
+            debug!("Using max contamination {:?} and min completeness {:?}", max_contamination, min_completeness);
 
-            let sorted_thresholded_genomes = match clap_matches.value_of("quality-formula").unwrap() {
+            let sorted_thresholded_genomes = match clap_matches.value_of(&argument_definition.dereplication_quality_formula_argument).unwrap() {
                 "completeness-4contamination" => {
                     info!("Ordering genomes by quality formula: completeness - 4*contamination");
                     checkm.order_fasta_paths_by_completeness_minus_4contamination(
@@ -267,8 +282,14 @@ fn filter_and_calculate_genome_stats<'a>(
         })
         // filter out poor checkm quality genomes
         .filter(|(_fasta_file, checkm_quality)| {
-            checkm_quality.completeness >= min_completeness.unwrap() &&
-            checkm_quality.contamination <= max_contamination.unwrap()
+            let ok1 = match min_completeness {
+                Some(m) => (checkm_quality.completeness >= m),
+                None => true
+            };
+            ok1 && match max_contamination {
+                Some(m) => (checkm_quality.contamination <= m),
+                None => true
+            }
         })
         // calculate stats for good genomes
         .map(|(fasta_file, checkm_quality)| {
@@ -279,13 +300,14 @@ fn filter_and_calculate_genome_stats<'a>(
 
 pub fn generate_galah_clusterer<'a>(
     genome_fasta_paths: &'a Vec<String>,
-    clap_matches: &clap::ArgMatches)
+    clap_matches: &clap::ArgMatches, 
+    argument_definition: &GalahClustererCommandDefinition)
     -> std::result::Result<GalahClusterer<'a>,String> {
 
     crate::external_command_checker::check_for_fastani();
 
     match filter_genomes_through_checkm(
-        &genome_fasta_paths, &clap_matches) {
+        &genome_fasta_paths, &clap_matches, argument_definition) {
 
         Err(e) => {
             std::result::Result::Err(e)
@@ -295,23 +317,23 @@ pub fn generate_galah_clusterer<'a>(
             let threads = value_t!(clap_matches.value_of("threads"), usize).expect("Failed to parse --threads argument");
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
-                ani: parse_percentage(&clap_matches, "ani")
-                    .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of("ani")))
-                    .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of("ani"))),
-                preclusterer: match clap_matches.value_of("precluster-method").unwrap() {
+                ani: parse_percentage(&clap_matches, &argument_definition.dereplication_ani_argument)
+                    .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of(&argument_definition.dereplication_ani_argument)))
+                    .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of(&argument_definition.dereplication_ani_argument))),
+                preclusterer: match clap_matches.value_of(&argument_definition.dereplication_precluster_method_argument).unwrap() {
                     "dashing" => {
                         crate::external_command_checker::check_for_dashing();
                         Preclusterer::Dashing {
-                            min_ani: parse_percentage(clap_matches, "prethreshold-ani")
-                                .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani")))
-                                .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani"))),
+                            min_ani: parse_percentage(clap_matches, &argument_definition.dereplication_prethreshold_ani_argument)
+                                .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of(&argument_definition.dereplication_prethreshold_ani_argument)))
+                                .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of(&argument_definition.dereplication_prethreshold_ani_argument))),
                             threads: threads
                         }
                     },
                     "finch" => Preclusterer::Finch {
-                        min_ani: parse_percentage(clap_matches, "prethreshold-ani")
-                            .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani")))
-                            .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of("prethreshold-ani"))),
+                        min_ani: parse_percentage(clap_matches, &argument_definition.dereplication_prethreshold_ani_argument)
+                            .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of(&argument_definition.dereplication_prethreshold_ani_argument)))
+                            .expect(&format!("Failed to parse prethreshold-ani {:?}", clap_matches.value_of(&argument_definition.dereplication_prethreshold_ani_argument))),
                         num_kmers: 1000,
                         kmer_length: 21,
                     },
