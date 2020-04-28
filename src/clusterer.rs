@@ -16,6 +16,7 @@ pub fn cluster<P: PreclusterDistanceFinder>(
     genomes: &[&str],
     preclusterer: &P,
     fastani_threshold: f32,
+    fastani_min_aligned_threshold: f32,
 ) -> Vec<Vec<usize>> {
 
     assert!(fastani_threshold > 1.0);
@@ -55,14 +56,14 @@ pub fn cluster<P: PreclusterDistanceFinder>(
         debug!("Calculating genome representatives by dashing+fastani in precluster {} ..",
             precluster_id);
         let (clusters, calculated_fastanis) = find_dashing_fastani_representatives(
-            &precluster_dashing_cache, precluster_genomes.as_slice(), fastani_threshold
+            &precluster_dashing_cache, precluster_genomes.as_slice(), fastani_threshold, fastani_min_aligned_threshold
         );
         debug!("In precluster {}, found {} genome representatives", precluster_id, clusters.len());
 
         debug!("Assigning genomes to representatives by dashing+fastani in precluster {}..",
             precluster_id);
         let clusters = find_dashing_fastani_memberships(
-            &clusters, &precluster_dashing_cache, precluster_genomes.as_slice(), calculated_fastanis
+            &clusters, &precluster_dashing_cache, precluster_genomes.as_slice(), calculated_fastanis, fastani_min_aligned_threshold
         );
         // Indices here are within this single linkage cluster only, so
         // here we map them back to their original indices, and then
@@ -131,7 +132,8 @@ fn partition_sketches(
 fn find_dashing_fastani_representatives(
     dashing_cache: &SortedPairGenomeDistanceCache,
     genomes: &[&str],
-    fastani_threshold: f32)
+    fastani_threshold: f32,
+    fastani_min_aligned_threshold: f32)
     -> (BTreeSet<usize>, SortedPairGenomeDistanceCache) {
 
     let mut clusters_to_return: BTreeSet<usize> = BTreeSet::new();
@@ -156,7 +158,8 @@ fn find_dashing_fastani_representatives(
         let fastanis = calculate_fastani_many_to_one_pairwise_stop_early(
             potential_refs.iter().map(|ref_index| genomes[*ref_index]).collect::<Vec<_>>().as_slice(),
             genomes[i],
-            fastani_threshold);
+            fastani_threshold,
+            fastani_min_aligned_threshold);
         let mut is_rep = true;
         for (potential_ref, fastani) in potential_refs.into_iter().zip(fastanis.iter()) {
             debug!("Read in fastani {:?} from ref {} {} and genome {} {}", 
@@ -185,11 +188,12 @@ fn find_dashing_fastani_representatives(
 /// Calculate FastANI values, submitting each genome pair in parallel.
 fn calculate_fastani_many_to_one_pairwise(
     query_genome_paths: &[&str],
-    ref_genome_path: &str)
+    ref_genome_path: &str,
+    fastani_min_aligned_threshold: f32)
     -> Vec<Option<f32>> {
 
     query_genome_paths.par_iter().map(|query_genome| {
-        calculate_fastani(query_genome, ref_genome_path)
+        calculate_fastani(query_genome, ref_genome_path, fastani_min_aligned_threshold)
     }).collect()
 }
 
@@ -200,13 +204,14 @@ fn calculate_fastani_many_to_one_pairwise(
 fn calculate_fastani_many_to_one_pairwise_stop_early(
     query_genome_paths: &[&str],
     ref_genome_path: &str,
-    ani_threshold: f32)
+    ani_threshold: f32,
+    fastani_min_aligned_threshold: f32)
     -> Vec<Option<f32>> {
 
     let to_return: Mutex<Vec<Option<f32>>> = Mutex::new(vec![None;query_genome_paths.len()]);
 
     query_genome_paths.par_iter().enumerate().find_any(|(i,query_genome)| {
-        let ani = calculate_fastani(query_genome, ref_genome_path);
+        let ani = calculate_fastani(query_genome, ref_genome_path, fastani_min_aligned_threshold);
         to_return.lock().unwrap()[*i] = ani;
         match ani {
             Some(real_ani) => real_ani >= ani_threshold,
@@ -217,12 +222,12 @@ fn calculate_fastani_many_to_one_pairwise_stop_early(
     return to_return.into_inner().unwrap()
 }
 
-pub fn calculate_fastani(fasta1: &str, fasta2: &str) -> Option<f32> {
-    let one = calculate_fastani_one_way(fasta1,fasta2);
+pub fn calculate_fastani(fasta1: &str, fasta2: &str, fastani_min_aligned_threshold: f32) -> Option<f32> {
+    let one = calculate_fastani_one_way(fasta1,fasta2,fastani_min_aligned_threshold);
     match one {
         None => return None,
         Some(first) => {
-            let two = calculate_fastani_one_way(fasta2,fasta1);
+            let two = calculate_fastani_one_way(fasta2,fasta1,fastani_min_aligned_threshold);
             match two {
                 None => return None,
                 Some(second) => return Some(
@@ -236,11 +241,13 @@ pub fn calculate_fastani(fasta1: &str, fasta2: &str) -> Option<f32> {
     }
 }
 
-fn calculate_fastani_one_way(fasta1: &str, fasta2: &str) -> Option<f32> {
+fn calculate_fastani_one_way(fasta1: &str, fasta2: &str, fastani_min_aligned_threshold: f32) -> Option<f32> {
     let mut cmd = std::process::Command::new("fastANI");
     cmd
         .arg("-o")
         .arg("/dev/stdout")
+        .arg("--minFraction")
+        .arg(&format!("{}",fastani_min_aligned_threshold))
         .arg("--query")
         .arg(&fasta1)
         .arg("--ref")
@@ -322,7 +329,8 @@ fn find_dashing_fastani_memberships(
     representatives: &BTreeSet<usize>,
     dashing_cache: &SortedPairGenomeDistanceCache,
     genomes: &[&str],
-    calculated_fastanis: SortedPairGenomeDistanceCache
+    calculated_fastanis: SortedPairGenomeDistanceCache,
+    fastani_min_aligned_threshold: f32,
 ) -> Vec<Vec<usize>> {
 
     let mut rep_to_index = BTreeMap::new();
@@ -353,6 +361,7 @@ fn find_dashing_fastani_memberships(
             let new_fastanis = calculate_fastani_many_to_one_pairwise(
                 &potential_refs.iter().map(|ref_i| genomes[**ref_i]).collect::<Vec<_>>(),
                 genomes[i],
+                fastani_min_aligned_threshold,
             );
             for (ref_i, ani_opt) in potential_refs.iter().zip(new_fastanis.iter()) {
                 calculated_fastanis_lock.lock().unwrap().insert((i,**ref_i), *ani_opt);
@@ -457,6 +466,7 @@ mod tests {
                 kmer_length: 21
             },
             95.0,
+            0.2,
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(
@@ -480,6 +490,7 @@ mod tests {
                 kmer_length: 21
             },
             98.0,
+            0.2,
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(
@@ -503,6 +514,7 @@ mod tests {
                 kmer_length: 21
             },
             98.0,
+            0.2,
         );
         for cluster in clusters.iter_mut() { cluster.sort_unstable(); }
         assert_eq!(

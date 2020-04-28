@@ -23,6 +23,7 @@ pub enum Preclusterer {
 pub struct GalahClusterer<'a> {
     pub genome_fasta_paths: Vec<&'a str>,
     pub ani: f32,
+    pub min_aligned_fraction: f32,
     pub preclusterer: Preclusterer,
 }
 
@@ -31,6 +32,7 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_prethreshold_ani_argument: String,
     pub dereplication_quality_formula_argument: String,
     pub dereplication_precluster_method_argument: String,
+    pub dereplication_aligned_fraction_argument: String,
 }
 
 pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
@@ -50,6 +52,7 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
         dereplication_prethreshold_ani_argument: "prethreshold-ani".to_string(),
         dereplication_quality_formula_argument: "quality-formula".to_string(),
         dereplication_precluster_method_argument: "precluster-method".to_string(),
+        dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
     })
         .expect("Failed to parse galah clustering arguments correctly");
 
@@ -320,6 +323,9 @@ pub fn generate_galah_clusterer<'a>(
                 ani: parse_percentage(&clap_matches, &argument_definition.dereplication_ani_argument)
                     .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of(&argument_definition.dereplication_ani_argument)))
                     .expect(&format!("Failed to parse ani {:?}", clap_matches.value_of(&argument_definition.dereplication_ani_argument))),
+                min_aligned_fraction: parse_percentage(&clap_matches, &argument_definition.dereplication_aligned_fraction_argument)
+                    .expect(&format!("Failed to parse min-aligned-fraction {:?}", clap_matches.value_of(&argument_definition.dereplication_aligned_fraction_argument)))
+                    .expect(&format!("Failed to parse min-aligned-fraction {:?}", clap_matches.value_of(&argument_definition.dereplication_aligned_fraction_argument))),
                 preclusterer: match clap_matches.value_of(&argument_definition.dereplication_precluster_method_argument).unwrap() {
                     "dashing" => {
                         crate::external_command_checker::check_for_dashing();
@@ -368,6 +374,7 @@ impl GalahClusterer<'_> {
     pub fn cluster(&self) -> Vec<Vec<usize>> {
         let genomes = &self.genome_fasta_paths;
         let ani = self.ani*100.;
+        let fastani_min_aligned_threshold = self.min_aligned_fraction;
         match self.preclusterer {
             Preclusterer::Dashing {
                 min_ani,
@@ -379,7 +386,8 @@ impl GalahClusterer<'_> {
                         min_ani: min_ani,
                         threads: threads
                     },
-                    ani
+                    ani,
+                    fastani_min_aligned_threshold,
                 )
             }
             Preclusterer::Finch {
@@ -394,7 +402,8 @@ impl GalahClusterer<'_> {
                         num_kmers: num_kmers,
                         kmer_length: kmer_length,
                     },
-                    ani
+                    ani,
+                    fastani_min_aligned_threshold,
                 )
             }
         }
@@ -410,6 +419,11 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .help("Average nucleotide identity threshold for clustering")
             .takes_value(true)
             .default_value("99"))
+        .arg(Arg::with_name("min-aligned-fraction")
+            .long("min-aligned-fraction")
+            .help("Min aligned fraction of two genomes for clustering")
+            .takes_value(true)
+            .default_value("50"))
         .arg(Arg::with_name("checkm-tab-table")
             .long("checkm-tab-table")
             .help("Output of CheckM lineage_wf/taxonomy_wf/qa with --tab_table specified")

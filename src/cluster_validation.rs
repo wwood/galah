@@ -5,7 +5,7 @@ use crate::clusterer::calculate_fastani;
 
 use rayon::prelude::*;
 
-pub fn validate_clusters(clustering_file: &str, ani_threshold: f32) {
+pub fn validate_clusters(clustering_file: &str, ani_threshold: f32, fastani_min_aligned_threshold: f32) {
     let ani = ani_threshold*100.;
 
     // Read cluster file
@@ -17,7 +17,7 @@ pub fn validate_clusters(clustering_file: &str, ani_threshold: f32) {
     clusters.par_iter().for_each( |cluster| {
         let rep = &cluster[0];
         cluster.par_iter().for_each( |genome| {
-            let fastani_res = calculate_fastani(&rep, &genome);
+            let fastani_res = calculate_fastani(&rep, &genome, fastani_min_aligned_threshold);
             match fastani_res {
                 Some(fastani) => {
                     if fastani >= ani {
@@ -39,7 +39,7 @@ pub fn validate_clusters(clustering_file: &str, ani_threshold: f32) {
     reps.par_iter().enumerate().for_each(|(i,rep1)| {
         reps.par_iter().enumerate().for_each(|(j,rep2)| {
             if i<j {
-                let fastani_res = calculate_fastani(rep1, rep2);
+                let fastani_res = calculate_fastani(rep1, rep2,fastani_min_aligned_threshold);
                 match fastani_res {
                     Some(fastani) => {
                         if fastani < ani {

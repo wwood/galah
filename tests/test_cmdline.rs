@@ -162,4 +162,45 @@ mod tests {
                     tests/data/set1_name_clash/500kb.fna\n")
                 .unwrap();
     }
+
+
+    #[test]
+    fn test_min_aligned_fraction(){
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set2/1mbp.fna",
+                "tests/data/set2/1mbp.half_aligned.fna",
+                "--min-aligned-fraction",
+                "0.2",
+                "--precluster-method", // only needed temporarily
+                "finch",
+                "--output-representative-list",
+                "/dev/stdout"])
+                .succeeds()
+                .stdout()
+                .is("
+                    tests/data/set2/1mbp.fna\n")
+                .unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set2/1mbp.fna",
+                "tests/data/set2/1mbp.half_aligned.fna",
+                "--min-aligned-fraction",
+                "0.6",
+                "--precluster-method", // only needed temporarily
+                "finch",
+                "--output-representative-list",
+                "/dev/stdout"])
+                .succeeds()
+                .stdout()
+                .is("
+                    tests/data/set2/1mbp.fna\n\
+                    tests/data/set2/1mbp.half_aligned.fna\n")
+                .unwrap();
+    }
 }

@@ -31,8 +31,12 @@ fn main(){
                 .expect("Programming error: rayon initialised multiple times");
 
             let ani = galah::cluster_argument_parsing::parse_percentage(&m, "ani");
+            let min_aligned_fraction = galah::cluster_argument_parsing::parse_percentage(&m, "min-aligned-fraction");
 
-            galah::cluster_validation::validate_clusters(m.value_of("cluster-file").unwrap(), ani.unwrap().unwrap());
+            galah::cluster_validation::validate_clusters(
+                m.value_of("cluster-file").unwrap(), 
+                ani.unwrap().unwrap(), 
+                min_aligned_fraction.unwrap().unwrap());
 
         },
         _ => panic!("Programming error")
@@ -62,6 +66,11 @@ fn build_cli() -> App<'static, 'static> {
                     .default_value("99")
                     .help("ANI to validate against")
                     .takes_value(true))
+                .arg(Arg::with_name("min-aligned-fraction")
+                    .long("min-aligned-fraction")
+                    .help("Min aligned fraction of two genomes for clustering")
+                    .takes_value(true)
+                    .default_value("50"))
                 .arg(Arg::with_name("threads")
                     .short("t")
                     .long("threads")
