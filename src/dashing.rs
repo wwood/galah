@@ -5,12 +5,12 @@ use std::io::Write;
 use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
 use crate::PreclusterDistanceFinder;
 
-use tempfile;
 use bird_tool_utils::command::finish_command_safely;
+use tempfile;
 
 pub struct DashingPreclusterer {
     /// Fraction, not percentage
-    pub min_ani: f32, 
+    pub min_ani: f32,
     pub threads: usize,
 }
 
@@ -20,8 +20,11 @@ impl PreclusterDistanceFinder for DashingPreclusterer {
     }
 }
 
-pub fn distances(genome_fasta_paths: &[&str], min_ani: f32, threads: usize)
--> SortedPairGenomeDistanceCache {
+pub fn distances(
+    genome_fasta_paths: &[&str],
+    min_ani: f32,
+    threads: usize,
+) -> SortedPairGenomeDistanceCache {
     // Create a tempfile to list all the fasta file paths
     let mut tf = tempfile::Builder::new()
         .prefix("galah-input-genomes")
@@ -37,12 +40,11 @@ pub fn distances(genome_fasta_paths: &[&str], min_ani: f32, threads: usize)
     // Run dashing to get distances
     info!("Running dashing to get approximate distances ..");
     let mut cmd = std::process::Command::new("dashing");
-    cmd
-        .arg("cmp")
+    cmd.arg("cmp")
         .arg("-o")
         .arg("/dev/null")
         .arg("--nthreads")
-        .arg(&format!("{}",threads))
+        .arg(&format!("{}", threads))
         .arg("-M")
         // so that the order of the output remains consistent. Could get around
         // this by finding the indices afterwards but eh.
@@ -54,7 +56,9 @@ pub fn distances(genome_fasta_paths: &[&str], min_ani: f32, threads: usize)
     debug!("Running dashing command: {:?}", &cmd);
 
     // Parse the distances
-    let mut process = cmd.spawn().expect(&format!("Failed to spawn {}", "dashing"));
+    let mut process = cmd
+        .spawn()
+        .expect(&format!("Failed to spawn {}", "dashing"));
     let stdout = process.stdout.as_mut().unwrap();
     let stdout_reader = BufReader::new(stdout);
 
@@ -70,16 +74,18 @@ pub fn distances(genome_fasta_paths: &[&str], min_ani: f32, threads: usize)
             Ok(record) => {
                 assert_eq!(genome_fasta_paths[genome_id1], &record[0]);
                 debug!("Found dashing record {:?}", record);
-                for genome_id2 in genome_id1+1..genome_fasta_paths.len() {
-                    let dist: f32 = record[genome_id2+1].parse()
-                        .expect(&format!("Failed to convert dashing dist to float value: {}", &record[genome_id2]));
+                for genome_id2 in genome_id1 + 1..genome_fasta_paths.len() {
+                    let dist: f32 = record[genome_id2 + 1].parse().expect(&format!(
+                        "Failed to convert dashing dist to float value: {}",
+                        &record[genome_id2]
+                    ));
                     trace!("Found dist {}", dist);
                     if 1.0 - dist >= min_ani {
                         trace!("Accepting ANI since it passed threshold");
                         distances.insert((genome_id1, genome_id2), Some(1.0 - dist))
                     }
                 }
-            },
+            }
             Err(e) => {
                 error!("Error parsing dashing output: {}", e);
                 std::process::exit(1);

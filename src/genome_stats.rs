@@ -1,7 +1,7 @@
 use needletail::parse_sequence_path;
 use needletail::sequence::Sequence;
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct GenomeAssemblyStats {
     pub num_contigs: usize,
     pub num_ambiguous_bases: usize,
@@ -27,9 +27,12 @@ pub fn calculate_genome_stats(fasta_path: &str) -> GenomeAssemblyStats {
                     num_ambiguous += 1
                 }
             }
-        }
-    ).expect(
-        &format!("Failed to calculate genome statistics for file {}", fasta_path));
+        },
+    )
+    .expect(&format!(
+        "Failed to calculate genome statistics for file {}",
+        fasta_path
+    ));
 
     // Calculate n50
     contig_lengths.sort();
@@ -47,10 +50,9 @@ pub fn calculate_genome_stats(fasta_path: &str) -> GenomeAssemblyStats {
     GenomeAssemblyStats {
         num_contigs: num_contigs,
         num_ambiguous_bases: num_ambiguous,
-        n50: n50.expect(&format!("Failed to calculate n50 from {}", fasta_path))
+        n50: n50.expect(&format!("Failed to calculate n50 from {}", fasta_path)),
     }
 }
-
 
 #[cfg(test)]
 mod tests {
