@@ -62,34 +62,10 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
             .expect("Failed to open output cluster definition file")),
         None => None
     };
-    let output_representative_fasta_directory = match m.value_of("output-representative-fasta-directory") {
-        Some(ref d) => {
-            let path = std::path::Path::new(d.clone());
-            if path.exists() {
-                if path.is_dir() {
-                    if std::fs::read_dir(path)
-                        .expect(&format!("Error opening existing output directory {}", d))
-                        .collect::<Vec<_>>()
-                        .len() == 0 {
 
-                        info!("Using pre-existing but empty output-representative-fasta-directory")
-                    } else {
-                        error!("The output-representative-fasta-directory specified ({}) exists and is not empty", d);
-                        std::process::exit(1)
-                    }
-                } else {
-                    error!("The output-representative-fasta-directory path specified ({}) exists but is not a directory", d);
-                    std::process::exit(1)
-                }
-            } else {
-                info!("Creating output-representative-fasta-directory for ..");
-                std::fs::create_dir_all(path)
-                    .expect(&format!("Error creating output-representative-fasta-directory ({})", d))
-            }
-            Some(path)
-        },
-        None => None
-    };
+    let output_representative_fasta_directory = setup_representative_output_directory(&m, "output-representative-fasta-directory");
+    let output_representative_fasta_directory_copy = setup_representative_output_directory(&m, "output-representative-fasta-directory-copy");
+
     let output_representative_list = match m.value_of("output-representative-list") {
         Some(o) => Some(std::fs::File::create(o)
             .expect("Failed to open output representative list file")),
@@ -115,10 +91,77 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
         },
         None => {}
     }
+
+    write_cluster_reps_to_directory(&clusters,
+        passed_genomes,
+        output_representative_fasta_directory, 
+        &|link, current_stab, rep| {
+            std::os::unix::fs::symlink(link, std::path::Path::new(&current_stab))
+                    .expect(&format!("Failed to create symbolic link to representative genome {}", rep));
+        });
+    write_cluster_reps_to_directory(&clusters,
+        passed_genomes,
+        output_representative_fasta_directory_copy, 
+        &|link, current_stab, rep| {
+            std::fs::copy(link, std::path::Path::new(&current_stab))
+                    .expect(&format!("Failed to create symbolic link to representative genome {}", rep));
+        });
+
+    match output_representative_list {
+        Some(mut f) => {
+            for cluster in &clusters {
+                let rep_index = cluster[0];
+                writeln!(f, "{}", passed_genomes[rep_index])
+                    .expect("Failed to write to output representative list file");
+            }
+        },
+        None => {}
+    }
+    info!("Finished printing genome clusters");
+}
+
+fn setup_representative_output_directory<'a>(m: &'a clap::ArgMatches, 
+    argument: &str) -> Option<&'a std::path::Path> {
+    
+    match m.value_of(argument) {
+        Some(ref d) => {
+            let path = std::path::Path::new(d.clone());
+            if path.exists() {
+                if path.is_dir() {
+                    if std::fs::read_dir(path)
+                        .expect(&format!("Error opening existing output directory {}", d))
+                        .collect::<Vec<_>>()
+                        .len() == 0 {
+
+                        info!("Using pre-existing but empty {}", argument)
+                    } else {
+                        error!("The {} specified ({}) exists and is not empty", argument, d);
+                        std::process::exit(1)
+                    }
+                } else {
+                    error!("The {} path specified ({}) exists but is not a directory", argument, d);
+                    std::process::exit(1)
+                }
+            } else {
+                info!("Creating {} ..", argument);
+                std::fs::create_dir_all(path)
+                    .expect(&format!("Error creating {} ({})", argument, d))
+            }
+            Some(path)
+        },
+        None => None
+    }
+}
+
+fn write_cluster_reps_to_directory(clusters: &Vec<Vec<usize>>,
+    passed_genomes: &Vec<&str>,
+    output_representative_fasta_directory: Option<&std::path::Path>,
+    file_creation_fn: &dyn Fn(&std::path::Path, String, &str) -> ()) {
+    
     match output_representative_fasta_directory {
         Some(dir) => {
             let mut some_names_clashed = false;
-            for cluster in &clusters {
+            for cluster in clusters {
                 let rep = passed_genomes[cluster[0]];
                 let link = std::fs::canonicalize(rep)
                     .expect(&format!("Failed to convert representative path into an absolute path: {}", rep));
@@ -136,23 +179,11 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
                     counter += 1;
                     current_stab = format!("{}.{}.fna",dir.join(basename).to_str().unwrap(),counter);
                 }
-                std::os::unix::fs::symlink(link, std::path::Path::new(&current_stab))
-                    .expect(&format!("Failed to create symbolic link to representative genome {}", rep));
+                file_creation_fn(&link, current_stab, rep);
             }
         },
         None => {}
-    }
-    match output_representative_list {
-        Some(mut f) => {
-            for cluster in &clusters {
-                let rep_index = cluster[0];
-                writeln!(f, "{}", passed_genomes[rep_index])
-                    .expect("Failed to write to output representative list file");
-            }
-        },
-        None => {}
-    }
-    info!("Finished printing genome clusters");
+    };
 }
 
 pub fn filter_genomes_through_checkm<'a>(
@@ -481,13 +512,23 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .help("Output a file of representative<TAB>member lines")
             .required_unless_one(&[
                 "output-representative-fasta-directory",
-                "output-representative-list"])
+                "output-representative-fasta-directory-copy",
+                "output-representative-list",])
             .takes_value(true))
         .arg(Arg::with_name("output-representative-fasta-directory")
             .long("output-representative-fasta-directory")
             .help("Symlink representative genomes into this directory")
             .required_unless_one(&[
                 "output-cluster-definition",
+                "output-representative-list",
+                "output-representative-fasta-directory-copy",])
+            .takes_value(true))
+        .arg(Arg::with_name("output-representative-fasta-directory-copy")
+            .long("output-representative-fasta-directory-copy")
+            .help("Copy representative genomes into this directory")
+            .required_unless_one(&[
+                "output-cluster-definition",
+                "output-representative-fasta-directory",
                 "output-representative-list"])
             .takes_value(true))
         .arg(Arg::with_name("output-representative-list")
@@ -495,6 +536,7 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .help("Print newline separated list of paths to representatives into this directory")
             .required_unless_one(&[
                 "output-representative-fasta-directory",
+                "output-representative-fasta-directory-copy",
                 "output-cluster-definition"])
             .takes_value(true));
 
