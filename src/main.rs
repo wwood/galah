@@ -33,11 +33,13 @@ fn main() {
             let ani = galah::cluster_argument_parsing::parse_percentage(&m, "ani");
             let min_aligned_fraction =
                 galah::cluster_argument_parsing::parse_percentage(&m, "min-aligned-fraction");
+            let fraglen = value_t!(m, "fraglen", u32);
 
             galah::cluster_validation::validate_clusters(
                 m.value_of("cluster-file").unwrap(),
                 ani.unwrap().unwrap(),
                 min_aligned_fraction.unwrap().unwrap(),
+                fraglen.unwrap(),
             );
         }
         _ => panic!("Programming error"),
