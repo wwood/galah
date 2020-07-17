@@ -7,7 +7,7 @@ pub fn check_for_dependencies() {
 
 pub fn check_for_fastani() {
     self::check_for_external_command_presence("fastaANI", "which fastANI");
-    self::default_version_check("fastANI", "1.3", false, None);
+    self::default_version_check("fastANI", "1.31", false, None);
 }
 
 pub fn check_for_dashing() {

@@ -96,7 +96,7 @@ Third party dependencies listed below are required for this method.
 Galah relies on these 3rd party tools, which must be installed separately.
 
 * Dashing v0.4.0 https://github.com/dnbaker/dashing
-* FastANI v1.3 https://github.com/ParBLiSS/FastANI
+* FastANI v1.31 https://github.com/ParBLiSS/FastANI
 
 ## Usage
 For clustering a set of genomes at 99% ANI:
