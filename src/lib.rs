@@ -19,3 +19,10 @@ use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
 pub trait PreclusterDistanceFinder {
     fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache;
 }
+
+pub const DEFAULT_ALIGNED_FRACTION: &str = "50";
+pub const DEFAULT_FRAGMENT_LENGTH: &str = "3000";
+pub const DEFAULT_ANI: &str = "99";
+pub const DEFAULT_PRETHRESHOLD_ANI: &str = "95";
+pub const DEFAULT_QUALITY_FORMULA: &str = "Parks2020_reduced";
+pub const DEFAULT_PRECLUSTER_METHOD: &str = "dashing";
