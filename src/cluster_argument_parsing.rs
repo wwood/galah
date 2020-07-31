@@ -621,7 +621,7 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .help("Scoring function for genome quality. \
                 'Parks2020_reduced' for 'completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000' \
                 which is reduced from a quality formula described in Parks et. al. 2020\
-                https://www.biorxiv.org/content/10.1101/771964v2.abstract\
+                https://www.nature.com/articles/s41587-020-0501-8\
                 'completeness-4contamination' for 'completeness-4*contamination', \
                 'completeness-5contamination' for 'completeness-5*contamination', \
                 'dRep' for 'completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)'")
