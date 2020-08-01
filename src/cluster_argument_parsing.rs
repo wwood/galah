@@ -3,6 +3,7 @@ use std::io::Write;
 
 use bird_tool_utils::clap_utils::*;
 use clap::*;
+use man::prelude::{Author, Flag, Manual, Opt, Section};
 use rayon::prelude::*;
 
 use crate::genome_info_file;
@@ -37,9 +38,134 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_fraglen_argument: String,
 }
 
+lazy_static! {
+    static ref GALAH_COMMAND_DEFINITION: GalahClustererCommandDefinition = {
+        GalahClustererCommandDefinition {
+            dereplication_ani_argument: "ani".to_string(),
+            dereplication_prethreshold_ani_argument: "prethreshold-ani".to_string(),
+            dereplication_quality_formula_argument: "quality-formula".to_string(),
+            dereplication_precluster_method_argument: "precluster-method".to_string(),
+            dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
+            dereplication_fraglen_argument: "fraglen".to_string(),
+        }
+    };
+}
+
+pub fn add_dereplication_filtering_parameters_to_section(section: Section) -> Section {
+    section
+        .option(Opt::new("PATH").long("--checkm-tab-table").help(
+            "CheckM tab table for defining genome quality, \
+            which is in turn used during clustering to rank genomes.",
+        ))
+        .option(Opt::new("PATH").long("--genome-info").help(
+            "dRep style genome info table for defining \
+        quality. Used like --checkm-tab-table.",
+        ))
+        .option(Opt::new("FLOAT").long("--min-completeness").help(
+            "Ignore genomes with less completeness than \
+        this percentage.",
+        ))
+        .option(Opt::new("FLOAT").long("--max-contamination").help(
+            "Ignore genomes with more contamination than \
+        this percentage.",
+        ))
+}
+
+pub fn add_dereplication_clustering_parameters_to_section(
+    section: Section,
+    definition: &GalahClustererCommandDefinition,
+) -> Section {
+    section
+        .option(
+            Opt::new("FLOAT")
+                .long(&format!("--{}", definition.dereplication_ani_argument))
+                .help("Overall ANI level to dereplicate at with FastANI."),
+        )
+        .option(
+            Opt::new("FLOAT")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_prethreshold_ani_argument
+                ))
+                .help(
+                    "Require at least this dashing-derived ANI \
+                for preclustering and to avoid FastANI on \
+                distant lineages within preclusters.",
+                ),
+        )
+        .option(
+            Opt::new("NAME")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_quality_formula_argument
+                ))
+                .help(
+                    "Scoring function for genome quality. See \
+                `coverm cluster --full-help`.",
+                ),
+        )
+        .option(
+            Opt::new("NAME")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_precluster_method_argument
+                ))
+                .help(&format!(
+                    "method of calculating rough ANI for \
+                dereplication. 'dashing' for HyperLogLog, \
+                'finch' for finch MinHash.",
+                )),
+        )
+        .option(
+            Opt::new("FLOAT")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_aligned_fraction_argument
+                ))
+                .help(&format!(
+                    "Min aligned fraction of two genomes for \
+                clustering [default: {}].",
+                    crate::DEFAULT_ALIGNED_FRACTION
+                )),
+        )
+        .option(
+            Opt::new("FLOAT")
+                .long(&format!("--{}", definition.dereplication_fraglen_argument))
+                .help(&format!(
+                    "Length of fragment used in FastANI calculation \
+                (i.e. --fragLen) [default: {}].",
+                    crate::DEFAULT_FRAGMENT_LENGTH
+                )),
+        )
+}
+
+pub fn add_dereplication_output_parameters_to_section(section: Section) -> Section {
+    section
+        .option(
+            Opt::new("PATH")
+                .long("--output-cluster-definition")
+                .help("Output a file of representative<TAB>member lines"),
+        )
+        .option(
+            Opt::new("PATH")
+                .long("--output-representative-fasta-directory")
+                .help("Symlink representative genomes into this directory"),
+        )
+        .option(
+            Opt::new("PATH")
+                .long("--output-representative-fasta-directory-copy")
+                .help("Copy representative genomes into this directory"),
+        )
+        .option(Opt::new("PATH").long("--output-representative-list").help(
+            "Print newline separated list of paths to representatives \
+                    into this file",
+        ))
+}
+
 pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
     let m = matches.subcommand_matches("cluster").unwrap();
     set_log_level(m, true, "Galah", crate_version!());
+    bird_tool_utils::clap_utils::print_full_help_if_needed(&m, cluster_full_help(&"galah"));
 
     let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
     rayon::ThreadPoolBuilder::new()
@@ -49,19 +175,8 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
 
     let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true).unwrap();
 
-    let galah = generate_galah_clusterer(
-        &genome_fasta_files,
-        &m,
-        &GalahClustererCommandDefinition {
-            dereplication_ani_argument: "ani".to_string(),
-            dereplication_prethreshold_ani_argument: "prethreshold-ani".to_string(),
-            dereplication_quality_formula_argument: "quality-formula".to_string(),
-            dereplication_precluster_method_argument: "precluster-method".to_string(),
-            dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
-            dereplication_fraglen_argument: "fraglen".to_string(),
-        },
-    )
-    .expect("Failed to parse galah clustering arguments correctly");
+    let galah = generate_galah_clusterer(&genome_fasta_files, &m, &GALAH_COMMAND_DEFINITION)
+        .expect("Failed to parse galah clustering arguments correctly");
 
     // Open file handles here so errors are caught before CPU-heavy clustering
     let output_clusters_file = match m.value_of("output-cluster-definition") {
@@ -580,9 +695,77 @@ impl GalahClusterer<'_> {
     }
 }
 
+pub fn cluster_full_help(program_basename: &str) -> Manual {
+    let mut manual = Manual::new(&format!("{} cluster", program_basename))
+        .about("Cluster FASTA files by average nucleotide identity")
+        .author(Author::new("Ben J Woodcroft").email("benjwoodcroft near gmail.com"));
+
+    // input
+    manual = manual.custom(
+        bird_tool_utils::clap_utils::add_genome_specification_to_section(Section::new(
+            "Genome input",
+        )),
+    );
+
+    // filtering
+    manual = manual.custom(add_dereplication_filtering_parameters_to_section(
+        Section::new("Filtering parameters"),
+    ));
+
+    // clustering
+    manual = manual.custom(add_dereplication_clustering_parameters_to_section(
+        Section::new("Clustering parameters"),
+        &GALAH_COMMAND_DEFINITION,
+    ));
+
+    // output
+    manual = manual.custom(add_dereplication_output_parameters_to_section(
+        Section::new("Output"),
+    ));
+
+    // general
+    manual = manual.custom(
+        Section::new("General parameters")
+            .option(
+                Opt::new("INT")
+                    .short("-t")
+                    .long("--threads")
+                    .help("Number of threads."),
+            )
+            .flag(
+                Flag::new()
+                    .short("-v")
+                    .long("--verbose")
+                    .help("Print extra debugging information"),
+            )
+            .flag(Flag::new().short("-q").long("--quiet").help(
+                "Unless there is an error, do not print \
+                log messages",
+            ))
+            .flag(
+                Flag::new()
+                    .short("-h")
+                    .long("--help")
+                    .help("Output a short usage message."),
+            )
+            .flag(
+                Flag::new()
+                    .long("--full-help")
+                    .help("Output a full help message and display in 'man'."),
+            )
+            .flag(Flag::new().long("--full-help-roff").help(
+                "Output a full help message in raw ROFF format for \
+            conversion to other formats.",
+            )),
+    );
+    manual
+}
+
 pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
     let mut cluster_subcommand = SubCommand::with_name("cluster")
         .about("Cluster FASTA files by average nucleotide identity")
+        .arg(Arg::with_name("full-help").long("full-help"))
+        .arg(Arg::with_name("full-help-roff").long("full-help-roff"))
         .arg(Arg::with_name("ani")
             .long("ani")
             .help("Average nucleotide identity threshold for clustering")
@@ -656,7 +839,9 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .required_unless_one(&[
                 "output-representative-fasta-directory",
                 "output-representative-fasta-directory-copy",
-                "output-representative-list",])
+                "output-representative-list",
+                "full-help",
+                "full-help-roff",])
             .takes_value(true))
         .arg(Arg::with_name("output-representative-fasta-directory")
             .long("output-representative-fasta-directory")
@@ -664,7 +849,9 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .required_unless_one(&[
                 "output-cluster-definition",
                 "output-representative-list",
-                "output-representative-fasta-directory-copy",])
+                "output-representative-fasta-directory-copy",
+                "full-help",
+                "full-help-roff",])
             .takes_value(true))
         .arg(Arg::with_name("output-representative-fasta-directory-copy")
             .long("output-representative-fasta-directory-copy")
@@ -672,7 +859,9 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .required_unless_one(&[
                 "output-cluster-definition",
                 "output-representative-fasta-directory",
-                "output-representative-list"])
+                "output-representative-list",
+                "full-help",
+                "full-help-roff",])
             .takes_value(true))
         .arg(Arg::with_name("output-representative-list")
             .long("output-representative-list")
@@ -680,7 +869,9 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .required_unless_one(&[
                 "output-representative-fasta-directory",
                 "output-representative-fasta-directory-copy",
-                "output-cluster-definition"])
+                "output-cluster-definition",
+                "full-help",
+                "full-help-roff",])
             .takes_value(true));
 
     cluster_subcommand =

@@ -13,6 +13,8 @@ extern crate log;
 extern crate clap;
 extern crate partitions;
 extern crate rayon;
+#[macro_use]
+extern crate lazy_static;
 
 use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
 

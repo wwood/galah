@@ -23,11 +23,13 @@ env_logger = "0.7.*"
 checkm = { git = "https://github.com/wwood/checkm-rs", rev = "b58ff8361c86ca2485e7f888467ca40ed01242ee" }
 rayon = "1.0"
 csv = "1.1"
-bird_tool_utils = "0.1.0"
+bird_tool_utils = {path="../bird_tool_utils"} #"0.1.0"
 tempfile = "3.*"
 finch = "0.3.*"
 partitions = { version = "0.2.*", features = ["compact"] }
 needletail = "0.3.*"
+man = {git = "https://github.com/wwood/man", rev = "6aed86ec55ab6c867b391658586a597770c6dcb1"}
+lazy_static = "1.4.0"
 
 [dev-dependencies]
 assert_cli = "0.6.*"
