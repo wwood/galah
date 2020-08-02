@@ -35,16 +35,16 @@ specified, then the clusters have an additional property:
 
 3. Each representative genome has a better quality score than other members of
    the cluster. Each genome is assigned a quality score based on the formula
-   "completeness - 4*contamination".
+   `completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000`, which is reduced from a quality formula described in
+  Parks et. al. 2020 https://doi.org/10.1038/s41587-020-0501-8.
 
-If CheckM qualities are not used, then:
+If instead CheckM qualities were not provided, then the following holds instead:
 
-1. Each representative genome was specified to galah before other members of the
+3. Each representative genome was specified to galah before other members of the
    cluster.
 
 The overall greedy clustering approach was largely inspired by the work of
-Donovan Parks, as described in [this
-publication](https://www.biorxiv.org/content/10.1101/771964v2.abstract). It
+Donovan Parks, as described in [Parks et. al. 2020](https://doi.org/10.1038/s41587-020-0501-8). It
 operates in 3 steps. In the first step, genomes are assigned as representative
 if no genomes of higher quality are >99% ANI. In the second step, each
 non-representative genome is assigned to the representative genome it has the
@@ -54,13 +54,13 @@ highest ANI with.
 
 ### Install through the bioconda package
 
-CoverM can be installed through the [bioconda](https://bioconda.github.io/user/install.html) conda channel. After initial setup of conda and the bioconda channel, it can be installed with
+Galah can be installed through the [bioconda](https://bioconda.github.io/user/install.html) conda channel. After initial setup of conda and the bioconda channel, it can be installed with
 
 ```
 conda install galah
 ```
 Galah can also be used indirectly through
-[CoverM](https://github.com/wwood/CoverM), which is also available on bioconda.
+[CoverM](https://github.com/wwood/CoverM) via its `cluster` subcommand, which is also available on bioconda.
 
 ### Pre-compiled binary
 

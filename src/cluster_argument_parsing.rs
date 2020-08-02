@@ -169,7 +169,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     &format!("Scoring function for genome quality. \
                         'Parks2020_reduced' for 'completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000' \
                         which is reduced from a quality formula described in Parks et. al. 2020 \
-                        https://www.nature.com/articles/s41587-020-0501-8 \
+                        https://doi.org/10.1038/s41587-020-0501-8 \
                         'completeness-4contamination' for 'completeness-4*contamination', \
                         'completeness-5contamination' for 'completeness-5*contamination', \
                         'dRep' for 'completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)'. [default: {}]",
