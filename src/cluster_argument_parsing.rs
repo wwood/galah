@@ -51,11 +51,77 @@ lazy_static! {
     };
 }
 
+lazy_static! {
+    static ref PROGRAM_NAME: String = std::env::current_exe()
+        .ok()
+        .and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
+        .and_then(|s| s.into_string().ok())
+        .expect("Failed to find running program basename");
+}
+
+lazy_static! {
+    static ref CLUSTER_HELP: String = format!(
+        "
+                     {}
+              {}
+
+{}
+
+  {} cluster --genome-fasta-directory input_genomes/ 
+    --output-representative-fasta-directory output_directory/
+
+{}
+
+  {} cluster --ani 95 --precluster-ani 90 --precluster-method finch
+    --genome-fasta-list genomes.txt 
+    --output-cluster-definition clusters.tsv
+
+See {} cluster --full-help for further options and further detail.
+",
+        ansi_term::Colour::Green.paint(&format!(
+            "{} cluster",
+            std::env::current_exe()
+                .ok()
+                .and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
+                .and_then(|s| s.into_string().ok())
+                .expect("Failed to find running program basename")
+        )),
+        ansi_term::Colour::Green.paint("Cluster (dereplicate) genomes"),
+        ansi_term::Colour::Purple.paint(&format!(
+            "Example: Dereplicate at {}% (after pre-clustering at {}%) a directory of .fna\n\
+            FASTA files and create a new directory of symlinked FASTA files of\n\representatives:",
+            crate::DEFAULT_ANI,
+            crate::DEFAULT_PRETHRESHOLD_ANI
+        )),
+        std::env::current_exe()
+            .ok()
+            .and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
+            .and_then(|s| s.into_string().ok())
+            .expect("Failed to find running program basename"),
+        ansi_term::Colour::Purple.paint(
+            "Example: Dereplicate a set of genomes with paths specified in genomes.txt at\n\
+            95% ANI, after a preclustering at 90% using the MinHash finch method, and\n\
+            output the cluster definition to clusters.tsv:"
+        ),
+        std::env::current_exe()
+            .ok()
+            .and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
+            .and_then(|s| s.into_string().ok())
+            .expect("Failed to find running program basename"),
+        std::env::current_exe()
+            .ok()
+            .and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
+            .and_then(|s| s.into_string().ok())
+            .expect("Failed to find running program basename"),
+    )
+    .to_string();
+}
+
 pub fn add_dereplication_filtering_parameters_to_section(section: Section) -> Section {
     section
         .option(Opt::new("PATH").long("--checkm-tab-table").help(
             "CheckM tab table for defining genome quality, \
-            which is in turn used during clustering to rank genomes.",
+            which is used both for filtering and to rank genomes during clustering.",
         ))
         .option(Opt::new("PATH").long("--genome-info").help(
             "dRep style genome info table for defining \
@@ -764,6 +830,7 @@ pub fn cluster_full_help(program_basename: &str) -> Manual {
 pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
     let mut cluster_subcommand = SubCommand::with_name("cluster")
         .about("Cluster FASTA files by average nucleotide identity")
+        .help(CLUSTER_HELP.as_str())
         .arg(Arg::with_name("full-help").long("full-help"))
         .arg(Arg::with_name("full-help-roff").long("full-help-roff"))
         .arg(Arg::with_name("ani")
