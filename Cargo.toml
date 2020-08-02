@@ -23,7 +23,7 @@ env_logger = "0.7.*"
 checkm = { git = "https://github.com/wwood/checkm-rs", rev = "b58ff8361c86ca2485e7f888467ca40ed01242ee" }
 rayon = "1.0"
 csv = "1.1"
-bird_tool_utils = {path="../bird_tool_utils"} #"0.1.0"
+bird_tool_utils = {git = "https://github.com/wwood/bird_tool_utils", rev = "14d6ef500a3ee6b43431938c47fd7ff7d0556ada"}
 tempfile = "3.*"
 finch = "0.3.*"
 partitions = { version = "0.2.*", features = ["compact"] }
