@@ -42,7 +42,7 @@ lazy_static! {
     static ref GALAH_COMMAND_DEFINITION: GalahClustererCommandDefinition = {
         GalahClustererCommandDefinition {
             dereplication_ani_argument: "ani".to_string(),
-            dereplication_prethreshold_ani_argument: "prethreshold-ani".to_string(),
+            dereplication_prethreshold_ani_argument: "precluster-ani".to_string(),
             dereplication_quality_formula_argument: "quality-formula".to_string(),
             dereplication_precluster_method_argument: "precluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
@@ -151,13 +151,22 @@ pub fn add_dereplication_clustering_parameters_to_section(
             Opt::new("FLOAT")
                 .long(&format!(
                     "--{}",
-                    definition.dereplication_prethreshold_ani_argument
+                    definition.dereplication_aligned_fraction_argument
                 ))
-                .help(
-                    "Require at least this dashing-derived ANI \
-                for preclustering and to avoid FastANI on \
-                distant lineages within preclusters.",
-                ),
+                .help(&format!(
+                    "Min aligned fraction of two genomes for \
+                clustering [default: {}].",
+                    crate::DEFAULT_ALIGNED_FRACTION
+                )),
+        )
+        .option(
+            Opt::new("FLOAT")
+                .long(&format!("--{}", definition.dereplication_fraglen_argument))
+                .help(&format!(
+                    "Length of fragment used in FastANI calculation \
+                (i.e. --fragLen) [default: {}].",
+                    crate::DEFAULT_FRAGMENT_LENGTH
+                )),
         )
         .option(
             Opt::new("NAME")
@@ -177,6 +186,18 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 )),
         )
         .option(
+            Opt::new("FLOAT")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_prethreshold_ani_argument
+                ))
+                .help(
+                    "Require at least this dashing-derived ANI \
+                for preclustering and to avoid FastANI on \
+                distant lineages within preclusters.",
+                ),
+        )
+        .option(
             Opt::new("NAME")
                 .long(&format!(
                     "--{}",
@@ -186,27 +207,6 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "method of calculating rough ANI for \
                 dereplication. 'dashing' for HyperLogLog, \
                 'finch' for finch MinHash.",
-                )),
-        )
-        .option(
-            Opt::new("FLOAT")
-                .long(&format!(
-                    "--{}",
-                    definition.dereplication_aligned_fraction_argument
-                ))
-                .help(&format!(
-                    "Min aligned fraction of two genomes for \
-                clustering [default: {}].",
-                    crate::DEFAULT_ALIGNED_FRACTION
-                )),
-        )
-        .option(
-            Opt::new("FLOAT")
-                .long(&format!("--{}", definition.dereplication_fraglen_argument))
-                .help(&format!(
-                    "Length of fragment used in FastANI calculation \
-                (i.e. --fragLen) [default: {}].",
-                    crate::DEFAULT_FRAGMENT_LENGTH
                 )),
         )
 }
@@ -839,7 +839,7 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
         .help(CLUSTER_HELP.as_str())
         .arg(Arg::with_name("full-help").long("full-help"))
         .arg(Arg::with_name("full-help-roff").long("full-help-roff"))
-        .arg(Arg::with_name("ani")
+        .arg(Arg::with_name(&GALAH_COMMAND_DEFINITION.dereplication_ani_argument)
             .long("ani")
             .help("Average nucleotide identity threshold for clustering")
             .takes_value(true)
@@ -849,7 +849,7 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .help("Length of fragment used in FastANI calculation (i.e. --fragLen)")
             .takes_value(true)
             .default_value(crate::DEFAULT_FRAGMENT_LENGTH))
-        .arg(Arg::with_name("min-aligned-fraction")
+        .arg(Arg::with_name(&GALAH_COMMAND_DEFINITION.dereplication_aligned_fraction_argument)
             .long("min-aligned-fraction")
             .help("Min aligned fraction of two genomes for clustering")
             .takes_value(true)
@@ -872,7 +872,7 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .help("Genomes with greater than this percentage of contamination are excluded")
             .default_value("100")
             .takes_value(true))
-        .arg(Arg::with_name("quality-formula")
+        .arg(Arg::with_name(&GALAH_COMMAND_DEFINITION.dereplication_quality_formula_argument)
             .long("quality-formula")
             .possible_values(&[
                 "completeness-4contamination",
@@ -881,12 +881,13 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
                 "dRep"])
             .default_value(crate::DEFAULT_QUALITY_FORMULA)
             .takes_value(true))
-        .arg(Arg::with_name("prethreshold-ani")
+        .arg(Arg::with_name(&GALAH_COMMAND_DEFINITION.dereplication_prethreshold_ani_argument)
+            .long("precluster-ani")
             .long("prethreshold-ani")
             .help("Require at least this dashing-derived ANI for preclustering and to avoid FastANI on distant lineages within preclusters")
             .takes_value(true)
             .default_value(crate::DEFAULT_PRETHRESHOLD_ANI))
-        .arg(Arg::with_name("precluster-method")
+        .arg(Arg::with_name(&GALAH_COMMAND_DEFINITION.dereplication_precluster_method_argument)
             .long("precluster-method")
             .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash")
             .possible_values(&["dashing","finch"])
