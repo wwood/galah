@@ -46,7 +46,7 @@ lazy_static! {
             dereplication_quality_formula_argument: "quality-formula".to_string(),
             dereplication_precluster_method_argument: "precluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
-            dereplication_fraglen_argument: "fraglen".to_string(),
+            dereplication_fraglen_argument: "fragment-length".to_string(),
         }
     };
 }
@@ -844,8 +844,8 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .help("Average nucleotide identity threshold for clustering")
             .takes_value(true)
             .default_value(crate::DEFAULT_ANI))
-        .arg(Arg::with_name("fraglen")
-            .long("fragment-length")
+        .arg(Arg::with_name(&GALAH_COMMAND_DEFINITION.dereplication_fraglen_argument)
+            .long(&GALAH_COMMAND_DEFINITION.dereplication_fraglen_argument)
             .help("Length of fragment used in FastANI calculation (i.e. --fragLen)")
             .takes_value(true)
             .default_value(crate::DEFAULT_FRAGMENT_LENGTH))
