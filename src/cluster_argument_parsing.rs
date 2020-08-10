@@ -129,11 +129,11 @@ pub fn add_dereplication_filtering_parameters_to_section(section: Section) -> Se
         ))
         .option(Opt::new("FLOAT").long("--min-completeness").help(
             "Ignore genomes with less completeness than \
-        this percentage.",
+        this percentage. [default: not set]",
         ))
         .option(Opt::new("FLOAT").long("--max-contamination").help(
             "Ignore genomes with more contamination than \
-        this percentage.",
+        this percentage. [default: not set]",
         ))
 }
 
@@ -145,7 +145,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
         .option(
             Opt::new("FLOAT")
                 .long(&format!("--{}", definition.dereplication_ani_argument))
-                .help("Overall ANI level to dereplicate at with FastANI."),
+                .help(&format!("Overall ANI level to dereplicate at with FastANI. [default: {}]", crate::DEFAULT_ANI)),
         )
         .option(
             Opt::new("FLOAT")
@@ -155,7 +155,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 ))
                 .help(&format!(
                     "Min aligned fraction of two genomes for \
-                clustering [default: {}].",
+                clustering. [default: {}]",
                     crate::DEFAULT_ALIGNED_FRACTION
                 )),
         )
@@ -164,7 +164,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 .long(&format!("--{}", definition.dereplication_fraglen_argument))
                 .help(&format!(
                     "Length of fragment used in FastANI calculation \
-                (i.e. --fragLen) [default: {}].",
+                (i.e. --fragLen). [default: {}]",
                     crate::DEFAULT_FRAGMENT_LENGTH
                 )),
         )
