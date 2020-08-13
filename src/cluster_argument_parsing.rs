@@ -192,10 +192,11 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     definition.dereplication_prethreshold_ani_argument
                 ))
                 .help(
-                    "Require at least this dashing-derived ANI \
+                    &format!("Require at least this dashing-derived ANI \
                 for preclustering and to avoid FastANI on \
-                distant lineages within preclusters.",
-                ),
+                distant lineages within preclusters. [default: {}]",
+                    crate::DEFAULT_PRETHRESHOLD_ANI
+                )),
         )
         .option(
             Opt::new("NAME")
@@ -206,7 +207,8 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 .help(&format!(
                     "method of calculating rough ANI for \
                 dereplication. 'dashing' for HyperLogLog, \
-                'finch' for finch MinHash.",
+                'finch' for finch MinHash. [default: {}]",
+                crate::DEFAULT_PRECLUSTER_METHOD
                 )),
         )
 }
@@ -770,7 +772,9 @@ impl GalahClusterer<'_> {
 pub fn cluster_full_help(program_basename: &str) -> Manual {
     let mut manual = Manual::new(&format!("{} cluster", program_basename))
         .about("Cluster FASTA files by average nucleotide identity")
-        .author(Author::new("Ben J Woodcroft").email("benjwoodcroft near gmail.com"));
+        .author(Author::new("Ben J Woodcroft").email("benjwoodcroft near gmail.com"))
+        .description("This cluster mode dereplicates genomes, choosing a subset of the input genomes as representatives. \
+            Required inputs are (1) a genome definition, and (2) an output format definition.");
 
     // input
     manual = manual.custom(
@@ -802,7 +806,7 @@ pub fn cluster_full_help(program_basename: &str) -> Manual {
                 Opt::new("INT")
                     .short("-t")
                     .long("--threads")
-                    .help("Number of threads."),
+                    .help("Number of threads. [default: 1]"),
             )
             .flag(
                 Flag::new()
@@ -884,7 +888,6 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
         .arg(Arg::with_name(&GALAH_COMMAND_DEFINITION.dereplication_prethreshold_ani_argument)
             .long("precluster-ani")
             .long("prethreshold-ani")
-            .help("Require at least this dashing-derived ANI for preclustering and to avoid FastANI on distant lineages within preclusters")
             .takes_value(true)
             .default_value(crate::DEFAULT_PRETHRESHOLD_ANI))
         .arg(Arg::with_name(&GALAH_COMMAND_DEFINITION.dereplication_precluster_method_argument)
