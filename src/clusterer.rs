@@ -294,7 +294,7 @@ pub fn calculate_fastani(
     let one = calculate_fastani_one_way(
         fasta1,
         fasta2,
-        fastani_min_aligned_threshold,
+        //fastani_min_aligned_threshold,
         fastani_fraglen,
     );
     match one {
@@ -303,28 +303,50 @@ pub fn calculate_fastani(
             let two = calculate_fastani_one_way(
                 fasta2,
                 fasta1,
-                fastani_min_aligned_threshold,
+                //fastani_min_aligned_threshold,
                 fastani_fraglen,
             );
-            match two {
-                None => return None,
-                Some(second) => return Some(if first > second { first } else { second }),
-            }
+            return match two {
+                None => None,
+                Some(second) => {
+                    // Calculate min aligned based on the fragment counts, not the genome length counts as fastANI currently does. See https://github.com/wwood/galah/issues/7
+                    if first.fragments_matching as f32 / first.fragments_total as f32
+                        >= fastani_min_aligned_threshold
+                        || second.fragments_matching as f32 / second.fragments_total as f32
+                            >= fastani_min_aligned_threshold
+                    {
+                        Some(if first.ani > second.ani {
+                            first.ani
+                        } else {
+                            second.ani
+                        })
+                    } else {
+                        None
+                    }
+                }
+            };
         }
     }
+}
+
+#[derive(Debug)]
+struct FastaniMatch {
+    ani: f32,
+    fragments_matching: u32,
+    fragments_total: u32,
 }
 
 fn calculate_fastani_one_way(
     fasta1: &str,
     fasta2: &str,
-    fastani_min_aligned_threshold: f32,
+    //fastani_min_aligned_threshold: f32,
     fastani_fraglen: u32,
-) -> Option<f32> {
+) -> Option<FastaniMatch> {
     let mut cmd = std::process::Command::new("fastANI");
     cmd.arg("-o")
         .arg("/dev/stdout")
-        .arg("--minFraction")
-        .arg(&format!("{}", fastani_min_aligned_threshold))
+        // .arg("--minFraction")
+        // .arg(&format!("{}", fastani_min_aligned_threshold))
         .arg("--fragLen")
         .arg(&format!("{}", fastani_fraglen))
         .arg("--query")
@@ -354,11 +376,21 @@ fn calculate_fastani_one_way(
                 let ani: f32 = record[2]
                     .parse()
                     .expect("Failed to convert fastani ANI to float value");
+                let fragments_matching: u32 = record[3]
+                    .parse()
+                    .expect("Failed to convert fastani fragment count 1 to integer");
+                let fragments_total: u32 = record[4]
+                    .parse()
+                    .expect("Failed to convert fastani fragment count 2 to integer");
                 if to_return.is_some() {
                     error!("Unexpectedly found >1 result from fastANI");
                     std::process::exit(1);
                 }
-                to_return = Some(ani);
+                to_return = Some(FastaniMatch {
+                    ani: ani,
+                    fragments_matching: fragments_matching,
+                    fragments_total: fragments_total,
+                });
             }
             Err(e) => {
                 error!("Error parsing fastani output: {}", e);

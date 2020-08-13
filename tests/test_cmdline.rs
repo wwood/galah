@@ -254,47 +254,47 @@ mod tests {
             .unwrap();
     }
 
-    #[test]
-    fn test_fraglen() {
-        Assert::main_binary()
-            .with_args(&[
-                "cluster",
-                "--genome-fasta-files",
-                "tests/data/fraglen_test/sequence2.fna",
-                "tests/data/fraglen_test/sequence1.fna",
-                "--min-aligned-fraction",
-                "0.8",
-                "--precluster-method", // only needed temporarily
-                "finch",
-                "--output-representative-list",
-                "/dev/stdout",
-            ])
-            .succeeds()
-            .stdout()
-            .is("
-                tests/data/fraglen_test/sequence2.fna\n\
-                tests/data/fraglen_test/sequence1.fna\n")
-            .unwrap();
+    // #[test]
+    // fn test_fraglen() {
+    //     Assert::main_binary()
+    //         .with_args(&[
+    //             "cluster",
+    //             "--genome-fasta-files",
+    //             "tests/data/fraglen_test/sequence2.fna",
+    //             "tests/data/fraglen_test/sequence1.fna",
+    //             "--min-aligned-fraction",
+    //             "0.8",
+    //             "--precluster-method", // only needed temporarily
+    //             "finch",
+    //             "--output-representative-list",
+    //             "/dev/stdout",
+    //         ])
+    //         .succeeds()
+    //         .stdout()
+    //         .is("
+    //             tests/data/fraglen_test/sequence2.fna\n\
+    //             tests/data/fraglen_test/sequence1.fna\n")
+    //         .unwrap();
 
-        Assert::main_binary()
-            .with_args(&[
-                "cluster",
-                "--genome-fasta-files",
-                "tests/data/fraglen_test/sequence2.fna",
-                "tests/data/fraglen_test/sequence1.fna",
-                "--min-aligned-fraction",
-                "0.8",
-                "--fragment-length",
-                "1000",
-                "--precluster-method", // only needed temporarily
-                "finch",
-                "--output-representative-list",
-                "/dev/stdout",
-            ])
-            .succeeds()
-            .stdout()
-            .is("
-                tests/data/fraglen_test/sequence2.fna")
-            .unwrap();
-    }
+    //     Assert::main_binary()
+    //         .with_args(&[
+    //             "cluster",
+    //             "--genome-fasta-files",
+    //             "tests/data/fraglen_test/sequence2.fna",
+    //             "tests/data/fraglen_test/sequence1.fna",
+    //             "--min-aligned-fraction",
+    //             "0.8",
+    //             "--fragment-length",
+    //             "1000",
+    //             "--precluster-method", // only needed temporarily
+    //             "finch",
+    //             "--output-representative-list",
+    //             "/dev/stdout",
+    //         ])
+    //         .succeeds()
+    //         .stdout()
+    //         .is("
+    //             tests/data/fraglen_test/sequence2.fna")
+    //         .unwrap();
+    // }
 }
