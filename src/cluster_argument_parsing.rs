@@ -36,6 +36,10 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_precluster_method_argument: String,
     pub dereplication_aligned_fraction_argument: String,
     pub dereplication_fraglen_argument: String,
+    pub dereplication_output_cluster_definition_file: String,
+    pub dereplication_output_representative_fasta_directory: String,
+    pub dereplication_output_representative_fasta_directory_copy: String,
+    pub dereplication_output_representative_list: String,
 }
 
 lazy_static! {
@@ -47,6 +51,12 @@ lazy_static! {
             dereplication_precluster_method_argument: "precluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
+            dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
+            dereplication_output_representative_fasta_directory:
+                "output-representative-fasta-directory".to_string(),
+            dereplication_output_representative_fasta_directory_copy:
+                "output-representative-fasta-directory-copy".to_string(),
+            dereplication_output_representative_list: "output-representative-list".to_string(),
         }
     };
 }
@@ -236,6 +246,50 @@ pub fn add_dereplication_output_parameters_to_section(section: Section) -> Secti
         ))
 }
 
+pub struct GalahOutput {
+    pub output_clusters_file: Option<std::fs::File>,
+    pub output_representative_fasta_directory: Option<std::path::PathBuf>,
+    pub output_representative_fasta_directory_copy: Option<std::path::PathBuf>,
+    pub output_representative_list: Option<std::fs::File>,
+}
+
+pub fn setup_galah_outputs(
+    m: &clap::ArgMatches,
+    command_definition: &GalahClustererCommandDefinition,
+) -> GalahOutput {
+    let output_clusters_file =
+        match m.value_of(&command_definition.dereplication_output_cluster_definition_file) {
+            Some(o) => Some(
+                std::fs::File::create(o).expect("Failed to open output cluster definition file"),
+            ),
+            None => None,
+        };
+
+    let output_representative_fasta_directory = setup_representative_output_directory(
+        &m,
+        &command_definition.dereplication_output_representative_fasta_directory,
+    );
+    let output_representative_fasta_directory_copy = setup_representative_output_directory(
+        &m,
+        &command_definition.dereplication_output_representative_fasta_directory_copy,
+    );
+
+    let output_representative_list =
+        match m.value_of(&command_definition.dereplication_output_representative_list) {
+            Some(o) => Some(
+                std::fs::File::create(o).expect("Failed to open output representative list file"),
+            ),
+            None => None,
+        };
+
+    GalahOutput {
+        output_clusters_file: output_clusters_file,
+        output_representative_fasta_directory: output_representative_fasta_directory,
+        output_representative_fasta_directory_copy: output_representative_fasta_directory_copy,
+        output_representative_list: output_representative_list,
+    }
+}
+
 pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
     let m = matches.subcommand_matches("cluster").unwrap();
     set_log_level(m, true, "Galah", crate_version!());
@@ -253,24 +307,7 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
         .expect("Failed to parse galah clustering arguments correctly");
 
     // Open file handles here so errors are caught before CPU-heavy clustering
-    let output_clusters_file = match m.value_of("output-cluster-definition") {
-        Some(o) => {
-            Some(std::fs::File::create(o).expect("Failed to open output cluster definition file"))
-        }
-        None => None,
-    };
-
-    let output_representative_fasta_directory =
-        setup_representative_output_directory(&m, "output-representative-fasta-directory");
-    let output_representative_fasta_directory_copy =
-        setup_representative_output_directory(&m, "output-representative-fasta-directory-copy");
-
-    let output_representative_list = match m.value_of("output-representative-list") {
-        Some(o) => {
-            Some(std::fs::File::create(o).expect("Failed to open output representative list file"))
-        }
-        None => None,
-    };
+    let output_definitions = setup_galah_outputs(m, &GALAH_COMMAND_DEFINITION);
 
     let passed_genomes = &galah.genome_fasta_paths;
     info!("Clustering {} genomes ..", passed_genomes.len());
@@ -278,9 +315,18 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
 
     info!("Found {} genome clusters", clusters.len());
 
-    match output_clusters_file {
+    write_galah_outputs(output_definitions, &clusters, passed_genomes);
+    info!("Finished printing genome clusters");
+}
+
+pub fn write_galah_outputs(
+    output_definitions: GalahOutput,
+    clusters: &Vec<Vec<usize>>,
+    passed_genomes: &Vec<&str>,
+) {
+    match output_definitions.output_clusters_file {
         Some(mut f) => {
-            for cluster in &clusters {
+            for cluster in clusters {
                 let rep_index = cluster[0];
                 for genome_index in cluster {
                     writeln!(
@@ -298,7 +344,7 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
     write_cluster_reps_to_directory(
         &clusters,
         passed_genomes,
-        output_representative_fasta_directory,
+        &output_definitions.output_representative_fasta_directory,
         &|link, current_stab, rep| {
             std::os::unix::fs::symlink(link, std::path::Path::new(&current_stab)).expect(&format!(
                 "Failed to create symbolic link to representative genome {}",
@@ -309,7 +355,7 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
     write_cluster_reps_to_directory(
         &clusters,
         passed_genomes,
-        output_representative_fasta_directory_copy,
+        &output_definitions.output_representative_fasta_directory_copy,
         &|link, current_stab, rep| {
             std::fs::copy(link, std::path::Path::new(&current_stab)).expect(&format!(
                 "Failed to create symbolic link to representative genome {}",
@@ -318,9 +364,9 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
         },
     );
 
-    match output_representative_list {
+    match output_definitions.output_representative_list {
         Some(mut f) => {
-            for cluster in &clusters {
+            for cluster in clusters {
                 let rep_index = cluster[0];
                 writeln!(f, "{}", passed_genomes[rep_index])
                     .expect("Failed to write to output representative list file");
@@ -328,19 +374,18 @@ pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
         }
         None => {}
     }
-    info!("Finished printing genome clusters");
 }
 
 fn setup_representative_output_directory<'a>(
     m: &'a clap::ArgMatches,
     argument: &str,
-) -> Option<&'a std::path::Path> {
+) -> Option<std::path::PathBuf> {
     match m.value_of(argument) {
         Some(ref d) => {
-            let path = std::path::Path::new(d.clone());
+            let path = std::path::PathBuf::from(&d);
             if path.exists() {
                 if path.is_dir() {
-                    if std::fs::read_dir(path)
+                    if std::fs::read_dir(&path)
                         .expect(&format!("Error opening existing output directory {}", d))
                         .collect::<Vec<_>>()
                         .len()
@@ -360,7 +405,7 @@ fn setup_representative_output_directory<'a>(
                 }
             } else {
                 info!("Creating {} ..", argument);
-                std::fs::create_dir_all(path)
+                std::fs::create_dir_all(&path)
                     .expect(&format!("Error creating {} ({})", argument, d))
             }
             Some(path)
@@ -372,7 +417,7 @@ fn setup_representative_output_directory<'a>(
 fn write_cluster_reps_to_directory(
     clusters: &Vec<Vec<usize>>,
     passed_genomes: &Vec<&str>,
-    output_representative_fasta_directory: Option<&std::path::Path>,
+    output_representative_fasta_directory: &Option<std::path::PathBuf>,
     file_creation_fn: &dyn Fn(&std::path::Path, String, &str) -> (),
 ) {
     match output_representative_fasta_directory {
