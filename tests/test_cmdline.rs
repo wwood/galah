@@ -254,6 +254,29 @@ mod tests {
             .unwrap();
     }
 
+    #[test]
+    fn test_github7() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/antonio_mags/BE_RX_R2_MAG52.fna",
+                "tests/data/antonio_mags/BE_RX_R3_MAG189.fna",
+                "--precluster-method", // only needed temporarily
+                "finch",
+                "--ani",
+                "95",
+                "--min-aligned-fraction",
+                "60",
+                "--output-representative-list",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("tests/data/antonio_mags/BE_RX_R2_MAG52.fna\n")
+            .unwrap();
+    }
+
     // #[test]
     // fn test_fraglen() {
     //     Assert::main_binary()
