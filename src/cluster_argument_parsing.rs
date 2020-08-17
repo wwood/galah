@@ -223,27 +223,48 @@ pub fn add_dereplication_clustering_parameters_to_section(
         )
 }
 
-pub fn add_dereplication_output_parameters_to_section(section: Section) -> Section {
+pub fn add_dereplication_output_parameters_to_section(
+    section: Section,
+    definition: &GalahClustererCommandDefinition,
+) -> Section {
     section
         .option(
             Opt::new("PATH")
-                .long("--output-cluster-definition")
-                .help("Output a file of representative<TAB>member lines"),
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_output_cluster_definition_file
+                ))
+                .help("Output a file of representative<TAB>member lines."),
         )
         .option(
             Opt::new("PATH")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_output_representative_fasta_directory
+                ))
                 .long("--output-representative-fasta-directory")
-                .help("Symlink representative genomes into this directory"),
+                .help("Symlink representative genomes into this directory."),
         )
         .option(
             Opt::new("PATH")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_output_representative_fasta_directory_copy
+                ))
                 .long("--output-representative-fasta-directory-copy")
-                .help("Copy representative genomes into this directory"),
+                .help("Copy representative genomes into this directory."),
         )
-        .option(Opt::new("PATH").long("--output-representative-list").help(
-            "Print newline separated list of paths to representatives \
-                    into this file",
-        ))
+        .option(
+            Opt::new("PATH")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_output_representative_list
+                ))
+                .help(
+                    "Print newline separated list of paths to representatives \
+                        into this file.",
+                ),
+        )
 }
 
 pub struct GalahOutput {
@@ -842,6 +863,7 @@ pub fn cluster_full_help(program_basename: &str) -> Manual {
     // output
     manual = manual.custom(add_dereplication_output_parameters_to_section(
         Section::new("Output"),
+        &GALAH_COMMAND_DEFINITION,
     ));
 
     // general
