@@ -242,7 +242,6 @@ pub fn add_dereplication_output_parameters_to_section(
                     "--{}",
                     definition.dereplication_output_representative_fasta_directory
                 ))
-                .long("--output-representative-fasta-directory")
                 .help("Symlink representative genomes into this directory."),
         )
         .option(
@@ -251,7 +250,6 @@ pub fn add_dereplication_output_parameters_to_section(
                     "--{}",
                     definition.dereplication_output_representative_fasta_directory_copy
                 ))
-                .long("--output-representative-fasta-directory-copy")
                 .help("Copy representative genomes into this directory."),
         )
         .option(
