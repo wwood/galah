@@ -1,4 +1,4 @@
-use needletail::parse_sequence_path;
+use needletail::parse_fastx_file;
 use needletail::sequence::Sequence;
 
 #[derive(Debug, PartialEq)]
@@ -14,25 +14,23 @@ pub fn calculate_genome_stats(fasta_path: &str) -> GenomeAssemblyStats {
     let mut contig_lengths = vec![];
     let mut total_length = 0usize;
 
-    parse_sequence_path(
-        fasta_path,
-        |_| {},
-        |seq| {
-            num_contigs += 1;
-            let s = seq.sequence();
-            contig_lengths.push(s.len());
-            total_length += s.len();
-            for base in s {
-                if base == &b'N' || base == &b'n' {
-                    num_ambiguous += 1
-                }
+    let mut reader = parse_fastx_file(fasta_path)
+        .expect(&format!(
+            "Failed to calculate genome statistics for file '{}' as there was a problem opening the file",
+            fasta_path
+        ));
+    while let Some(seq1) = reader.next() {
+        let seq = seq1.expect("invalid record");
+        num_contigs += 1;
+        let s = seq.sequence();
+        contig_lengths.push(seq.num_bases());
+        total_length += seq.num_bases();
+        for base in s {
+            if base == &b'N' || base == &b'n' {
+                num_ambiguous += 1
             }
-        },
-    )
-    .expect(&format!(
-        "Failed to calculate genome statistics for file {}",
-        fasta_path
-    ));
+        }
+    }
 
     // Calculate n50
     contig_lengths.sort();
