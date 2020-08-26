@@ -19,7 +19,7 @@ echo "Building musl static binary .."
 cargo build --target x86_64-unknown-linux-musl --release
 
 echo "Making static dist .."
-mkdir dist/galah-x86_64-unknown-linux-musl-$VERSION
+mkdir -p dist/galah-x86_64-unknown-linux-musl-$VERSION
 cp \
  target/x86_64-unknown-linux-musl/release/galah \
  dist/galah-x86_64-unknown-linux-musl-$VERSION/

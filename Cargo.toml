@@ -1,6 +1,6 @@
 [package]
 name = "galah"
-version = "0.1.0-dev"
+version = "0.2.0"
 authors = ["Ben Woodcroft <benjwoodcroft@gmail.com>"]
 edition = "2018"
 license = "GPL-3.0"
