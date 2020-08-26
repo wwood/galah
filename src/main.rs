@@ -18,7 +18,11 @@ fn main() {
 
     match matches.subcommand_name() {
         Some("cluster") => {
-            galah::cluster_argument_parsing::run_cluster_subcommand(&matches);
+            galah::cluster_argument_parsing::run_cluster_subcommand(
+                &matches,
+                "galah",
+                crate_version!(),
+            );
         }
         Some("cluster-validate") => {
             let m = matches.subcommand_matches("cluster-validate").unwrap();

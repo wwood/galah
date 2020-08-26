@@ -28,3 +28,6 @@ pub const DEFAULT_ANI: &str = "99";
 pub const DEFAULT_PRETHRESHOLD_ANI: &str = "95";
 pub const DEFAULT_QUALITY_FORMULA: &str = "Parks2020_reduced";
 pub const DEFAULT_PRECLUSTER_METHOD: &str = "dashing";
+
+pub const AUTHOR: &str =
+    "Ben J. Woodcroft, Centre for Microbiome Research, Queensland University of Technology";

@@ -2,8 +2,9 @@ use std;
 use std::io::Write;
 
 use bird_tool_utils::clap_utils::*;
+use bird_tool_utils::clap_utils::{default_roff, monospace_roff};
+use bird_tool_utils_man::prelude::{Author, Flag, Manual, Opt, Section};
 use clap::*;
-use man::prelude::{Author, Flag, Manual, Opt, Section};
 use rayon::prelude::*;
 
 use crate::genome_info_file;
@@ -129,14 +130,16 @@ See {} cluster --full-help for further options and further detail.
 
 pub fn add_dereplication_filtering_parameters_to_section(section: Section) -> Section {
     section
-        .option(Opt::new("PATH").long("--checkm-tab-table").help(
-            "CheckM tab table for defining genome quality, \
+        .option(Opt::new("PATH").long("--checkm-tab-table").help(&format!(
+            "CheckM tab table (i.e. the output of {}) for defining genome quality, \
             which is used both for filtering and to rank genomes during clustering.",
-        ))
-        .option(Opt::new("PATH").long("--genome-info").help(
+            monospace_roff("checkm .. --tab_table -f PATH ..")
+        )))
+        .option(Opt::new("PATH").long("--genome-info").help(&format!(
             "dRep style genome info table for defining \
-        quality. Used like --checkm-tab-table.",
-        ))
+        quality. Used like {}.",
+            &monospace_roff("--checkm-tab-table")
+        )))
         .option(Opt::new("FLOAT").long("--min-completeness").help(
             "Ignore genomes with less completeness than \
         this percentage. [default: not set]",
@@ -155,7 +158,8 @@ pub fn add_dereplication_clustering_parameters_to_section(
         .option(
             Opt::new("FLOAT")
                 .long(&format!("--{}", definition.dereplication_ani_argument))
-                .help(&format!("Overall ANI level to dereplicate at with FastANI. [default: {}]", crate::DEFAULT_ANI)),
+                .help(&format!("Overall ANI level to dereplicate at with FastANI. {}", 
+                    &default_roff(crate::DEFAULT_ANI))),
         )
         .option(
             Opt::new("FLOAT")
@@ -165,8 +169,8 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 ))
                 .help(&format!(
                     "Min aligned fraction of two genomes for \
-                clustering. [default: {}]",
-                    crate::DEFAULT_ALIGNED_FRACTION
+                clustering. {}",
+                    default_roff(crate::DEFAULT_ALIGNED_FRACTION)
                 )),
         )
         .option(
@@ -174,25 +178,29 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 .long(&format!("--{}", definition.dereplication_fraglen_argument))
                 .help(&format!(
                     "Length of fragment used in FastANI calculation \
-                (i.e. --fragLen). [default: {}]",
-                    crate::DEFAULT_FRAGMENT_LENGTH
+                (i.e. {}). {}",
+                &monospace_roff("--fragLen"),
+                    default_roff(crate::DEFAULT_FRAGMENT_LENGTH)
                 )),
         )
         .option(
-            Opt::new("NAME")
+            Opt::new("FORMULA")
                 .long(&format!(
                     "--{}",
                     definition.dereplication_quality_formula_argument
                 ))
                 .help(
-                    &format!("Scoring function for genome quality. \
-                        'Parks2020_reduced' for 'completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000' \
-                        which is reduced from a quality formula described in Parks et. al. 2020 \
-                        https://doi.org/10.1038/s41587-020-0501-8 \
-                        'completeness-4contamination' for 'completeness-4*contamination', \
-                        'completeness-5contamination' for 'completeness-5*contamination', \
-                        'dRep' for 'completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)'. [default: {}]",
-                        crate::DEFAULT_QUALITY_FORMULA
+                    &format!("Scoring function for genome quality {}. One of: {}",
+                    default_roff(crate::DEFAULT_QUALITY_FORMULA),
+                    bird_tool_utils::clap_utils::table_roff(&[
+                        &["formula","description"],
+                        &[&monospace_roff("Parks2020_reduced"),
+                            &format!("(default) A quality formula described in Parks et. al. 2020 \
+                            https://doi.org/10.1038/s41587-020-0501-8 (Supplementary Table 19) but only including those scoring criteria that can be calculated from the sequence without homology searching: {}", &monospace_roff("completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000"))],
+                        &[&monospace_roff("completeness-4contamination"),&monospace_roff("completeness-4*contamination")],
+                        &[&monospace_roff("completeness-5contamination"),&monospace_roff("completeness-5*contamination")],
+                        &[&monospace_roff("dRep"),&monospace_roff("completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)")],
+                    ]),
                 )),
         )
         .option(
@@ -204,8 +212,8 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 .help(
                     &format!("Require at least this dashing-derived ANI \
                 for preclustering and to avoid FastANI on \
-                distant lineages within preclusters. [default: {}]",
-                    crate::DEFAULT_PRETHRESHOLD_ANI
+                distant lineages within preclusters. {}",
+                    default_roff(crate::DEFAULT_PRETHRESHOLD_ANI)
                 )),
         )
         .option(
@@ -216,9 +224,11 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 ))
                 .help(&format!(
                     "method of calculating rough ANI for \
-                dereplication. 'dashing' for HyperLogLog, \
-                'finch' for finch MinHash. [default: {}]",
-                crate::DEFAULT_PRECLUSTER_METHOD
+                dereplication. '{}' for HyperLogLog, \
+                '{}' for finch MinHash. {}",
+                monospace_roff("dashing"),
+                monospace_roff("finch"),
+                default_roff(crate::DEFAULT_PRECLUSTER_METHOD)
                 )),
         )
 }
@@ -309,10 +319,17 @@ pub fn setup_galah_outputs(
     }
 }
 
-pub fn run_cluster_subcommand(matches: &clap::ArgMatches) {
+pub fn run_cluster_subcommand(
+    matches: &clap::ArgMatches,
+    program_basename: &str,
+    program_version: &str,
+) {
     let m = matches.subcommand_matches("cluster").unwrap();
-    set_log_level(m, true, "Galah", crate_version!());
-    bird_tool_utils::clap_utils::print_full_help_if_needed(&m, cluster_full_help(&"galah"));
+    set_log_level(m, true, program_basename, crate_version!());
+    bird_tool_utils::clap_utils::print_full_help_if_needed(
+        &m,
+        cluster_full_help(program_basename, program_version),
+    );
 
     let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
     rayon::ThreadPoolBuilder::new()
@@ -833,12 +850,15 @@ impl GalahClusterer<'_> {
     }
 }
 
-pub fn cluster_full_help(program_basename: &str) -> Manual {
+pub fn cluster_full_help(program_basename: &str, program_version: &str) -> Manual {
     let mut manual = Manual::new(&format!("{} cluster", program_basename))
-        .about("Cluster FASTA files by average nucleotide identity")
-        .author(Author::new("Ben J Woodcroft").email("benjwoodcroft near gmail.com"))
+        .about(format!("Cluster genome FASTA files by average nucleotide identity (version {})", program_version))
+        .author(Author::new(crate::AUTHOR).email("benjwoodcroft near gmail.com"))
         .description("This cluster mode dereplicates genomes, choosing a subset of the input genomes as representatives. \
-            Required inputs are (1) a genome definition, and (2) an output format definition.");
+            Required inputs are (1) a genome definition, and (2) an output format definition.\n\n\
+            
+            The source code for this program can be found at https://github.com/wwood/galah or https://github.com/wwood/coverm")
+        .custom_synopsis_expansion("<GENOME_INPUTS> <OUTPUT_ARGUMENTS>");
 
     // input
     manual = manual.custom(
@@ -871,7 +891,7 @@ pub fn cluster_full_help(program_basename: &str) -> Manual {
                 Opt::new("INT")
                     .short("-t")
                     .long("--threads")
-                    .help("Number of threads. [default: 1]"),
+                    .help(&format!("Number of threads. {}", default_roff("1"))),
             )
             .flag(
                 Flag::new()

@@ -101,10 +101,11 @@ Galah relies on these 3rd party tools, which must be installed separately.
 ## Usage
 For clustering a set of genomes at 99% ANI:
 ```
-galah cluster --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna >clusters
+galah cluster --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna --output-cluster-definition clusters.tsv
 ```
-There are several other options for specifying genomes, ANI cutoffs, etc. See
-`galah cluster --help` for more information.
+There are several other options for specifying genomes, ANI cutoffs, etc. 
+
+The full usage is described on the [manual page](https://wwood.github.io/galah/galah-cluster.html), which can be accessed on the command line running `galah cluster --full-help`.
 
 ### Precluster ANI
 Similar to dRep, galah operates in two stages. In the first, a fast
@@ -120,6 +121,6 @@ and the final ANI is set at 99%.
 Galah is made available under GPL3+. See LICENSE.txt for details. Copyright Ben
 Woodcroft.
 
-Developed by Ben Woodcroft at the [Australian Centre for Ecogenomics](http://ecogenomic.org).
+Developed by Ben Woodcroft at the [Centre for Microbiome Research, Queensland University of Technology](https://www.qut.edu.au/health/schools/school-of-biomedical-sciences/centre-for-microbiome-research).
 
 [galah]: Eolophus_roseicapilla_-Wamboin,_NSW,_Australia_-juvenile-8.smaller.jpg
