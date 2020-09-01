@@ -749,13 +749,13 @@ pub fn generate_galah_clusterer<'a>(
                                 &argument_definition.dereplication_prethreshold_ani_argument,
                             )
                             .expect(&format!(
-                                "Failed to parse prethreshold-ani {:?}",
+                                "Failed to parse precluster-ani {:?}",
                                 clap_matches.value_of(
                                     &argument_definition.dereplication_prethreshold_ani_argument
                                 )
                             ))
                             .expect(&format!(
-                                "Failed to parse prethreshold-ani {:?}",
+                                "Failed to parse precluster-ani {:?}",
                                 clap_matches.value_of(
                                     &argument_definition.dereplication_prethreshold_ani_argument
                                 )
@@ -769,13 +769,13 @@ pub fn generate_galah_clusterer<'a>(
                             &argument_definition.dereplication_prethreshold_ani_argument,
                         )
                         .expect(&format!(
-                            "Failed to parse prethreshold-ani {:?}",
+                            "Failed to parse precluster-ani {:?}",
                             clap_matches.value_of(
                                 &argument_definition.dereplication_prethreshold_ani_argument
                             )
                         ))
                         .expect(&format!(
-                            "Failed to parse prethreshold-ani {:?}",
+                            "Failed to parse precluster-ani {:?}",
                             clap_matches.value_of(
                                 &argument_definition.dereplication_prethreshold_ani_argument
                             )
@@ -856,7 +856,6 @@ pub fn cluster_full_help(program_basename: &str, program_version: &str) -> Manua
         .author(Author::new(crate::AUTHOR).email("benjwoodcroft near gmail.com"))
         .description("This cluster mode dereplicates genomes, choosing a subset of the input genomes as representatives. \
             Required inputs are (1) a genome definition, and (2) an output format definition.\n\n\
-            
             The source code for this program can be found at https://github.com/wwood/galah or https://github.com/wwood/coverm")
         .custom_synopsis_expansion("<GENOME_INPUTS> <OUTPUT_ARGUMENTS>");
 
@@ -972,7 +971,6 @@ pub fn add_cluster_subcommand<'a>(app: clap::App<'a, 'a>) -> clap::App<'a, 'a> {
             .takes_value(true))
         .arg(Arg::with_name(&GALAH_COMMAND_DEFINITION.dereplication_prethreshold_ani_argument)
             .long("precluster-ani")
-            .long("prethreshold-ani")
             .takes_value(true)
             .default_value(crate::DEFAULT_PRETHRESHOLD_ANI))
         .arg(Arg::with_name(&GALAH_COMMAND_DEFINITION.dereplication_precluster_method_argument)
