@@ -18,9 +18,9 @@ exclude = [ # Max upload is 10MB, as of writing test data was 31MB
 [dependencies]
 clap = "2.*"
 log = "0.4.*"
-env_logger = "0.7.*"
+env_logger = "0.8.*"
 checkm = "0.1.0"
-rayon = "1.0"
+rayon = "1.5"
 csv = "1.1"
 bird_tool_utils = {git = "https://github.com/wwood/bird_tool_utils", rev = "6dfff8df36adfdeac180a85083dd44ae84eb3951"}
 tempfile = "3.*"
