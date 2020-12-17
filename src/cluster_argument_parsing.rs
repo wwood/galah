@@ -1,5 +1,9 @@
 use std;
 use std::io::Write;
+#[cfg(target_family = "unix")]
+use std::os::unix::fs::symlink;
+#[cfg(target_family = "windows")]
+use std::os::windows::fs::symlink_file as symlink;
 
 use bird_tool_utils::clap_utils::*;
 use bird_tool_utils::clap_utils::{default_roff, monospace_roff};
@@ -382,7 +386,7 @@ pub fn write_galah_outputs(
         passed_genomes,
         &output_definitions.output_representative_fasta_directory,
         &|link, current_stab, rep| {
-            std::os::unix::fs::symlink(link, std::path::Path::new(&current_stab)).expect(&format!(
+            symlink(link, std::path::Path::new(&current_stab)).expect(&format!(
                 "Failed to create symbolic link to representative genome {}",
                 rep
             ));
