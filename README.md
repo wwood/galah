@@ -1,4 +1,4 @@
-![Galah logo](images/galah_logo.png)
+<img src="images/galah_logo.png" alt="Galah logo" width="600"/>
 
 - [Galah](#galah)
   - [Installation](#installation)
