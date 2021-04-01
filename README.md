@@ -1,3 +1,5 @@
+![Galah logo](images/galah_logo.png)
+
 - [Galah](#galah)
   - [Installation](#installation)
     - [Install through the bioconda package](#install-through-the-bioconda-package)
@@ -8,10 +10,6 @@
   - [Usage](#usage)
     - [Precluster ANI](#precluster-ani)
   - [License](#license)
-
-![Galah image][galah]
-
-By David Cook Wildlife Photography - originally posted to Flickr as Galah (Eolophus roseicapillus), CC BY 2.0, https://commons.wikimedia.org/w/index.php?curid=8388233
 
 # Galah
 
