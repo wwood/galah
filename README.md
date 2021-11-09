@@ -13,7 +13,7 @@
 
 # Galah
 
-[![Travis](https://img.shields.io/travis/wwood/galah.svg?style=flat-square)](https://travis-ci.org/wwood/galah) [![Anaconda-Server Badge](https://anaconda.org/bioconda/galah/badges/installer/conda.svg)](https://conda.anaconda.org/bioconda)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/galah/badges/installer/conda.svg)](https://conda.anaconda.org/bioconda)
 
 Galah aims to be a more scalable metagenome assembled genome (MAG) dereplication
 method. That is, it clusters microbial genomes together based on their average
