@@ -18,7 +18,7 @@ exclude = [ # Max upload is 10MB, as of writing test data was 31MB
 [dependencies]
 clap = "2.*"
 log = "0.4.*"
-env_logger = "0.8.*"
+env_logger = "0.9.*"
 checkm = "0.1.*"
 rayon = "1.5"
 csv = "1.1"
