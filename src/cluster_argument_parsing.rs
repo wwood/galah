@@ -329,7 +329,7 @@ pub fn run_cluster_subcommand(
     program_version: &str,
 ) {
     let m = matches.subcommand_matches("cluster").unwrap();
-    set_log_level(m, true, program_basename, crate_version!());
+    set_log_level(m, true, program_basename, program_version);
     bird_tool_utils::clap_utils::print_full_help_if_needed(
         &m,
         cluster_full_help(program_basename, program_version),
