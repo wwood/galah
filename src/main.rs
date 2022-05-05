@@ -28,7 +28,7 @@ fn main() {
             let m = matches.subcommand_matches("cluster-validate").unwrap();
             set_log_level(m, true, PROGRAM_NAME, crate_version!());
 
-            let num_threads = value_t!(m.value_of("threads"), usize).unwrap();
+            let num_threads: usize = m.value_of_t("threads").unwrap();
             rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build_global()
@@ -37,85 +37,82 @@ fn main() {
             let ani = galah::cluster_argument_parsing::parse_percentage(&m, "ani");
             let min_aligned_fraction =
                 galah::cluster_argument_parsing::parse_percentage(&m, "min-aligned-fraction");
-            let fraglen = value_t!(m, "fraglen", u32);
+            let fraglen: u32 = m.value_of_t("fraglen").unwrap();
 
             galah::cluster_validation::validate_clusters(
                 m.value_of("cluster-file").unwrap(),
                 ani.unwrap().unwrap(),
                 min_aligned_fraction.unwrap().unwrap(),
-                fraglen.unwrap(),
+                fraglen,
             );
         }
         _ => panic!("Programming error"),
     }
 }
 
-fn build_cli() -> App<'static, 'static> {
-    let mut app = App::new("galah")
+fn build_cli() -> Command<'static> {
+    let mut app = add_clap_verbosity_flags(Command::new("galah"))
         .version(crate_version!())
         .author("Ben J. Woodcroft <benjwoodcroft near gmail.com>")
         .about("Metagenome assembled genome (MAG) dereplicator / clusterer")
-        .args_from_usage(
-            "-v, --verbose       'Print extra debug logging information'
-             -q, --quiet         'Unless there is an error, do not print logging information'",
-        )
-        .global_setting(AppSettings::ArgRequiredElseHelp)
+        .arg_required_else_help(true)
         .subcommand(
-            SubCommand::with_name("cluster-validate")
+            add_clap_verbosity_flags(Command::new("cluster-validate")
                 .about("Verify clustering results")
                 .arg(
-                    Arg::with_name("cluster-file")
+                    Arg::new("cluster-file")
                         .long("cluster-file")
                         .required(true)
                         .help("Output of 'cluster' subcommand")
                         .takes_value(true),
                 )
                 .arg(
-                    Arg::with_name("ani")
+                    Arg::new("ani")
                         .long("ani")
                         .default_value("99")
                         .help("ANI to validate against")
                         .takes_value(true),
                 )
                 .arg(
-                    Arg::with_name("min-aligned-fraction")
+                    Arg::new("min-aligned-fraction")
                         .long("min-aligned-fraction")
                         .help("Min aligned fraction of two genomes for clustering")
                         .takes_value(true)
                         .default_value("50"),
                 )
                 .arg(
-                    Arg::with_name("threads")
-                        .short("t")
+                    Arg::new("threads")
+                        .short('t')
                         .long("threads")
                         .default_value("1")
                         .takes_value(true),
-                ),
+                )
+            )
         );
 
     // .subcommand(
-    //     SubCommand::with_name("dist")
+    //     Command::new("dist")
     //         .about("Calculate pairwise distances between a set of genomes")
 
-    //         .arg(Arg::with_name("checkm-tab-table")
+    //         .arg(Arg::new("checkm-tab-table")
     //             .long("checkm-tab-table")
     //             .required(true)
     //             .help("Output of CheckM lineage_wf/taxonomy_wf/qa with --tab_table specified")
     //             .takes_value(true))
-    //         .arg(Arg::with_name("genome-fasta-files")
+    //         .arg(Arg::new("genome-fasta-files")
     //             .long("genome-fasta-files")
     //             .multiple(true)
     //             .required(true)
     //             .takes_value(true))
-    //         .arg(Arg::with_name("num-hashes")
+    //         .arg(Arg::new("num-hashes")
     //             .long("num-hashes")
     //             .takes_value(true)
     //             .default_value("1000"))
-    //         .arg(Arg::with_name("kmer-length")
+    //         .arg(Arg::new("kmer-length")
     //             .long("kmer-length")
     //             .takes_value(true)
     //             .default_value("21"))
-    //         .arg(Arg::with_name("threads")
+    //         .arg(Arg::new("threads")
     //             .short("-t")
     //             .long("threads")
     //             .default_value("1")
