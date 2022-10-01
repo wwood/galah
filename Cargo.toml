@@ -16,7 +16,7 @@ exclude = [ # Max upload is 10MB, as of writing test data was 31MB
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = { version="3.*", features = ["cargo"] } # cargo feature required for crate_version!
+clap = { version="4.*", features = ["cargo"] } # cargo feature required for crate_version!
 log = "0.4.*"
 env_logger = "0.9.*"
 checkm = "0.1.*"
