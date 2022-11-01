@@ -673,11 +673,11 @@ fn filter_and_calculate_genome_stats<'a>(
         // filter out poor checkm quality genomes
         .filter(|(_fasta_file, checkm_quality)| {
             let ok1 = match min_completeness {
-                Some(m) => (checkm_quality.completeness >= m),
+                Some(m) => checkm_quality.completeness >= m,
                 None => true,
             };
             ok1 && match max_contamination {
-                Some(m) => (checkm_quality.contamination <= m),
+                Some(m) => checkm_quality.contamination <= m,
                 None => true,
             }
         })
