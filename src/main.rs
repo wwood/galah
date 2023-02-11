@@ -28,7 +28,7 @@ fn main() {
             let m = matches.subcommand_matches("cluster-validate").unwrap();
             set_log_level(m, true, PROGRAM_NAME, crate_version!());
 
-            let num_threads: usize = m.value_of_t("threads").unwrap();
+            let num_threads: usize = *m.get_one::<usize>("threads").unwrap();
             rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build_global()
@@ -37,10 +37,10 @@ fn main() {
             let ani = galah::cluster_argument_parsing::parse_percentage(&m, "ani");
             let min_aligned_fraction =
                 galah::cluster_argument_parsing::parse_percentage(&m, "min-aligned-fraction");
-            let fraglen: u32 = m.value_of_t("fraglen").unwrap();
+            let fraglen: u32 = *m.get_one::<u32>("fraglen").unwrap();
 
             galah::cluster_validation::validate_clusters(
-                m.value_of("cluster-file").unwrap(),
+                m.get_one::<String>("cluster-file").unwrap(),
                 ani.unwrap().unwrap(),
                 min_aligned_fraction.unwrap().unwrap(),
                 fraglen,
@@ -50,7 +50,7 @@ fn main() {
     }
 }
 
-fn build_cli() -> Command<'static> {
+fn build_cli() -> Command {
     let mut app = add_clap_verbosity_flags(Command::new("galah"))
         .version(crate_version!())
         .author("Ben J. Woodcroft <benjwoodcroft near gmail.com>")
@@ -64,20 +64,17 @@ fn build_cli() -> Command<'static> {
                         .long("cluster-file")
                         .required(true)
                         .help("Output of 'cluster' subcommand")
-                        .takes_value(true),
                 )
                 .arg(
                     Arg::new("ani")
                         .long("ani")
                         .default_value("99")
                         .help("ANI to validate against")
-                        .takes_value(true),
                 )
                 .arg(
                     Arg::new("min-aligned-fraction")
                         .long("min-aligned-fraction")
                         .help("Min aligned fraction of two genomes for clustering")
-                        .takes_value(true)
                         .default_value("50"),
                 )
                 .arg(
@@ -85,7 +82,6 @@ fn build_cli() -> Command<'static> {
                         .short('t')
                         .long("threads")
                         .default_value("1")
-                        .takes_value(true),
                 )
             )
         );

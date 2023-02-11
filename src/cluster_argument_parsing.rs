@@ -10,6 +10,7 @@ use bird_tool_utils::clap_utils::{default_roff, monospace_roff};
 use bird_tool_utils_man::prelude::{Author, Flag, Manual, Opt, Section};
 use clap::*;
 use rayon::prelude::*;
+use clap_mangen;
 
 use crate::genome_info_file;
 use crate::genome_stats;
@@ -291,7 +292,7 @@ pub fn setup_galah_outputs(
     command_definition: &GalahClustererCommandDefinition,
 ) -> GalahOutput {
     let output_clusters_file =
-        match m.value_of(&command_definition.dereplication_output_cluster_definition_file) {
+        match m.get_one::<String>(&command_definition.dereplication_output_cluster_definition_file) {
             Some(o) => Some(
                 std::fs::File::create(o).expect("Failed to open output cluster definition file"),
             ),
@@ -308,7 +309,7 @@ pub fn setup_galah_outputs(
     );
 
     let output_representative_list =
-        match m.value_of(&command_definition.dereplication_output_representative_list) {
+        match m.get_one::<String>(&command_definition.dereplication_output_representative_list) {
             Some(o) => Some(
                 std::fs::File::create(o).expect("Failed to open output representative list file"),
             ),
@@ -335,7 +336,7 @@ pub fn run_cluster_subcommand(
         cluster_full_help(program_basename, program_version),
     );
 
-    let num_threads: usize = m.value_of_t("threads").unwrap();
+    let num_threads: usize = *m.get_one::<usize>("threads").unwrap();
     rayon::ThreadPoolBuilder::new()
         .num_threads(num_threads)
         .build_global()
@@ -420,7 +421,7 @@ fn setup_representative_output_directory<'a>(
     m: &'a clap::ArgMatches,
     argument: &str,
 ) -> Option<std::path::PathBuf> {
-    match m.value_of(argument) {
+    match m.get_one::<String>(argument) {
         Some(ref d) => {
             let path = std::path::PathBuf::from(&d);
             if path.exists() {
@@ -497,20 +498,20 @@ pub fn filter_genomes_through_checkm<'a>(
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
 ) -> std::result::Result<Vec<&'a str>, String> {
-    match clap_matches.is_present("checkm-tab-table") || clap_matches.is_present("genome-info") {
+    match clap_matches.contains_id("checkm-tab-table") || clap_matches.contains_id("genome-info") {
         false => {
             warn!("Since CheckM input is missing, genomes are not being ordered by quality. Instead the order of their input is being used");
             Ok(genome_fasta_files.iter().map(|s| &**s).collect())
         }
         true => {
-            let checkm = if clap_matches.is_present("checkm-tab-table") {
+            let checkm = if clap_matches.contains_id("checkm-tab-table") {
                 info!("Reading CheckM tab table ..");
                 checkm::CheckMTabTable::read_file_path(
-                    clap_matches.value_of("checkm-tab-table").unwrap(),
+                    clap_matches.get_one::<String>("checkm-tab-table").unwrap(),
                 )
-            } else if clap_matches.is_present("genome-info") {
+            } else if clap_matches.contains_id("genome-info") {
                 if clap_matches
-                    .value_of(&argument_definition.dereplication_quality_formula_argument)
+                    .get_one::<String>(&argument_definition.dereplication_quality_formula_argument)
                     .unwrap()
                     == "dRep"
                 {
@@ -520,10 +521,10 @@ pub fn filter_genomes_through_checkm<'a>(
                 }
                 info!(
                     "Reading genome info file {}",
-                    clap_matches.value_of("genome-info").unwrap()
+                    clap_matches.get_one::<String>("genome-info").unwrap()
                 );
                 genome_info_file::read_genome_info_file(
-                    clap_matches.value_of("genome-info").unwrap(),
+                    clap_matches.get_one::<String>("genome-info").unwrap(),
                 )
                 .expect("Error parsing genomeInfo file")
             } else {
@@ -545,8 +546,8 @@ pub fn filter_genomes_through_checkm<'a>(
             );
 
             let sorted_thresholded_genomes = match clap_matches
-                .value_of(&argument_definition.dereplication_quality_formula_argument)
-                .unwrap()
+                .get_one::<String>(&argument_definition.dereplication_quality_formula_argument)
+                .unwrap().as_str()
             {
                 "completeness-4contamination" => {
                     info!("Ordering genomes by quality formula: completeness - 4*contamination");
@@ -703,7 +704,7 @@ pub fn generate_galah_clusterer<'a>(
         Err(e) => std::result::Result::Err(e),
 
         Ok(v2) => {
-            let threads: usize = clap_matches.value_of_t("threads")
+            let threads: usize = *clap_matches.get_one::<usize>("threads")
                 .expect("Failed to parse --threads argument");
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
@@ -713,11 +714,11 @@ pub fn generate_galah_clusterer<'a>(
                 )
                 .expect(&format!(
                     "Failed to parse ani {:?}",
-                    clap_matches.value_of(&argument_definition.dereplication_ani_argument)
+                    clap_matches.get_one::<f32>(&argument_definition.dereplication_ani_argument)
                 ))
                 .expect(&format!(
                     "Failed to parse ani {:?}",
-                    clap_matches.value_of(&argument_definition.dereplication_ani_argument)
+                    clap_matches.get_one::<f32>(&argument_definition.dereplication_ani_argument)
                 )),
                 min_aligned_fraction: parse_percentage(
                     &clap_matches,
@@ -726,21 +727,21 @@ pub fn generate_galah_clusterer<'a>(
                 .expect(&format!(
                     "Failed to parse min-aligned-fraction {:?}",
                     clap_matches
-                        .value_of(&argument_definition.dereplication_aligned_fraction_argument)
+                        .get_one::<f32>(&argument_definition.dereplication_aligned_fraction_argument)
                 ))
                 .expect(&format!(
                     "Failed to parse min-aligned-fraction {:?}",
                     clap_matches
-                        .value_of(&argument_definition.dereplication_aligned_fraction_argument)
+                        .get_one::<f32>(&argument_definition.dereplication_aligned_fraction_argument)
                 )),
-                fraglen: clap_matches.value_of_t(&argument_definition.dereplication_fraglen_argument)
+                fraglen: *clap_matches.get_one::<u32>(&argument_definition.dereplication_fraglen_argument)
                 .expect(&format!(
                     "Failed to parse fragment length {:?}",
-                    clap_matches.value_of(&argument_definition.dereplication_fraglen_argument)
+                    clap_matches.get_one::<u32>(&argument_definition.dereplication_fraglen_argument)
                 )),
                 preclusterer: match clap_matches
-                    .value_of(&argument_definition.dereplication_precluster_method_argument)
-                    .unwrap()
+                    .get_one::<String>(&argument_definition.dereplication_precluster_method_argument)
+                    .unwrap().as_str()
                 {
                     "dashing" => {
                         crate::external_command_checker::check_for_dashing();
@@ -751,13 +752,13 @@ pub fn generate_galah_clusterer<'a>(
                             )
                             .expect(&format!(
                                 "Failed to parse precluster-ani {:?}",
-                                clap_matches.value_of(
+                                clap_matches.get_one::<String>(
                                     &argument_definition.dereplication_prethreshold_ani_argument
                                 )
                             ))
                             .expect(&format!(
                                 "Failed to parse precluster-ani {:?}",
-                                clap_matches.value_of(
+                                clap_matches.get_one::<String>(
                                     &argument_definition.dereplication_prethreshold_ani_argument
                                 )
                             )),
@@ -771,13 +772,13 @@ pub fn generate_galah_clusterer<'a>(
                         )
                         .expect(&format!(
                             "Failed to parse precluster-ani {:?}",
-                            clap_matches.value_of(
+                            clap_matches.get_one::<f32>(
                                 &argument_definition.dereplication_prethreshold_ani_argument
                             )
                         ))
                         .expect(&format!(
                             "Failed to parse precluster-ani {:?}",
-                            clap_matches.value_of(
+                            clap_matches.get_one::<f32>(
                                 &argument_definition.dereplication_prethreshold_ani_argument
                             )
                         )),
@@ -795,9 +796,9 @@ pub fn parse_percentage(
     m: &clap::ArgMatches,
     parameter: &str,
 ) -> std::result::Result<Option<f32>, String> {
-    match m.is_present(parameter) {
+    match m.contains_id(parameter) {
         true => {
-            let mut percentage: f32 = m.value_of_t(parameter).unwrap();
+            let mut percentage: f32 = *m.get_one::<f32>(parameter).unwrap();
             if percentage >= 1.0 && percentage <= 100.0 {
                 percentage = percentage / 100.0;
             } else if percentage < 0.0 || percentage > 100.0 {
@@ -922,70 +923,66 @@ pub fn cluster_full_help(program_basename: &str, program_version: &str) -> Manua
     manual
 }
 
-pub fn add_cluster_subcommand<'a>(app: clap::Command<'a>) -> clap::Command<'a> {
+pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
     let mut cluster_subcommand = add_clap_verbosity_flags(Command::new("cluster"))
         .about("Cluster FASTA files by average nucleotide identity")
         .override_help(CLUSTER_HELP.as_str())
-        .arg(Arg::new("full-help").long("full-help"))
-        .arg(Arg::new("full-help-roff").long("full-help-roff"))
+        .arg(Arg::new("full-help").long("full-help").action(clap::ArgAction::SetTrue))
+        .arg(Arg::new("full-help-roff").long("full-help-roff").action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_ani_argument)
             .long("ani")
             .help("Average nucleotide identity threshold for clustering")
-            .takes_value(true)
+            .value_parser(clap::value_parser!(f32))
             .default_value(crate::DEFAULT_ANI))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_fraglen_argument)
             .long(&*GALAH_COMMAND_DEFINITION.dereplication_fraglen_argument)
             .help("Length of fragment used in FastANI calculation (i.e. --fragLen)")
-            .takes_value(true)
+            .value_parser(clap::value_parser!(u32))
             .default_value(crate::DEFAULT_FRAGMENT_LENGTH))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_aligned_fraction_argument)
             .long("min-aligned-fraction")
             .help("Min aligned fraction of two genomes for clustering")
-            .takes_value(true)
+            .value_parser(clap::value_parser!(f32))
             .default_value(crate::DEFAULT_ALIGNED_FRACTION))
         .arg(Arg::new("checkm-tab-table")
             .long("checkm-tab-table")
-            .help("Output of CheckM lineage_wf/taxonomy_wf/qa with --tab_table specified")
-            .takes_value(true))
+            .help("Output of CheckM lineage_wf/taxonomy_wf/qa with --tab_table specified"))
         .arg(Arg::new("genome-info")
             .long("genome-info")
-            .help("genomeInfo file in same format as dRep i.e. a CSV with three header columns, first line 'genome,completeness,contamination'.")
-            .takes_value(true))
+            .help("genomeInfo file in same format as dRep i.e. a CSV with three header columns, first line 'genome,completeness,contamination'."))
         .arg(Arg::new("min-completeness")
             .long("min-completeness")
             .help("Genomes with less than this percentage of completeness are excluded")
-            .takes_value(true)
+            .value_parser(clap::value_parser!(f32))
             .default_value("0"))
         .arg(Arg::new("max-contamination")
             .long("max-contamination")
             .help("Genomes with greater than this percentage of contamination are excluded")
-            .default_value("100")
-            .takes_value(true))
+            .value_parser(clap::value_parser!(f32))
+            .default_value("100"))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_quality_formula_argument)
             .long("quality-formula")
-            .possible_values(&[
+            .value_parser([
                 "completeness-4contamination",
                 "completeness-5contamination",
                 "Parks2020_reduced",
                 "dRep"])
-            .default_value(crate::DEFAULT_QUALITY_FORMULA)
-            .takes_value(true))
+            .default_value(crate::DEFAULT_QUALITY_FORMULA))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_prethreshold_ani_argument)
             .long("precluster-ani")
-            .takes_value(true)
+            .value_parser(clap::value_parser!(f32))
             .default_value(crate::DEFAULT_PRETHRESHOLD_ANI))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_precluster_method_argument)
             .long("precluster-method")
             .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash")
-            .possible_values(&["dashing","finch"])
-            .default_value(crate::DEFAULT_PRECLUSTER_METHOD)
-            .takes_value(true))
+            .value_parser(["dashing","finch"])
+            .default_value(crate::DEFAULT_PRECLUSTER_METHOD))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
             .help("Number of CPU threads to use")
             .default_value("1")
-            .takes_value(true))
+            .value_parser(clap::value_parser!(usize)))
         .arg(Arg::new("output-cluster-definition")
             .short('o')
             .long("output-cluster-definition")
@@ -995,8 +992,7 @@ pub fn add_cluster_subcommand<'a>(app: clap::Command<'a>) -> clap::Command<'a> {
                 "output-representative-fasta-directory-copy",
                 "output-representative-list",
                 "full-help",
-                "full-help-roff",])
-            .takes_value(true))
+                "full-help-roff",]))
         .arg(Arg::new("output-representative-fasta-directory")
             .long("output-representative-fasta-directory")
             .help("Symlink representative genomes into this directory")
@@ -1005,8 +1001,7 @@ pub fn add_cluster_subcommand<'a>(app: clap::Command<'a>) -> clap::Command<'a> {
                 "output-representative-list",
                 "output-representative-fasta-directory-copy",
                 "full-help",
-                "full-help-roff",])
-            .takes_value(true))
+                "full-help-roff",]))
         .arg(Arg::new("output-representative-fasta-directory-copy")
             .long("output-representative-fasta-directory-copy")
             .help("Copy representative genomes into this directory")
@@ -1015,8 +1010,7 @@ pub fn add_cluster_subcommand<'a>(app: clap::Command<'a>) -> clap::Command<'a> {
                 "output-representative-fasta-directory",
                 "output-representative-list",
                 "full-help",
-                "full-help-roff",])
-            .takes_value(true))
+                "full-help-roff",]))
         .arg(Arg::new("output-representative-list")
             .long("output-representative-list")
             .help("Print newline separated list of paths to representatives into this directory")
@@ -1025,8 +1019,7 @@ pub fn add_cluster_subcommand<'a>(app: clap::Command<'a>) -> clap::Command<'a> {
                 "output-representative-fasta-directory-copy",
                 "output-cluster-definition",
                 "full-help",
-                "full-help-roff",])
-            .takes_value(true));
+                "full-help-roff",]));
 
     cluster_subcommand =
         bird_tool_utils::clap_utils::add_genome_specification_arguments(cluster_subcommand);
