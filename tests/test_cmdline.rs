@@ -264,6 +264,8 @@ mod tests {
                 "tests/data/antonio_mags/BE_RX_R3_MAG189.fna",
                 "--precluster-method", // only needed temporarily
                 "finch",
+                "--precluster-ani",
+                "90",
                 "--ani",
                 "95",
                 "--min-aligned-fraction",

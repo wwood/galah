@@ -10,7 +10,6 @@ use bird_tool_utils::clap_utils::{default_roff, monospace_roff};
 use bird_tool_utils_man::prelude::{Author, Flag, Manual, Opt, Section};
 use clap::*;
 use rayon::prelude::*;
-use clap_mangen;
 
 use crate::genome_info_file;
 use crate::genome_stats;
