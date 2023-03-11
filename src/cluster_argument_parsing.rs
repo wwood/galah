@@ -17,7 +17,7 @@ use crate::genome_stats;
 pub enum Preclusterer {
     Dashing {
         min_ani: f32,
-        threads: usize,
+        threads: u16,
     },
     Finch {
         min_ani: f32,
@@ -41,6 +41,7 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_precluster_method_argument: String,
     pub dereplication_aligned_fraction_argument: String,
     pub dereplication_fraglen_argument: String,
+    // pub dereplication_ani_method_argument: String,
     pub dereplication_output_cluster_definition_file: String,
     pub dereplication_output_representative_fasta_directory: String,
     pub dereplication_output_representative_fasta_directory_copy: String,
@@ -56,6 +57,7 @@ lazy_static! {
             dereplication_precluster_method_argument: "precluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
+            // dereplication_ani_method_argument: "ani-method".to_string(),
             dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
             dereplication_output_representative_fasta_directory:
                 "output-representative-fasta-directory".to_string(),
@@ -335,9 +337,9 @@ pub fn run_cluster_subcommand(
         cluster_full_help(program_basename, program_version),
     );
 
-    let num_threads: usize = *m.get_one::<usize>("threads").unwrap();
+    let num_threads = *m.get_one::<u16>("threads").unwrap();
     rayon::ThreadPoolBuilder::new()
-        .num_threads(num_threads)
+        .num_threads(num_threads as usize)
         .build_global()
         .expect("Programming error: rayon initialised multiple times");
 
@@ -703,7 +705,7 @@ pub fn generate_galah_clusterer<'a>(
         Err(e) => std::result::Result::Err(e),
 
         Ok(v2) => {
-            let threads: usize = *clap_matches.get_one::<usize>("threads")
+            let threads = *clap_matches.get_one::<u16>("threads")
                 .expect("Failed to parse --threads argument");
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
@@ -981,7 +983,7 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .long("threads")
             .help("Number of CPU threads to use")
             .default_value("1")
-            .value_parser(clap::value_parser!(usize)))
+            .value_parser(clap::value_parser!(u16)))
         .arg(Arg::new("output-cluster-definition")
             .short('o')
             .long("output-cluster-definition")

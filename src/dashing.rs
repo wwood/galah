@@ -11,7 +11,7 @@ use tempfile;
 pub struct DashingPreclusterer {
     /// Fraction, not percentage
     pub min_ani: f32,
-    pub threads: usize,
+    pub threads: u16,
 }
 
 impl PreclusterDistanceFinder for DashingPreclusterer {
@@ -23,7 +23,7 @@ impl PreclusterDistanceFinder for DashingPreclusterer {
 pub fn distances(
     genome_fasta_paths: &[&str],
     min_ani: f32,
-    threads: usize,
+    threads: u16,
 ) -> SortedPairGenomeDistanceCache {
     // Create a tempfile to list all the fasta file paths
     let mut tf = tempfile::Builder::new()
