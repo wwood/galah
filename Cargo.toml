@@ -23,12 +23,12 @@ checkm = "0.1.*"
 rayon = "1.5"
 csv = "1.1"
 # bird_tool_utils = "0.4.*"
-# bird_tool_utils = { git = "https://github.com/wwood/bird_tool_utils" }
-bird_tool_utils = { path = "../bird_tool_utils" }
+bird_tool_utils = { git = "https://github.com/wwood/bird_tool_utils" }
+# bird_tool_utils = { path = "../bird_tool_utils" }
 tempfile = "3.*"
-finch = "0.5.*"
+finch = "0.6.*"
 partitions = { version = "0.2.*", features = ["compact"] }
-needletail = "0.4.*"
+needletail = "0.5.*"
 bird_tool_utils-man = "0.4.0"
 lazy_static = "1.4.0"
 ansi_term = "0.12"
