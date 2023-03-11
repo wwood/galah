@@ -753,13 +753,13 @@ pub fn generate_galah_clusterer<'a>(
                             )
                             .expect(&format!(
                                 "Failed to parse precluster-ani {:?}",
-                                clap_matches.get_one::<String>(
+                                clap_matches.get_one::<f32>(
                                     &argument_definition.dereplication_prethreshold_ani_argument
                                 )
                             ))
                             .expect(&format!(
                                 "Failed to parse precluster-ani {:?}",
-                                clap_matches.get_one::<String>(
+                                clap_matches.get_one::<f32>(
                                     &argument_definition.dereplication_prethreshold_ani_argument
                                 )
                             )),
