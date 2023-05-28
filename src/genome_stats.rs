@@ -15,10 +15,8 @@ pub fn calculate_genome_stats(fasta_path: &str) -> GenomeAssemblyStats {
     let mut total_length = 0usize;
 
     let mut reader = parse_fastx_file(fasta_path)
-        .expect(&format!(
-            "Failed to calculate genome statistics for file '{}' as there was a problem opening the file",
-            fasta_path
-        ));
+        .unwrap_or_else(|_| panic!("Failed to calculate genome statistics for file '{}' as there was a problem opening the file",
+            fasta_path));
     while let Some(seq1) = reader.next() {
         let seq = seq1.expect("invalid record");
         num_contigs += 1;
@@ -46,9 +44,9 @@ pub fn calculate_genome_stats(fasta_path: &str) -> GenomeAssemblyStats {
     }
 
     GenomeAssemblyStats {
-        num_contigs: num_contigs,
+        num_contigs,
         num_ambiguous_bases: num_ambiguous,
-        n50: n50.expect(&format!("Failed to calculate n50 from {}", fasta_path)),
+        n50: n50.unwrap_or_else(|| panic!("Failed to calculate n50 from {}", fasta_path)),
     }
 }
 

@@ -41,7 +41,7 @@ pub fn cluster<P: PreclusterDistanceFinder>(
         .collect();
 
     // Sort preclusters so bigger clusters are started before smaller
-    preclusters.sort_unstable_by(|c1, c2| c2.len().cmp(&c1.len()));
+    preclusters.sort_unstable_by_key(|c2| std::cmp::Reverse(c2.len()));
     debug!("After sorting, found preclusters {:?}", preclusters);
     info!(
         "Found {} preclusters. The largest contained {} genomes",
@@ -110,7 +110,7 @@ pub fn cluster<P: PreclusterDistanceFinder>(
             }
             debug!("Finished proccessing pre-cluster {}", precluster_id);
         });
-    return all_clusters.into_inner().unwrap();
+    all_clusters.into_inner().unwrap()
 }
 
 /// Create sub-sets by single linkage clustering
@@ -135,7 +135,7 @@ fn partition_sketches(
             }
         });
     });
-    return to_return;
+    to_return
 }
 
 // /// Choose representatives, greedily assigning based on the min_ani threshold.
@@ -185,7 +185,7 @@ fn find_dashing_fastani_representatives(
             .filter(|(_, ani_opt)| ani_opt.is_some())
             .map(|(j, ani_opt)| (j, ani_opt.unwrap()))
             .collect();
-        minhash_indices_and_distances.sort_unstable_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        minhash_indices_and_distances.sort_unstable_by(|a, b| a.1.partial_cmp(b.1).unwrap());
         let potential_refs: Vec<_> = minhash_indices_and_distances
             .into_iter()
             .map(|(rep_index, _)| *rep_index)
@@ -230,7 +230,7 @@ fn find_dashing_fastani_representatives(
             clusters_to_return.insert(i);
         }
     }
-    return (clusters_to_return, fastani_cache);
+    (clusters_to_return, fastani_cache)
 }
 
 /// Calculate FastANI values, submitting each genome pair in parallel.
@@ -282,7 +282,7 @@ fn calculate_fastani_many_to_one_pairwise_stop_early(
             }
         });
 
-    return to_return.into_inner().unwrap();
+    to_return.into_inner().unwrap()
 }
 
 pub fn calculate_fastani(
@@ -298,7 +298,7 @@ pub fn calculate_fastani(
         fastani_fraglen,
     );
     match one {
-        None => return None,
+        None => None,
         Some(first) => {
             let two = calculate_fastani_one_way(
                 fasta2,
@@ -306,7 +306,7 @@ pub fn calculate_fastani(
                 //fastani_min_aligned_threshold,
                 fastani_fraglen,
             );
-            return match two {
+            match two {
                 None => None,
                 Some(second) => {
                     // Calculate min aligned based on the fragment counts, not the genome length counts as fastANI currently does. See https://github.com/wwood/galah/issues/7
@@ -324,7 +324,7 @@ pub fn calculate_fastani(
                         None
                     }
                 }
-            };
+            }
         }
     }
 }
@@ -350,15 +350,15 @@ fn calculate_fastani_one_way(
         .arg("--fragLen")
         .arg(&format!("{}", fastani_fraglen))
         .arg("--query")
-        .arg(&fasta1)
+        .arg(fasta1)
         .arg("--ref")
-        .arg(&fasta2)
+        .arg(fasta2)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
     debug!("Running fastANI command: {:?}", &cmd);
     let mut process = cmd
         .spawn()
-        .expect(&format!("Failed to spawn {}", "fastANI"));
+        .unwrap_or_else(|_| panic!("Failed to spawn {}", "fastANI"));
     let stdout = process.stdout.as_mut().unwrap();
     let stdout_reader = BufReader::new(stdout);
 
@@ -387,9 +387,9 @@ fn calculate_fastani_one_way(
                     std::process::exit(1);
                 }
                 to_return = Some(FastaniMatch {
-                    ani: ani,
-                    fragments_matching: fragments_matching,
-                    fragments_total: fragments_total,
+                    ani,
+                    fragments_matching,
+                    fragments_total,
                 });
             }
             Err(e) => {
@@ -403,7 +403,7 @@ fn calculate_fastani_one_way(
         fasta1, fasta2, to_return
     );
     finish_command_safely(process, "FastANI");
-    return to_return;
+    to_return
 }
 
 // /// For each genome (sketch) assign it to the closest representative genome:
@@ -470,7 +470,7 @@ fn find_dashing_fastani_memberships(
     genomes.par_iter().enumerate().for_each(|(i, _)| {
         if !representatives.contains(&i) {
             let potential_refs: Vec<&usize> = representatives
-                .into_iter()
+                .iter()
                 .filter(|rep| {
                     if calculated_fastanis_lock
                         .lock()
@@ -508,17 +508,11 @@ fn find_dashing_fastani_memberships(
                     true => match calculated_fastanis_lock.lock().unwrap().get(&(i, *rep)) {
                         // ani could be known as f32, None for calculated
                         // but below threshold, of not calculated. If not calculated, it isn't nearby
-                        Some(ani_opt) => match ani_opt {
-                            Some(ani) => Some(*ani),
-                            None => None,
-                        },
+                        Some(ani_opt) => ani_opt.as_ref().copied(),
                         None => None,
                     },
                     false => match calculated_fastanis_lock.lock().unwrap().get(&(*rep, i)) {
-                        Some(ani_opt) => match ani_opt {
-                            Some(ani) => Some(*ani),
-                            None => None,
-                        },
+                        Some(ani_opt) => ani_opt.as_ref().copied(),
                         None => None,
                     },
                 };
@@ -538,7 +532,7 @@ fn find_dashing_fastani_memberships(
         }
     });
 
-    return to_return.into_inner().unwrap();
+    to_return.into_inner().unwrap()
 }
 
 #[cfg(test)]

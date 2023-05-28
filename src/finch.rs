@@ -30,7 +30,7 @@ pub fn distances(
         kmers_to_sketch: num_kmers,
         final_size: num_kmers,
         no_strict: true, // Possibly not right.
-        kmer_length: kmer_length,
+        kmer_length,
         hash_seed: 0,
     };
     let filters = finch::filtering::FilterParams {
@@ -51,10 +51,12 @@ pub fn distances(
             let genome_index2 = i + j + 1;
             let distance = 1.0
                 - finch::distance::distance(sketch1, sketch2, false)
-                    .expect(&format!(
-                        "Failed to compare finch sketches {} and {}",
-                        i, genome_index2
-                    ))
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Failed to compare finch sketches {} and {}",
+                            i, genome_index2
+                        )
+                    })
                     .mash_distance;
             debug!(
                 "Comparing {} and {}, distance {}",
@@ -65,7 +67,7 @@ pub fn distances(
             }
         }
     }
-    return to_return;
+    to_return
 }
 
 #[cfg(test)]

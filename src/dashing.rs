@@ -58,7 +58,7 @@ pub fn distances(
     // Parse the distances
     let mut process = cmd
         .spawn()
-        .expect(&format!("Failed to spawn {}", "dashing"));
+        .unwrap_or_else(|_| panic!("Failed to spawn {}", "dashing"));
     let stdout = process.stdout.as_mut().unwrap();
     let stdout_reader = BufReader::new(stdout);
 
@@ -75,10 +75,12 @@ pub fn distances(
                 assert_eq!(genome_fasta_paths[genome_id1], &record[0]);
                 debug!("Found dashing record {:?}", record);
                 for genome_id2 in genome_id1 + 1..genome_fasta_paths.len() {
-                    let dist: f32 = record[genome_id2 + 1].parse().expect(&format!(
-                        "Failed to convert dashing dist to float value: {}",
-                        &record[genome_id2]
-                    ));
+                    let dist: f32 = record[genome_id2 + 1].parse().unwrap_or_else(|_| {
+                        panic!(
+                            "Failed to convert dashing dist to float value: {}",
+                            &record[genome_id2]
+                        )
+                    });
                     trace!("Found dist {}", dist);
                     if 1.0 - dist >= min_ani {
                         trace!("Accepting ANI since it passed threshold");
@@ -96,5 +98,5 @@ pub fn distances(
     debug!("Found dashing distances: {:#?}", distances);
     info!("Finished dashing genomes against each other.");
 
-    return distances;
+    distances
 }

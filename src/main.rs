@@ -13,7 +13,7 @@ static PROGRAM_NAME: &str = "Galah";
 
 fn main() {
     let app = build_cli();
-    let matches = app.clone().get_matches();
+    let matches = app.get_matches();
     set_log_level(&matches, false, PROGRAM_NAME, crate_version!());
 
     match matches.subcommand_name() {
@@ -34,9 +34,9 @@ fn main() {
                 .build_global()
                 .expect("Programming error: rayon initialised multiple times");
 
-            let ani = galah::cluster_argument_parsing::parse_percentage(&m, "ani");
+            let ani = galah::cluster_argument_parsing::parse_percentage(m, "ani");
             let min_aligned_fraction =
-                galah::cluster_argument_parsing::parse_percentage(&m, "min-aligned-fraction");
+                galah::cluster_argument_parsing::parse_percentage(m, "min-aligned-fraction");
             let fraglen: u32 = *m.get_one::<u32>("fraglen").unwrap();
 
             galah::cluster_validation::validate_clusters(
@@ -56,20 +56,20 @@ fn build_cli() -> Command {
         .author("Ben J. Woodcroft <benjwoodcroft near gmail.com>")
         .about("Metagenome assembled genome (MAG) dereplicator / clusterer")
         .arg_required_else_help(true)
-        .subcommand(
-            add_clap_verbosity_flags(Command::new("cluster-validate")
+        .subcommand(add_clap_verbosity_flags(
+            Command::new("cluster-validate")
                 .about("Verify clustering results")
                 .arg(
                     Arg::new("cluster-file")
                         .long("cluster-file")
                         .required(true)
-                        .help("Output of 'cluster' subcommand")
+                        .help("Output of 'cluster' subcommand"),
                 )
                 .arg(
                     Arg::new("ani")
                         .long("ani")
                         .default_value("99")
-                        .help("ANI to validate against")
+                        .help("ANI to validate against"),
                 )
                 .arg(
                     Arg::new("min-aligned-fraction")
@@ -81,10 +81,9 @@ fn build_cli() -> Command {
                     Arg::new("threads")
                         .short('t')
                         .long("threads")
-                        .default_value("1")
-                )
-            )
-        );
+                        .default_value("1"),
+                ),
+        ));
 
     // .subcommand(
     //     Command::new("dist")
@@ -115,5 +114,5 @@ fn build_cli() -> Command {
     //             .takes_value(true)))
 
     app = galah::cluster_argument_parsing::add_cluster_subcommand(app);
-    return app;
+    app
 }

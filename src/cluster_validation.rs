@@ -21,12 +21,8 @@ pub fn validate_clusters(
     clusters.par_iter().for_each(|cluster| {
         let rep = &cluster[0];
         cluster.par_iter().for_each(|genome| {
-            let fastani_res = calculate_fastani(
-                &rep,
-                &genome,
-                fastani_min_aligned_threshold,
-                fastani_fraglen,
-            );
+            let fastani_res =
+                calculate_fastani(rep, genome, fastani_min_aligned_threshold, fastani_fraglen);
             match fastani_res {
                 Some(fastani) => {
                     if fastani >= ani {
@@ -113,5 +109,5 @@ fn read_clustering_file(clustering_file: &str) -> Vec<Vec<String>> {
     if current_cluster_rep.is_some() {
         all_clusters.push(current_cluster)
     }
-    return all_clusters;
+    all_clusters
 }

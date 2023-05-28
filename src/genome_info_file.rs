@@ -11,7 +11,8 @@ pub fn read_genome_info_file(file_path: &str) -> Result<checkm::CheckMResult, St
         .from_path(std::path::Path::new(file_path));
     let mut total_seen = 0usize;
 
-    let mut parse_result = rdr.expect(&format!("Failed to parse genomeInfo file {}", file_path));
+    let mut parse_result =
+        rdr.unwrap_or_else(|_| panic!("Failed to parse genomeInfo file {}", file_path));
     if parse_result
         .headers()
         .expect("Failed to find headers in genomeInfo file")
@@ -26,8 +27,7 @@ pub fn read_genome_info_file(file_path: &str) -> Result<checkm::CheckMResult, St
             return Err(format!(
                 "Parsing error in genomeInfo file - didn't find 3 columns in line {:?}",
                 res
-            )
-            .to_string());
+            ));
         }
         let completeness: f32 = res[1]
             .parse::<f32>()
@@ -53,18 +53,16 @@ pub fn read_genome_info_file(file_path: &str) -> Result<checkm::CheckMResult, St
             Some(_) => {
                 return Err(format!(
                     "The genome {} was found multiple times in the checkm file {}",
-                    res[0].to_string(),
-                    file_path
-                )
-                .to_string());
+                    &res[0], file_path
+                ));
             }
         };
         total_seen += 1;
     }
     debug!("Read in {} genomes from {}", total_seen, file_path);
-    return Ok(checkm::CheckMResult {
+    Ok(checkm::CheckMResult {
         genome_to_quality: qualities,
-    });
+    })
 }
 
 #[cfg(test)]

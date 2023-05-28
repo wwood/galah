@@ -6,6 +6,12 @@ pub struct SortedPairGenomeDistanceCache {
     internal: std::collections::BTreeMap<(usize, usize), Option<f32>>,
 }
 
+impl Default for SortedPairGenomeDistanceCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SortedPairGenomeDistanceCache {
     pub fn new() -> SortedPairGenomeDistanceCache {
         SortedPairGenomeDistanceCache {
@@ -41,19 +47,14 @@ impl SortedPairGenomeDistanceCache {
     pub fn transform_ids(&self, input_ids: &[usize]) -> SortedPairGenomeDistanceCache {
         let mut to_return = SortedPairGenomeDistanceCache::new();
         for (i, genome_id1) in input_ids.iter().enumerate() {
-            for j in (i + 1)..input_ids.len() {
-                let genome_id2 = input_ids[j];
+            for (j, genome_id2) in input_ids.iter().enumerate().skip(i + 1) {
                 trace!("Testing {} / {} i.e. {} / {}", i, j, genome_id1, genome_id2);
-                match self.get(&(*genome_id1, genome_id2)) {
-                    Some(ani_opt) => {
-                        trace!("yes");
-                        to_return.insert((i, j), *ani_opt)
-                    }
-                    None => {}
+                if let Some(ani_opt) = self.get(&(*genome_id1, *genome_id2)) {
+                    to_return.insert((i, j), *ani_opt)
                 }
             }
         }
-        return to_return;
+        to_return
     }
 }
 
