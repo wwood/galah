@@ -507,7 +507,10 @@ pub fn filter_genomes_through_checkm<'a>(
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
 ) -> std::result::Result<Vec<&'a str>, String> {
-    match clap_matches.contains_id("checkm-tab-table") || clap_matches.contains_id("genome-info") {
+    match clap_matches.contains_id("checkm-tab-table")
+        || clap_matches.contains_id("genome-info")
+        || clap_matches.contains_id("checkm2-quality-report")
+    {
         false => {
             warn!("Since CheckM input is missing, genomes are not being ordered by quality. Instead the order of their input is being used");
             Ok(genome_fasta_files.iter().map(|s| &**s).collect())
@@ -1099,9 +1102,12 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .help("Min aligned fraction of two genomes for clustering")
             .value_parser(clap::value_parser!(f32))
             .default_value(crate::DEFAULT_ALIGNED_FRACTION))
-            .arg(Arg::new("checkm-tab-table")
-                .long("checkm-tab-table")
-                .help("Output of CheckM lineage_wf/taxonomy_wf/qa with --tab_table specified"))
+        .arg(Arg::new("checkm-tab-table")
+            .long("checkm-tab-table")
+            .help("Output of CheckM lineage_wf/taxonomy_wf/qa with --tab_table specified"))
+        .arg(Arg::new("checkm2-quality-report")
+            .long("checkm2-quality-report")
+            .help("Output of CheckM2 predict"))
         .arg(Arg::new("genome-info")
             .long("genome-info")
             .help("genomeInfo file in same format as dRep i.e. a CSV with three header columns, first line 'genome,completeness,contamination'."))
