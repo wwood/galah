@@ -135,15 +135,21 @@ See {} cluster --full-help for further options and further detail.
 
 pub fn add_dereplication_filtering_parameters_to_section(section: Section) -> Section {
     section
-        .option(Opt::new("PATH").long("--checkm-tab-table").help(&format!(
-            "CheckM tab table (i.e. the output of {}) for defining genome quality, \
+        .option(Opt::new("PATH").long("--checkm2-quality-report").help(&format!(
+            "CheckM version 2 quality_report.tsv (i.e. the {} in the output directory output of {}) for defining genome quality, \
             which is used both for filtering and to rank genomes during clustering.",
-            monospace_roff("checkm .. --tab_table -f PATH ..")
+            monospace_roff("quality_report.tsv"),
+            monospace_roff("checkm2 predict ..")
+        )))
+        .option(Opt::new("PATH").long("--checkm-tab-table").help(&format!(
+            "CheckM tab table (i.e. the output of {}). The information contained is used like {}.",
+            monospace_roff("checkm .. --tab_table -f PATH .."),
+            &monospace_roff("--checkm2-quality-report")
         )))
         .option(Opt::new("PATH").long("--genome-info").help(&format!(
             "dRep style genome info table for defining \
-        quality. Used like {}.",
-            &monospace_roff("--checkm-tab-table")
+        quality. The information contained is used like {}.",
+            &monospace_roff("--checkm2-quality-report")
         )))
         .option(Opt::new("FLOAT").long("--min-completeness").help(
             "Ignore genomes with less completeness than \
@@ -484,6 +490,18 @@ fn write_cluster_reps_to_directory(
     };
 }
 
+enum CheckMResultEnum {
+    GenomeInfoGenomeQuality {
+        result: checkm::CheckMResult<genome_info_file::GenomeInfoGenomeQuality>,
+    },
+    CheckM1Result {
+        result: checkm::CheckMResult<checkm::CheckM1GenomeQuality>,
+    },
+    CheckM2Result {
+        result: checkm::CheckMResult<checkm::CheckM2GenomeQuality>,
+    },
+}
+
 pub fn filter_genomes_through_checkm<'a>(
     genome_fasta_files: &'a Vec<String>,
     clap_matches: &clap::ArgMatches,
@@ -497,9 +515,22 @@ pub fn filter_genomes_through_checkm<'a>(
         true => {
             let checkm = if clap_matches.contains_id("checkm-tab-table") {
                 info!("Reading CheckM tab table ..");
-                checkm::CheckMTabTable::read_file_path(
-                    clap_matches.get_one::<String>("checkm-tab-table").unwrap(),
-                )
+                CheckMResultEnum::CheckM1Result {
+                    result: checkm::CheckM1TabTable::read_file_path(
+                        clap_matches.get_one::<String>("checkm-tab-table").unwrap(),
+                    )
+                    .unwrap(),
+                }
+            } else if clap_matches.contains_id("checkm2-quality-report") {
+                info!("Reading CheckM2 Quality report ..");
+                CheckMResultEnum::CheckM2Result {
+                    result: checkm::CheckM2QualityReport::read_file_path(
+                        clap_matches
+                            .get_one::<String>("checkm2-quality-report")
+                            .unwrap(),
+                    )
+                    .unwrap(),
+                }
             } else if clap_matches.contains_id("genome-info") {
                 if clap_matches
                     .get_one::<String>(&argument_definition.dereplication_quality_formula_argument)
@@ -514,10 +545,12 @@ pub fn filter_genomes_through_checkm<'a>(
                     "Reading genome info file {}",
                     clap_matches.get_one::<String>("genome-info").unwrap()
                 );
-                genome_info_file::read_genome_info_file(
-                    clap_matches.get_one::<String>("genome-info").unwrap(),
-                )
-                .expect("Error parsing genomeInfo file")
+                CheckMResultEnum::GenomeInfoGenomeQuality {
+                    result: genome_info_file::read_genome_info_file(
+                        clap_matches.get_one::<String>("genome-info").unwrap(),
+                    )
+                    .expect("Error parsing genomeInfo file"),
+                }
             } else {
                 panic!("Programming error");
             };
@@ -543,32 +576,102 @@ pub fn filter_genomes_through_checkm<'a>(
             {
                 "completeness-4contamination" => {
                     info!("Ordering genomes by quality formula: completeness - 4*contamination");
-                    checkm
-                        .order_fasta_paths_by_completeness_minus_4contamination(
-                            &genome_fasta_files.iter().map(|s| &**s).collect(),
-                            min_completeness,
-                            max_contamination,
-                        )
-                        .unwrap()
+                    match &checkm {
+                        CheckMResultEnum::CheckM1Result { result } => result
+                            .order_fasta_paths_by_completeness_minus_4contamination(
+                                &genome_fasta_files
+                                    .iter()
+                                    .map(|s| &**s)
+                                    .collect::<Vec<&str>>(),
+                                min_completeness,
+                                max_contamination,
+                            )
+                            .unwrap(),
+                        CheckMResultEnum::CheckM2Result { result } => result
+                            .order_fasta_paths_by_completeness_minus_4contamination(
+                                &genome_fasta_files
+                                    .iter()
+                                    .map(|s| &**s)
+                                    .collect::<Vec<&str>>(),
+                                min_completeness,
+                                max_contamination,
+                            )
+                            .unwrap(),
+                        CheckMResultEnum::GenomeInfoGenomeQuality { result } => result
+                            .order_fasta_paths_by_completeness_minus_4contamination(
+                                &genome_fasta_files
+                                    .iter()
+                                    .map(|s| &**s)
+                                    .collect::<Vec<&str>>(),
+                                min_completeness,
+                                max_contamination,
+                            )
+                            .unwrap(),
+                    }
                 }
                 "completeness-5contamination" => {
                     info!("Ordering genomes by quality formula: completeness - 5*contamination");
-                    checkm
-                        .order_fasta_paths_by_completeness_minus_5contamination(
-                            &genome_fasta_files.iter().map(|s| &**s).collect(),
-                            min_completeness,
-                            max_contamination,
-                        )
-                        .unwrap()
+                    match &checkm {
+                        CheckMResultEnum::CheckM1Result { result } => result
+                            .order_fasta_paths_by_completeness_minus_5contamination(
+                                &genome_fasta_files
+                                    .iter()
+                                    .map(|s| &**s)
+                                    .collect::<Vec<&str>>(),
+                                min_completeness,
+                                max_contamination,
+                            )
+                            .unwrap(),
+                        CheckMResultEnum::CheckM2Result { result } => result
+                            .order_fasta_paths_by_completeness_minus_5contamination(
+                                &genome_fasta_files
+                                    .iter()
+                                    .map(|s| &**s)
+                                    .collect::<Vec<&str>>(),
+                                min_completeness,
+                                max_contamination,
+                            )
+                            .unwrap(),
+                        CheckMResultEnum::GenomeInfoGenomeQuality { result } => result
+                            .order_fasta_paths_by_completeness_minus_5contamination(
+                                &genome_fasta_files
+                                    .iter()
+                                    .map(|s| &**s)
+                                    .collect::<Vec<&str>>(),
+                                min_completeness,
+                                max_contamination,
+                            )
+                            .unwrap(),
+                    }
                 }
                 "Parks2020_reduced" => {
                     info!("Calculating num_contigs etc. for genome quality assessment ..");
-                    let genome_appraisals = filter_and_calculate_genome_stats(
-                        genome_fasta_files,
-                        &checkm,
-                        min_completeness,
-                        max_contamination,
-                    );
+                    let genome_appraisals = match &checkm {
+                        CheckMResultEnum::CheckM1Result { result } => {
+                            filter_and_calculate_genome_stats(
+                                genome_fasta_files,
+                                result,
+                                min_completeness,
+                                max_contamination,
+                            )
+                        }
+                        CheckMResultEnum::CheckM2Result { result } => {
+                            filter_and_calculate_genome_stats(
+                                genome_fasta_files,
+                                result,
+                                min_completeness,
+                                max_contamination,
+                            )
+                        }
+                        CheckMResultEnum::GenomeInfoGenomeQuality { result } => {
+                            filter_and_calculate_genome_stats(
+                                genome_fasta_files,
+                                result,
+                                min_completeness,
+                                max_contamination,
+                            )
+                        }
+                    };
                     let mut appraisal: Vec<_> = genome_appraisals
                         .iter()
                         // Calculate quality score
@@ -595,9 +698,13 @@ pub fn filter_genomes_through_checkm<'a>(
                 }
                 "dRep" => {
                     info!("Calculating num_contigs etc. for genome quality assessment ..");
+                    let checkm_result = match &checkm {
+                        CheckMResultEnum::CheckM1Result { result } => result,
+                        _ => panic!("dRep quality formula only works with CheckM v1 quality scoring since it include strain heterogeneity"),
+                    };
                     let genome_appraisals = filter_and_calculate_genome_stats(
                         genome_fasta_files,
-                        &checkm,
+                        checkm_result,
                         min_completeness,
                         max_contamination,
                     );
@@ -607,9 +714,10 @@ pub fn filter_genomes_through_checkm<'a>(
                         // completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log(N50)
                         // It's log10 specifically, see https://github.com/MrOlm/drep/blob/3ca43f20ec2b43c2c826d2f50e5473d54f4a4510/drep/d_choose.py#L202
                         .map(|(fasta_file, checkm_quality, stats)| {
+                            let original_checkm1_quality = checkm_result.retrieve_via_fasta_path(fasta_file).unwrap();
                             let score = checkm_quality.completeness as f64 *100.
                                 - 5.*checkm_quality.contamination as f64*100.
-                                + checkm_quality.contamination as f64 * checkm_quality.strain_heterogeneity as f64
+                                + checkm_quality.contamination as f64 * original_checkm1_quality.strain_heterogeneity as f64
                                 + 0.5*((stats.n50 as f64).log10());
                             debug!("For genome {} found quality score {}, from checkm {:?} and stats {:?}",
                                 fasta_file, score, &checkm_quality, &stats);
@@ -631,7 +739,17 @@ pub fn filter_genomes_through_checkm<'a>(
             };
             info!(
                 "Read in genome qualities for {} genomes. {} passed quality thresholds",
-                checkm.genome_to_quality.len(),
+                match &checkm {
+                    CheckMResultEnum::CheckM1Result { result } => {
+                        result.genome_to_quality.len()
+                    }
+                    CheckMResultEnum::CheckM2Result { result } => {
+                        result.genome_to_quality.len()
+                    }
+                    CheckMResultEnum::GenomeInfoGenomeQuality { result } => {
+                        result.genome_to_quality.len()
+                    }
+                },
                 sorted_thresholded_genomes.len()
             );
             Ok(sorted_thresholded_genomes)
@@ -639,14 +757,23 @@ pub fn filter_genomes_through_checkm<'a>(
     }
 }
 
-fn filter_and_calculate_genome_stats<'a>(
+#[derive(Debug, Copy, Clone)]
+struct TwoStatGenomeQuality {
+    completeness: f32,
+    contamination: f32,
+}
+
+fn filter_and_calculate_genome_stats<
+    'a,
+    T: checkm::GenomeQuality + Clone + Copy + std::fmt::Debug + Send + Sync,
+>(
     genome_fasta_files: &'a Vec<String>,
-    checkm_stats: &checkm::CheckMResult,
+    checkm_stats: &checkm::CheckMResult<T>,
     min_completeness: Option<f32>,
     max_contamination: Option<f32>,
 ) -> Vec<(
     &'a String,
-    checkm::GenomeQuality,
+    TwoStatGenomeQuality,
     genome_stats::GenomeAssemblyStats,
 )> {
     genome_fasta_files
@@ -655,11 +782,20 @@ fn filter_and_calculate_genome_stats<'a>(
         .map(|fasta_file| {
             (
                 fasta_file,
-                checkm_stats
-                    .retrieve_via_fasta_path(fasta_file)
-                    .unwrap_or_else(|_| {
-                        panic!("Failed to find CheckM statistics for {}", fasta_file)
-                    }),
+                TwoStatGenomeQuality {
+                    completeness: checkm_stats
+                        .retrieve_via_fasta_path(fasta_file)
+                        .unwrap_or_else(|_| {
+                            panic!("Failed to find CheckM statistics for {}", fasta_file)
+                        })
+                        .completeness(),
+                    contamination: checkm_stats
+                        .retrieve_via_fasta_path(fasta_file)
+                        .unwrap_or_else(|_| {
+                            panic!("Failed to find CheckM statistics for {}", fasta_file)
+                        })
+                        .contamination(),
+                },
             )
         })
         // filter out poor checkm quality genomes

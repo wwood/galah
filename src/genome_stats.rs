@@ -68,7 +68,7 @@ mod tests {
                 num_ambiguous_bases: 6506,
                 n50: 8289
             },
-            calculate_genome_stats(&"tests/data/abisko4/73.20110600_S2D.10.fna")
+            calculate_genome_stats("tests/data/abisko4/73.20110600_S2D.10.fna")
         )
     }
 
@@ -82,7 +82,7 @@ mod tests {
                 num_ambiguous_bases: 0,
                 n50: 1_000_000
             },
-            calculate_genome_stats(&"tests/data/set1/1mbp.fna")
+            calculate_genome_stats("tests/data/set1/1mbp.fna")
         )
     }
 }

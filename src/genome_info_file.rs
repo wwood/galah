@@ -1,10 +1,25 @@
 use checkm;
 use std;
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct GenomeInfoGenomeQuality {
+    pub completeness: f32,
+    pub contamination: f32,
+}
+impl checkm::GenomeQuality for GenomeInfoGenomeQuality {
+    fn completeness(&self) -> f32 {
+        self.completeness
+    }
+    fn contamination(&self) -> f32 {
+        self.contamination
+    }
+}
 
 /// Read a genome Info file defined by dRep i.e. ["genome"(basename of .fasta
 /// file of that genome), "completeness"(0-100 value for completeness of the
 /// genome), "contamination"(0-100 value of the contamination of the genome)].
-pub fn read_genome_info_file(file_path: &str) -> Result<checkm::CheckMResult, String> {
+pub fn read_genome_info_file(
+    file_path: &str,
+) -> Result<checkm::CheckMResult<GenomeInfoGenomeQuality>, String> {
     let mut qualities = std::collections::BTreeMap::new();
     let rdr = csv::ReaderBuilder::new()
         .has_headers(true)
@@ -43,10 +58,9 @@ pub fn read_genome_info_file(file_path: &str) -> Result<checkm::CheckMResult, St
         );
         match qualities.insert(
             res[0].to_string(),
-            checkm::GenomeQuality {
+            GenomeInfoGenomeQuality {
                 completeness: completeness / 100.,
                 contamination: contamination / 100.,
-                strain_heterogeneity: 0., // Should not be used. This is enforced elsewhere.
             },
         ) {
             None => {}
@@ -81,18 +95,16 @@ mod tests {
         let mut map = std::collections::BTreeMap::new();
         map.insert(
             "500kb".to_string(),
-            checkm::GenomeQuality {
+            GenomeInfoGenomeQuality {
                 completeness: 0.5,
                 contamination: 0.01,
-                strain_heterogeneity: 0.,
             },
         );
         map.insert(
             "1mbp".to_string(),
-            checkm::GenomeQuality {
+            GenomeInfoGenomeQuality {
                 completeness: 1.0,
                 contamination: 0.,
-                strain_heterogeneity: 0.,
             },
         );
         assert_eq!(genome_info.genome_to_quality, map);
