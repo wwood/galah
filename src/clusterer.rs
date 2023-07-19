@@ -4,6 +4,7 @@ use std::io::BufReader;
 use std::sync::Mutex;
 
 use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
+use crate::ClusterDistanceFinder;
 use crate::PreclusterDistanceFinder;
 
 use bird_tool_utils::command::finish_command_safely;
@@ -12,14 +13,12 @@ use rayon::prelude::*;
 
 /// Given a list of genomes, return them clustered. Use dashing for first pass
 /// analysis, then fastani as the actual threshold.
-pub fn cluster<P: PreclusterDistanceFinder>(
+pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::marker::Sync>(
     genomes: &[&str],
     preclusterer: &P,
-    fastani_threshold: f32,
-    fastani_min_aligned_threshold: f32,
-    fastani_fraglen: u32,
+    clusterer: &C,
 ) -> Vec<Vec<usize>> {
-    assert!(fastani_threshold > 1.0);
+    // assert!(fastani_threshold > 1.0);
 
     // Dashing all the genomes together
     let dashing_cache = preclusterer.distances(genomes);
@@ -72,13 +71,8 @@ pub fn cluster<P: PreclusterDistanceFinder>(
                 "Calculating genome representatives by dashing+fastani in precluster {} ..",
                 precluster_id
             );
-            let (clusters, calculated_fastanis) = find_dashing_fastani_representatives(
-                &precluster_dashing_cache,
-                precluster_genomes.as_slice(),
-                fastani_threshold,
-                fastani_min_aligned_threshold,
-                fastani_fraglen,
-            );
+            let (clusters, calculated_fastanis) = clusterer
+                .find_representatives(&precluster_dashing_cache, precluster_genomes.as_slice());
             debug!(
                 "In precluster {}, found {} genome representatives",
                 precluster_id,
@@ -89,13 +83,11 @@ pub fn cluster<P: PreclusterDistanceFinder>(
                 "Assigning genomes to representatives by dashing+fastani in precluster {}..",
                 precluster_id
             );
-            let clusters = find_dashing_fastani_memberships(
+            let clusters = clusterer.find_memberships(
                 &clusters,
                 &precluster_dashing_cache,
                 precluster_genomes.as_slice(),
                 calculated_fastanis,
-                fastani_min_aligned_threshold,
-                fastani_fraglen,
             );
             // Indices here are within this single linkage cluster only, so
             // here we map them back to their original indices, and then
@@ -165,6 +157,45 @@ fn partition_sketches(
 //     }
 //     return to_return;
 // }
+
+pub struct FastaniClusterer {
+    pub threshold: f32,
+    pub min_aligned_threshold: f32,
+    pub fraglen: u32,
+}
+
+impl ClusterDistanceFinder for FastaniClusterer {
+    fn find_representatives(
+        &self,
+        precluster_cache: &SortedPairGenomeDistanceCache,
+        genomes: &[&str],
+    ) -> (BTreeSet<usize>, SortedPairGenomeDistanceCache) {
+        find_dashing_fastani_representatives(
+            precluster_cache,
+            genomes,
+            self.threshold,
+            self.min_aligned_threshold,
+            self.fraglen,
+        )
+    }
+
+    fn find_memberships(
+        &self,
+        representatives: &BTreeSet<usize>,
+        precluster_cache: &SortedPairGenomeDistanceCache,
+        genomes: &[&str],
+        calculated_fastanis: SortedPairGenomeDistanceCache,
+    ) -> Vec<Vec<usize>> {
+        find_dashing_fastani_memberships(
+            representatives,
+            precluster_cache,
+            genomes,
+            calculated_fastanis,
+            self.min_aligned_threshold,
+            self.fraglen,
+        )
+    }
+}
 
 fn find_dashing_fastani_representatives(
     dashing_cache: &SortedPairGenomeDistanceCache,
@@ -598,9 +629,11 @@ mod tests {
                 num_kmers: 1000,
                 kmer_length: 21,
             },
-            95.0,
-            0.2,
-            3000,
+            &FastaniClusterer {
+                threshold: 95.0,
+                min_aligned_threshold: 0.2,
+                fraglen: 3000,
+            },
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -623,9 +656,11 @@ mod tests {
                 num_kmers: 1000,
                 kmer_length: 21,
             },
-            98.0,
-            0.2,
-            3000,
+            &FastaniClusterer {
+                threshold: 98.0,
+                min_aligned_threshold: 0.2,
+                fraglen: 3000,
+            },
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -648,9 +683,11 @@ mod tests {
                 num_kmers: 1000,
                 kmer_length: 21,
             },
-            98.0,
-            0.2,
-            3000,
+            &FastaniClusterer {
+                threshold: 98.0,
+                min_aligned_threshold: 0.2,
+                fraglen: 3000,
+            },
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
