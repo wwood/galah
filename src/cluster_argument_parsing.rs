@@ -987,9 +987,11 @@ impl GalahClusterer<'_> {
             Preclusterer::Dashing { min_ani, threads } => crate::clusterer::cluster(
                 genomes,
                 &crate::dashing::DashingPreclusterer { min_ani, threads },
-                ani,
-                fastani_min_aligned_threshold,
-                fastani_fraglen,
+                &crate::clusterer::FastaniClusterer {
+                    threshold: ani,
+                    min_aligned_threshold: fastani_min_aligned_threshold,
+                    fraglen: fastani_fraglen,
+                },
             ),
             Preclusterer::Finch {
                 min_ani,
@@ -1002,9 +1004,11 @@ impl GalahClusterer<'_> {
                     num_kmers,
                     kmer_length,
                 },
-                ani,
-                fastani_min_aligned_threshold,
-                fastani_fraglen,
+                &crate::clusterer::FastaniClusterer {
+                    threshold: ani,
+                    min_aligned_threshold: fastani_min_aligned_threshold,
+                    fraglen: fastani_fraglen,
+                },
             ),
         }
     }
