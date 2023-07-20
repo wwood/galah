@@ -3,6 +3,7 @@ pub mod cluster_validation;
 pub mod clusterer;
 pub mod dashing;
 pub mod external_command_checker;
+pub mod fastani;
 pub mod finch;
 pub mod genome_info_file;
 pub mod genome_stats;

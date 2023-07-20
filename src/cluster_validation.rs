@@ -1,4 +1,4 @@
-use crate::clusterer::calculate_fastani;
+use crate::fastani::calculate_fastani;
 use std;
 use std::process;
 
