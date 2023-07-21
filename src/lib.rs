@@ -25,6 +25,8 @@ pub trait PreclusterDistanceFinder {
 }
 
 pub trait ClusterDistanceFinder {
+    fn initialise(&self);
+
     fn find_representatives(
         &self,
         precluster_cache: &SortedPairGenomeDistanceCache,

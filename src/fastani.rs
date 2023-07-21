@@ -15,6 +15,10 @@ pub struct FastaniClusterer {
 }
 
 impl ClusterDistanceFinder for FastaniClusterer {
+    fn initialise(&self) {
+        assert!(self.threshold > 1.0);
+    }
+
     fn find_representatives(
         &self,
         precluster_cache: &SortedPairGenomeDistanceCache,

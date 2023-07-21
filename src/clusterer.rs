@@ -15,7 +15,7 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     preclusterer: &P,
     clusterer: &C,
 ) -> Vec<Vec<usize>> {
-    // assert!(fastani_threshold > 1.0);
+    clusterer.initialise();
 
     // Dashing all the genomes together
     let dashing_cache = preclusterer.distances(genomes);
