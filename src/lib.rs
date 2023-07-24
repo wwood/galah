@@ -18,7 +18,6 @@ extern crate rayon;
 extern crate lazy_static;
 
 use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
-use std::collections::BTreeSet;
 
 pub trait PreclusterDistanceFinder {
     fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache;
@@ -27,19 +26,9 @@ pub trait PreclusterDistanceFinder {
 pub trait ClusterDistanceFinder {
     fn initialise(&self);
 
-    fn find_representatives(
-        &self,
-        precluster_cache: &SortedPairGenomeDistanceCache,
-        genomes: &[&str],
-    ) -> (BTreeSet<usize>, SortedPairGenomeDistanceCache);
+    fn get_ani_threshold(&self) -> f32;
 
-    fn find_memberships(
-        &self,
-        representatives: &BTreeSet<usize>,
-        precluster_cache: &SortedPairGenomeDistanceCache,
-        genomes: &[&str],
-        calculated_fastanis: SortedPairGenomeDistanceCache,
-    ) -> Vec<Vec<usize>>;
+    fn calculate_ani(&self, fasta1: &str, fasta2: &str) -> Option<f32>;
 }
 
 pub const DEFAULT_ALIGNED_FRACTION: &str = "50";
