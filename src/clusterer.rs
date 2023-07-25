@@ -516,30 +516,49 @@ mod tests {
         assert_eq!(vec![vec![0, 1, 3], vec![2]], clusters)
     }
 
-    // #[test]
-    // fn test_minhash_skani_hello_world() {
-    //     init();
-    //     let mut clusters = cluster(
-    //         &[
-    //             "tests/data/abisko4/73.20120800_S1X.13.fna",
-    //             "tests/data/abisko4/73.20120600_S2D.19.fna",
-    //             "tests/data/abisko4/73.20120700_S3X.12.fna",
-    //             "tests/data/abisko4/73.20110800_S2D.13.fna",
-    //         ],
-    //         &crate::finch::FinchPreclusterer {
-    //             min_ani: 0.9,
-    //             num_kmers: 1000,
-    //             kmer_length: 21,
-    //         },
-    //         &crate::SkaniClusterer {},
-    //         95.0,
-    //         0.2,
-    //         3000,
-    //         "skani"
-    //     );
-    //     for cluster in clusters.iter_mut() {
-    //         cluster.sort_unstable();
-    //     }
-    //     assert_eq!(vec![vec![0, 1, 2, 3]], clusters)
-    // }
+    #[test]
+    fn test_minhash_skani_hello_world() {
+        init();
+        let mut clusters = cluster(
+            &[
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120700_S3X.12.fna",
+                "tests/data/abisko4/73.20110800_S2D.13.fna",
+            ],
+            &crate::finch::FinchPreclusterer {
+                min_ani: 0.9,
+                num_kmers: 1000,
+                kmer_length: 21,
+            },
+            &crate::skani::SkaniClusterer { threshold: 95.0 },
+        );
+        for cluster in clusters.iter_mut() {
+            cluster.sort_unstable();
+        }
+        assert_eq!(vec![vec![0, 1, 2, 3]], clusters)
+    }
+
+    #[test]
+    fn test_minhash_skani_two_clusters_same_ani() {
+        init();
+        let mut clusters = cluster(
+            &[
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120700_S3X.12.fna",
+                "tests/data/abisko4/73.20110800_S2D.13.fna",
+            ],
+            &crate::finch::FinchPreclusterer {
+                min_ani: 0.9,
+                num_kmers: 1000,
+                kmer_length: 21,
+            },
+            &crate::skani::SkaniClusterer { threshold: 99.0 },
+        );
+        for cluster in clusters.iter_mut() {
+            cluster.sort_unstable();
+        }
+        assert_eq!(vec![vec![0, 1, 3], vec![2]], clusters)
+    }
 }
