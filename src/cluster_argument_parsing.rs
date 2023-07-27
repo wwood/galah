@@ -26,12 +26,21 @@ pub enum Preclusterer {
     },
 }
 
+pub enum Clusterer {
+    Fastani {
+        threshold: f32,
+        min_aligned_threshold: f32,
+        fraglen: u32,
+    },
+    Skani {
+        threshold: f32,
+    },
+}
+
 pub struct GalahClusterer<'a> {
     pub genome_fasta_paths: Vec<&'a str>,
-    pub ani: f32,
-    pub min_aligned_fraction: f32,
-    pub fraglen: u32,
     pub preclusterer: Preclusterer,
+    pub clusterer: Clusterer,
 }
 
 pub struct GalahClustererCommandDefinition {
@@ -39,6 +48,7 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_prethreshold_ani_argument: String,
     pub dereplication_quality_formula_argument: String,
     pub dereplication_precluster_method_argument: String,
+    pub dereplication_cluster_method_argument: String,
     pub dereplication_aligned_fraction_argument: String,
     pub dereplication_fraglen_argument: String,
     // pub dereplication_ani_method_argument: String,
@@ -55,6 +65,7 @@ lazy_static! {
             dereplication_prethreshold_ani_argument: "precluster-ani".to_string(),
             dereplication_quality_formula_argument: "quality-formula".to_string(),
             dereplication_precluster_method_argument: "precluster-method".to_string(),
+            dereplication_cluster_method_argument: "cluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
             // dereplication_ani_method_argument: "ani-method".to_string(),
@@ -240,6 +251,21 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 monospace_roff("dashing"),
                 monospace_roff("finch"),
                 default_roff(crate::DEFAULT_PRECLUSTER_METHOD)
+                )),
+        )
+        .option(
+            Opt::new("NAME")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_cluster_method_argument
+                ))
+                .help(&format!(
+                    "method of calculating ANI. \
+                '{}' for FastANI, \
+                '{}' for Skani. {}",
+                monospace_roff("fastani"),
+                monospace_roff("skani"),
+                default_roff(crate::DEFAULT_CLUSTER_METHOD)
                 )),
         )
 }
@@ -839,54 +865,6 @@ pub fn generate_galah_clusterer<'a>(
                 .expect("Failed to parse --threads argument");
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
-                ani: parse_percentage(
-                    clap_matches,
-                    &argument_definition.dereplication_ani_argument,
-                )
-                .unwrap_or_else(|_| {
-                    panic!(
-                        "Failed to parse ani {:?}",
-                        clap_matches
-                            .get_one::<f32>(&argument_definition.dereplication_ani_argument)
-                    )
-                })
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Failed to parse ani {:?}",
-                        clap_matches
-                            .get_one::<f32>(&argument_definition.dereplication_ani_argument)
-                    )
-                }),
-                min_aligned_fraction: parse_percentage(
-                    clap_matches,
-                    &argument_definition.dereplication_aligned_fraction_argument,
-                )
-                .unwrap_or_else(|_| {
-                    panic!(
-                        "Failed to parse min-aligned-fraction {:?}",
-                        clap_matches.get_one::<f32>(
-                            &argument_definition.dereplication_aligned_fraction_argument
-                        )
-                    )
-                })
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Failed to parse min-aligned-fraction {:?}",
-                        clap_matches.get_one::<f32>(
-                            &argument_definition.dereplication_aligned_fraction_argument
-                        )
-                    )
-                }),
-                fraglen: *clap_matches
-                    .get_one::<u32>(&argument_definition.dereplication_fraglen_argument)
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Failed to parse fragment length {:?}",
-                            clap_matches.get_one::<u32>(
-                                &argument_definition.dereplication_fraglen_argument
-                            )
-                        )
-                    }),
                 preclusterer: match clap_matches
                     .get_one::<String>(
                         &argument_definition.dereplication_precluster_method_argument,
@@ -948,6 +926,87 @@ pub fn generate_galah_clusterer<'a>(
                     },
                     _ => panic!("Programming error"),
                 },
+                clusterer: match clap_matches
+                    .get_one::<String>(&argument_definition.dereplication_cluster_method_argument)
+                    .unwrap()
+                    .as_str()
+                {
+                    "fastani" => Clusterer::Fastani {
+                        threshold: parse_percentage(
+                            clap_matches,
+                            &argument_definition.dereplication_ani_argument,
+                        )
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Failed to parse ani {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_ani_argument
+                                )
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Failed to parse ani {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_ani_argument
+                                )
+                            )
+                        }),
+                        min_aligned_threshold: parse_percentage(
+                            clap_matches,
+                            &argument_definition.dereplication_aligned_fraction_argument,
+                        )
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Failed to parse min-aligned-fraction {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_aligned_fraction_argument
+                                )
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Failed to parse min-aligned-fraction {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_aligned_fraction_argument
+                                )
+                            )
+                        }),
+                        fraglen: *clap_matches
+                            .get_one::<u32>(&argument_definition.dereplication_fraglen_argument)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "Failed to parse fragment length {:?}",
+                                    clap_matches.get_one::<u32>(
+                                        &argument_definition.dereplication_fraglen_argument
+                                    )
+                                )
+                            }),
+                    },
+                    "skani" => Clusterer::Skani {
+                        threshold: parse_percentage(
+                            clap_matches,
+                            &argument_definition.dereplication_ani_argument,
+                        )
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Failed to parse ani {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_ani_argument
+                                )
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Failed to parse ani {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_ani_argument
+                                )
+                            )
+                        }),
+                    },
+                    _ => panic!("Programming error"),
+                },
             })
         }
     }
@@ -980,36 +1039,63 @@ pub fn parse_percentage(
 impl GalahClusterer<'_> {
     pub fn cluster(&self) -> Vec<Vec<usize>> {
         let genomes = &self.genome_fasta_paths;
-        let ani = self.ani * 100.;
-        let fastani_min_aligned_threshold = self.min_aligned_fraction;
-        let fastani_fraglen = self.fraglen;
         match self.preclusterer {
-            Preclusterer::Dashing { min_ani, threads } => crate::clusterer::cluster(
-                genomes,
-                &crate::dashing::DashingPreclusterer { min_ani, threads },
-                &crate::fastani::FastaniClusterer {
-                    threshold: ani,
-                    min_aligned_threshold: fastani_min_aligned_threshold,
-                    fraglen: fastani_fraglen,
-                },
-            ),
+            Preclusterer::Dashing { min_ani, threads } => match self.clusterer {
+                Clusterer::Fastani {
+                    threshold,
+                    min_aligned_threshold,
+                    fraglen,
+                } => crate::clusterer::cluster(
+                    genomes,
+                    &crate::dashing::DashingPreclusterer { min_ani, threads },
+                    &crate::fastani::FastaniClusterer {
+                        threshold: threshold * 100.,
+                        min_aligned_threshold,
+                        fraglen,
+                    },
+                ),
+                Clusterer::Skani { threshold } => crate::clusterer::cluster(
+                    genomes,
+                    &crate::dashing::DashingPreclusterer { min_ani, threads },
+                    &crate::skani::SkaniClusterer {
+                        threshold: threshold * 100.,
+                    },
+                ),
+            },
             Preclusterer::Finch {
                 min_ani,
                 num_kmers,
                 kmer_length,
-            } => crate::clusterer::cluster(
-                genomes,
-                &crate::finch::FinchPreclusterer {
-                    min_ani,
-                    num_kmers,
-                    kmer_length,
-                },
-                &crate::fastani::FastaniClusterer {
-                    threshold: ani,
-                    min_aligned_threshold: fastani_min_aligned_threshold,
-                    fraglen: fastani_fraglen,
-                },
-            ),
+            } => match self.clusterer {
+                Clusterer::Fastani {
+                    threshold,
+                    min_aligned_threshold,
+                    fraglen,
+                } => crate::clusterer::cluster(
+                    genomes,
+                    &crate::finch::FinchPreclusterer {
+                        min_ani,
+                        num_kmers,
+                        kmer_length,
+                    },
+                    &crate::fastani::FastaniClusterer {
+                        threshold: threshold * 100.,
+                        min_aligned_threshold,
+                        fraglen,
+                    },
+                ),
+                Clusterer::Skani { threshold } => crate::clusterer::cluster(
+                    genomes,
+                    &crate::finch::FinchPreclusterer {
+                        min_ani,
+                        num_kmers,
+                        kmer_length,
+                    },
+                    &crate::skani::SkaniClusterer {
+                        threshold: threshold * 100.,
+                    },
+                ),
+            },
         }
     }
 }
@@ -1142,6 +1228,11 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash")
             .value_parser(["dashing","finch"])
             .default_value(crate::DEFAULT_PRECLUSTER_METHOD))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_method_argument)
+            .long("cluster-method")
+            .help("method of calculating ANI. 'fastani' for FastANI, 'skani' for Skani")
+            .value_parser(["fastani","skani"])
+            .default_value(crate::DEFAULT_CLUSTER_METHOD))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
