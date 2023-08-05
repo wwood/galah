@@ -27,6 +27,8 @@ pub trait PreclusterDistanceFinder {
 pub trait ClusterDistanceFinder {
     fn initialise(&self);
 
+    fn method_name(&self) -> &str;
+
     fn get_ani_threshold(&self) -> f32;
 
     fn calculate_ani(&self, fasta1: &str, fasta2: &str) -> Option<f32>;

@@ -15,6 +15,10 @@ impl ClusterDistanceFinder for FastaniClusterer {
         assert!(self.threshold > 1.0);
     }
 
+    fn method_name(&self) -> &str {
+        "FastANI"
+    }
+
     fn get_ani_threshold(&self) -> f32 {
         self.threshold
     }

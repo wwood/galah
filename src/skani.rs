@@ -13,6 +13,10 @@ impl ClusterDistanceFinder for SkaniClusterer {
         assert!(self.threshold > 1.0);
     }
 
+    fn method_name(&self) -> &str {
+        "skani"
+    }
+
     fn get_ani_threshold(&self) -> f32 {
         self.threshold
     }

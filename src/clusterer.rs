@@ -66,7 +66,8 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
             );
 
             debug!(
-                "Calculating genome representatives by dashing+fastani in precluster {} ..",
+                "Calculating genome representatives by dashing+{} in precluster {} ..",
+                clusterer.method_name(),
                 precluster_id
             );
             let (clusters, calculated_fastanis) = find_dashing_fastani_representatives(
