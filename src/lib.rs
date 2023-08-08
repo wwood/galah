@@ -13,7 +13,7 @@ pub mod sorted_pair_genome_distance_cache;
 #[macro_use]
 extern crate log;
 extern crate clap;
-extern crate partitions;
+extern crate disjoint;
 extern crate rayon;
 #[macro_use]
 extern crate lazy_static;

@@ -6,7 +6,7 @@ use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
 use crate::ClusterDistanceFinder;
 use crate::PreclusterDistanceFinder;
 
-use partitions::partition_vec::PartitionVec;
+use disjoint::DisjointSetVec;
 use rayon::prelude::*;
 
 /// Given a list of genomes, return them clustered. Use dashing for first pass
@@ -29,9 +29,11 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
 
     // Convert single linkage data structure into just a list of list of indices
     let mut preclusters: Vec<Vec<usize>> = minhash_preclusters
-        .all_sets()
+        .indices()
+        .sets()
+        .iter()
         .map(|cluster| {
-            let mut indices: Vec<_> = cluster.map(|cluster_genome| *cluster_genome.1).collect();
+            let mut indices: Vec<_> = cluster.to_vec();
             indices.sort_unstable();
             indices
         })
@@ -367,8 +369,8 @@ fn find_dashing_fastani_memberships(
 fn partition_sketches(
     genomes: &[&str],
     dashing_cache: &SortedPairGenomeDistanceCache,
-) -> PartitionVec<usize> {
-    let mut to_return: PartitionVec<usize> = PartitionVec::with_capacity(genomes.len());
+) -> DisjointSetVec<usize> {
+    let mut to_return: DisjointSetVec<usize> = DisjointSetVec::with_capacity(genomes.len());
     for (i, _) in genomes.iter().enumerate() {
         to_return.push(i);
     }
@@ -381,7 +383,7 @@ fn partition_sketches(
                     "During preclustering, found a match between genomes {} and {}",
                     i, j
                 );
-                to_return.union(i, j)
+                to_return.join(i, j);
             }
         });
     });
