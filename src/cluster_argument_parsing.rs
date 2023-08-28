@@ -10,31 +10,22 @@ use bird_tool_utils::clap_utils::{default_roff, monospace_roff};
 use bird_tool_utils_man::prelude::{Author, Flag, Manual, Opt, Section};
 use clap::*;
 use rayon::prelude::*;
+use crate::dashing::DashingPreclusterer;
+use crate::finch::FinchPreclusterer;
+use crate::fastani::FastaniClusterer;
+use crate::skani::SkaniClusterer;
 
 use crate::genome_info_file;
 use crate::genome_stats;
 
 pub enum Preclusterer {
-    Dashing {
-        min_ani: f32,
-        threads: u16,
-    },
-    Finch {
-        min_ani: f32,
-        num_kmers: usize,
-        kmer_length: u8,
-    },
+    Dashing(DashingPreclusterer),
+    Finch(FinchPreclusterer),
 }
 
 pub enum Clusterer {
-    Fastani {
-        threshold: f32,
-        min_aligned_threshold: f32,
-        fraglen: u32,
-    },
-    Skani {
-        threshold: f32,
-    },
+    Fastani(FastaniClusterer),
+    Skani(SkaniClusterer),
 }
 
 pub struct GalahClusterer<'a> {
@@ -874,7 +865,7 @@ pub fn generate_galah_clusterer<'a>(
                 {
                     "dashing" => {
                         crate::external_command_checker::check_for_dashing();
-                        Preclusterer::Dashing {
+                        Preclusterer::Dashing (DashingPreclusterer {
                             min_ani: parse_percentage(
                                 clap_matches,
                                 &argument_definition.dereplication_prethreshold_ani_argument,
@@ -898,9 +889,9 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             }),
                             threads,
-                        }
+                    })
                     }
-                    "finch" => Preclusterer::Finch {
+                    "finch" => Preclusterer::Finch ( FinchPreclusterer {
                         min_ani: parse_percentage(
                             clap_matches,
                             &argument_definition.dereplication_prethreshold_ani_argument,
@@ -923,7 +914,7 @@ pub fn generate_galah_clusterer<'a>(
                         }),
                         num_kmers: 1000,
                         kmer_length: 21,
-                    },
+                }),
                     _ => panic!("Programming error"),
                 },
                 clusterer: match clap_matches
@@ -931,7 +922,7 @@ pub fn generate_galah_clusterer<'a>(
                     .unwrap()
                     .as_str()
                 {
-                    "fastani" => Clusterer::Fastani {
+                    "fastani" => Clusterer::Fastani (FastaniClusterer {
                         threshold: parse_percentage(
                             clap_matches,
                             &argument_definition.dereplication_ani_argument,
@@ -982,8 +973,8 @@ pub fn generate_galah_clusterer<'a>(
                                     )
                                 )
                             }),
-                    },
-                    "skani" => Clusterer::Skani {
+                }),
+                    "skani" => Clusterer::Skani ( SkaniClusterer {
                         threshold: parse_percentage(
                             clap_matches,
                             &argument_definition.dereplication_ani_argument,
@@ -1004,7 +995,7 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             )
                         }),
-                    },
+                }),
                     _ => panic!("Programming error"),
                 },
             })
@@ -1038,65 +1029,11 @@ pub fn parse_percentage(
 
 impl GalahClusterer<'_> {
     pub fn cluster(&self) -> Vec<Vec<usize>> {
-        let genomes = &self.genome_fasta_paths;
-        match self.preclusterer {
-            Preclusterer::Dashing { min_ani, threads } => match self.clusterer {
-                Clusterer::Fastani {
-                    threshold,
-                    min_aligned_threshold,
-                    fraglen,
-                } => crate::clusterer::cluster(
-                    genomes,
-                    &crate::dashing::DashingPreclusterer { min_ani, threads },
-                    &crate::fastani::FastaniClusterer {
-                        threshold: threshold * 100.,
-                        min_aligned_threshold,
-                        fraglen,
-                    },
-                ),
-                Clusterer::Skani { threshold } => crate::clusterer::cluster(
-                    genomes,
-                    &crate::dashing::DashingPreclusterer { min_ani, threads },
-                    &crate::skani::SkaniClusterer {
-                        threshold: threshold * 100.,
-                    },
-                ),
-            },
-            Preclusterer::Finch {
-                min_ani,
-                num_kmers,
-                kmer_length,
-            } => match self.clusterer {
-                Clusterer::Fastani {
-                    threshold,
-                    min_aligned_threshold,
-                    fraglen,
-                } => crate::clusterer::cluster(
-                    genomes,
-                    &crate::finch::FinchPreclusterer {
-                        min_ani,
-                        num_kmers,
-                        kmer_length,
-                    },
-                    &crate::fastani::FastaniClusterer {
-                        threshold: threshold * 100.,
-                        min_aligned_threshold,
-                        fraglen,
-                    },
-                ),
-                Clusterer::Skani { threshold } => crate::clusterer::cluster(
-                    genomes,
-                    &crate::finch::FinchPreclusterer {
-                        min_ani,
-                        num_kmers,
-                        kmer_length,
-                    },
-                    &crate::skani::SkaniClusterer {
-                        threshold: threshold * 100.,
-                    },
-                ),
-            },
-        }
+        crate::clusterer::cluster(
+            &self.genome_fasta_paths,
+            &self.preclusterer,
+            &self.clusterer,
+        )
     }
 }
 
