@@ -5,15 +5,18 @@ use std::os::unix::fs::symlink;
 #[cfg(target_family = "windows")]
 use std::os::windows::fs::symlink_file as symlink;
 
+use crate::dashing::DashingPreclusterer;
+use crate::fastani::FastaniClusterer;
+use crate::finch::FinchPreclusterer;
+use crate::skani::SkaniClusterer;
+use crate::ClusterDistanceFinder;
+use crate::PreclusterDistanceFinder;
+use crate::SortedPairGenomeDistanceCache;
 use bird_tool_utils::clap_utils::*;
 use bird_tool_utils::clap_utils::{default_roff, monospace_roff};
 use bird_tool_utils_man::prelude::{Author, Flag, Manual, Opt, Section};
 use clap::*;
 use rayon::prelude::*;
-use crate::dashing::DashingPreclusterer;
-use crate::finch::FinchPreclusterer;
-use crate::fastani::FastaniClusterer;
-use crate::skani::SkaniClusterer;
 
 use crate::genome_info_file;
 use crate::genome_stats;
@@ -23,9 +26,48 @@ pub enum Preclusterer {
     Finch(FinchPreclusterer),
 }
 
+impl PreclusterDistanceFinder for Preclusterer {
+    fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache {
+        match self {
+            Preclusterer::Dashing(d) => d.distances(genome_fasta_paths),
+            Preclusterer::Finch(f) => f.distances(genome_fasta_paths),
+        }
+    }
+}
+
 pub enum Clusterer {
     Fastani(FastaniClusterer),
     Skani(SkaniClusterer),
+}
+
+impl ClusterDistanceFinder for Clusterer {
+    fn initialise(&self) {
+        match self {
+            Clusterer::Fastani(f) => f.initialise(),
+            Clusterer::Skani(s) => s.initialise(),
+        }
+    }
+
+    fn method_name(&self) -> &str {
+        match self {
+            Clusterer::Fastani(f) => f.method_name(),
+            Clusterer::Skani(s) => s.method_name(),
+        }
+    }
+
+    fn get_ani_threshold(&self) -> f32 {
+        match self {
+            Clusterer::Fastani(f) => f.get_ani_threshold(),
+            Clusterer::Skani(s) => s.get_ani_threshold(),
+        }
+    }
+
+    fn calculate_ani(&self, fasta1: &str, fasta2: &str) -> Option<f32> {
+        match self {
+            Clusterer::Fastani(f) => f.calculate_ani(fasta1, fasta2),
+            Clusterer::Skani(s) => s.calculate_ani(fasta1, fasta2),
+        }
+    }
 }
 
 pub struct GalahClusterer<'a> {
@@ -865,7 +907,7 @@ pub fn generate_galah_clusterer<'a>(
                 {
                     "dashing" => {
                         crate::external_command_checker::check_for_dashing();
-                        Preclusterer::Dashing (DashingPreclusterer {
+                        Preclusterer::Dashing(DashingPreclusterer {
                             min_ani: parse_percentage(
                                 clap_matches,
                                 &argument_definition.dereplication_prethreshold_ani_argument,
@@ -889,9 +931,9 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             }),
                             threads,
-                    })
+                        })
                     }
-                    "finch" => Preclusterer::Finch ( FinchPreclusterer {
+                    "finch" => Preclusterer::Finch(FinchPreclusterer {
                         min_ani: parse_percentage(
                             clap_matches,
                             &argument_definition.dereplication_prethreshold_ani_argument,
@@ -914,7 +956,7 @@ pub fn generate_galah_clusterer<'a>(
                         }),
                         num_kmers: 1000,
                         kmer_length: 21,
-                }),
+                    }),
                     _ => panic!("Programming error"),
                 },
                 clusterer: match clap_matches
@@ -922,7 +964,7 @@ pub fn generate_galah_clusterer<'a>(
                     .unwrap()
                     .as_str()
                 {
-                    "fastani" => Clusterer::Fastani (FastaniClusterer {
+                    "fastani" => Clusterer::Fastani(FastaniClusterer {
                         threshold: parse_percentage(
                             clap_matches,
                             &argument_definition.dereplication_ani_argument,
@@ -973,8 +1015,8 @@ pub fn generate_galah_clusterer<'a>(
                                     )
                                 )
                             }),
-                }),
-                    "skani" => Clusterer::Skani ( SkaniClusterer {
+                    }),
+                    "skani" => Clusterer::Skani(SkaniClusterer {
                         threshold: parse_percentage(
                             clap_matches,
                             &argument_definition.dereplication_ani_argument,
@@ -995,7 +1037,7 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             )
                         }),
-                }),
+                    }),
                     _ => panic!("Programming error"),
                 },
             })
