@@ -984,7 +984,7 @@ pub fn generate_galah_clusterer<'a>(
                                     &argument_definition.dereplication_ani_argument
                                 )
                             )
-                        }),
+                        }) * 100.,
                         min_aligned_threshold: parse_percentage(
                             clap_matches,
                             &argument_definition.dereplication_aligned_fraction_argument,
@@ -1036,7 +1036,7 @@ pub fn generate_galah_clusterer<'a>(
                                     &argument_definition.dereplication_ani_argument
                                 )
                             )
-                        }),
+                        }) * 100.,
                     }),
                     _ => panic!("Programming error"),
                 },
