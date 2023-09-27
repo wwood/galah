@@ -36,8 +36,8 @@ pub trait ClusterDistanceFinder {
 
 pub const DEFAULT_ALIGNED_FRACTION: &str = "15";
 pub const DEFAULT_FRAGMENT_LENGTH: &str = "3000";
-pub const DEFAULT_ANI: &str = "99";
-pub const DEFAULT_PRETHRESHOLD_ANI: &str = "95";
+pub const DEFAULT_ANI: &str = "95";
+pub const DEFAULT_PRETHRESHOLD_ANI: &str = "90";
 pub const DEFAULT_QUALITY_FORMULA: &str = "Parks2020_reduced";
 pub const DEFAULT_PRECLUSTER_METHOD: &str = "skani";
 pub const DEFAULT_CLUSTER_METHOD: &str = "skani";
