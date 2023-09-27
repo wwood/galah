@@ -1037,6 +1037,26 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             )
                         }) * 100.,
+                        min_aligned_threshold: parse_percentage(
+                            clap_matches,
+                            &argument_definition.dereplication_aligned_fraction_argument,
+                        )
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Failed to parse min-aligned-fraction {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_aligned_fraction_argument
+                                )
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Failed to parse min-aligned-fraction {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_aligned_fraction_argument
+                                )
+                            )
+                        }),
                     }),
                     _ => panic!("Programming error"),
                 },

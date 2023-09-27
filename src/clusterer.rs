@@ -534,7 +534,10 @@ mod tests {
                 num_kmers: 1000,
                 kmer_length: 21,
             },
-            &crate::skani::SkaniClusterer { threshold: 95.0 },
+            &crate::skani::SkaniClusterer {
+                threshold: 95.0,
+                min_aligned_threshold: 0.2,
+            },
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -557,7 +560,10 @@ mod tests {
                 num_kmers: 1000,
                 kmer_length: 21,
             },
-            &crate::skani::SkaniClusterer { threshold: 99.0 },
+            &crate::skani::SkaniClusterer {
+                threshold: 99.0,
+                min_aligned_threshold: 0.2,
+            },
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();

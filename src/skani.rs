@@ -6,6 +6,7 @@ use skani::params::*;
 
 pub struct SkaniClusterer {
     pub threshold: f32,
+    pub min_aligned_threshold: f32,
 }
 
 impl ClusterDistanceFinder for SkaniClusterer {
@@ -22,11 +23,11 @@ impl ClusterDistanceFinder for SkaniClusterer {
     }
 
     fn calculate_ani(&self, fasta1: &str, fasta2: &str) -> Option<f32> {
-        Some(calculate_skani(fasta1, fasta2))
+        Some(calculate_skani(fasta1, fasta2, self.min_aligned_threshold))
     }
 }
 
-fn default_params(mode: Mode) -> (CommandParams, SketchParams) {
+fn default_params(mode: Mode, min_aligned_frac: f32) -> (CommandParams, SketchParams) {
     let cmd_params = CommandParams {
         screen: false,
         screen_val: 0.00,
@@ -43,7 +44,7 @@ fn default_params(mode: Mode) -> (CommandParams, SketchParams) {
         max_results: 10000000,
         individual_contig_q: false,
         individual_contig_r: false,
-        min_aligned_frac: 0.15,
+        min_aligned_frac: min_aligned_frac as f64,
         keep_refs: false,
         est_ci: false,
         learned_ani: true,
@@ -58,12 +59,12 @@ fn default_params(mode: Mode) -> (CommandParams, SketchParams) {
     (cmd_params, sketch_params)
 }
 
-pub fn calculate_skani(fasta1: &str, fasta2: &str) -> f32 {
+pub fn calculate_skani(fasta1: &str, fasta2: &str, min_aligned_frac: f32) -> f32 {
     //Vector of Strings
     let refs = vec![fasta1.to_string()];
     let queries = vec![fasta2.to_string()];
 
-    let (command_params, sketch_params) = default_params(Mode::Dist);
+    let (command_params, sketch_params) = default_params(Mode::Dist, min_aligned_frac);
     let ref_sketch = &file_io::fastx_to_sketches(&refs, &sketch_params, true)[0];
     let query_sketch = &file_io::fastx_to_sketches(&queries, &sketch_params, true)[0];
     let map_params = chain::map_params_from_sketch(ref_sketch, false, &command_params);
