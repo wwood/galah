@@ -1,8 +1,46 @@
+use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
 use crate::ClusterDistanceFinder;
+use crate::PreclusterDistanceFinder;
 
 use skani::chain;
 use skani::file_io;
 use skani::params::*;
+
+pub struct SkaniPreclusterer {
+    pub threshold: f32,
+    pub min_aligned_threshold: f32,
+}
+
+impl PreclusterDistanceFinder for SkaniPreclusterer {
+    fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache {
+        precluster_skani(
+            genome_fasta_paths,
+            self.threshold,
+            self.min_aligned_threshold,
+        )
+    }
+}
+
+fn precluster_skani(
+    genome_fasta_paths: &[&str],
+    threshold: f32,
+    min_aligned_threshold: f32,
+) -> SortedPairGenomeDistanceCache {
+    let mut to_return = SortedPairGenomeDistanceCache::new();
+    for (i, fasta1) in genome_fasta_paths.iter().enumerate() {
+        for (j, fasta2) in genome_fasta_paths[(i + 1)..genome_fasta_paths.len()]
+            .iter()
+            .enumerate()
+        {
+            let genome_index2 = i + j + 1;
+            let ani = calculate_skani(fasta1, fasta2, min_aligned_threshold);
+            if ani >= threshold {
+                to_return.insert((i, genome_index2), Some(ani));
+            }
+        }
+    }
+    to_return
+}
 
 pub struct SkaniClusterer {
     pub threshold: f32,

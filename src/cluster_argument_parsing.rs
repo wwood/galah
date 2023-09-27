@@ -9,6 +9,7 @@ use crate::dashing::DashingPreclusterer;
 use crate::fastani::FastaniClusterer;
 use crate::finch::FinchPreclusterer;
 use crate::skani::SkaniClusterer;
+use crate::skani::SkaniPreclusterer;
 use crate::ClusterDistanceFinder;
 use crate::PreclusterDistanceFinder;
 use crate::SortedPairGenomeDistanceCache;
@@ -24,6 +25,7 @@ use crate::genome_stats;
 pub enum Preclusterer {
     Dashing(DashingPreclusterer),
     Finch(FinchPreclusterer),
+    Skani(SkaniPreclusterer),
 }
 
 impl PreclusterDistanceFinder for Preclusterer {
@@ -31,6 +33,7 @@ impl PreclusterDistanceFinder for Preclusterer {
         match self {
             Preclusterer::Dashing(d) => d.distances(genome_fasta_paths),
             Preclusterer::Finch(f) => f.distances(genome_fasta_paths),
+            Preclusterer::Skani(s) => s.distances(genome_fasta_paths),
         }
     }
 }
@@ -956,6 +959,48 @@ pub fn generate_galah_clusterer<'a>(
                         }),
                         num_kmers: 1000,
                         kmer_length: 21,
+                    }),
+                    "skani" => Preclusterer::Skani(SkaniPreclusterer {
+                        threshold: parse_percentage(
+                            clap_matches,
+                            &argument_definition.dereplication_prethreshold_ani_argument,
+                        )
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Failed to parse precluster-ani {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_prethreshold_ani_argument
+                                )
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Failed to parse precluster-ani {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_prethreshold_ani_argument
+                                )
+                            )
+                        }) * 100.,
+                        min_aligned_threshold: parse_percentage(
+                            clap_matches,
+                            &argument_definition.dereplication_aligned_fraction_argument,
+                        )
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Failed to parse min-aligned-fraction {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_aligned_fraction_argument
+                                )
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Failed to parse min-aligned-fraction {:?}",
+                                clap_matches.get_one::<f32>(
+                                    &argument_definition.dereplication_aligned_fraction_argument
+                                )
+                            )
+                        }),
                     }),
                     _ => panic!("Programming error"),
                 },
