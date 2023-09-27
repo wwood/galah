@@ -283,9 +283,10 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 .help(&format!(
                     "method of calculating rough ANI for \
                 dereplication. '{}' for HyperLogLog, \
-                '{}' for finch MinHash. {}",
+                '{}' for finch MinHash, '{}' for Skani. {}",
                 monospace_roff("dashing"),
                 monospace_roff("finch"),
+                monospace_roff("skani"),
                 default_roff(crate::DEFAULT_PRECLUSTER_METHOD)
                 )),
         )
@@ -1269,8 +1270,8 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .default_value(crate::DEFAULT_PRETHRESHOLD_ANI))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_precluster_method_argument)
             .long("precluster-method")
-            .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash")
-            .value_parser(["dashing","finch"])
+            .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash, 'skani' for Skani")
+            .value_parser(["dashing","finch", "skani"])
             .default_value(crate::DEFAULT_PRECLUSTER_METHOD))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_method_argument)
             .long("cluster-method")
