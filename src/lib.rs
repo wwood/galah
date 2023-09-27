@@ -34,7 +34,7 @@ pub trait ClusterDistanceFinder {
     fn calculate_ani(&self, fasta1: &str, fasta2: &str) -> Option<f32>;
 }
 
-pub const DEFAULT_ALIGNED_FRACTION: &str = "50";
+pub const DEFAULT_ALIGNED_FRACTION: &str = "15";
 pub const DEFAULT_FRAGMENT_LENGTH: &str = "3000";
 pub const DEFAULT_ANI: &str = "99";
 pub const DEFAULT_PRETHRESHOLD_ANI: &str = "95";
