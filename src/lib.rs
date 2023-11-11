@@ -42,6 +42,7 @@ pub const DEFAULT_QUALITY_FORMULA: &str = "Parks2020_reduced";
 pub const DEFAULT_PRECLUSTER_METHOD: &str = "skani";
 pub const PRECLUSTER_METHODS: [&str; 3] = ["skani", "finch", "dashing"];
 pub const DEFAULT_CLUSTER_METHOD: &str = "skani";
+pub const CLUSTER_METHODS: [&str; 2] = ["skani", "fastani"];
 
 pub const AUTHOR: &str =
     "Ben J. Woodcroft, Centre for Microbiome Research, Queensland University of Technology";

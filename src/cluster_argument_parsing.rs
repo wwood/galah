@@ -1276,7 +1276,7 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_method_argument)
             .long("cluster-method")
             .help("method of calculating ANI. 'fastani' for FastANI, 'skani' for Skani")
-            .value_parser(["fastani","skani"])
+            .value_parser(crate::CLUSTER_METHODS)
             .default_value(crate::DEFAULT_CLUSTER_METHOD))
         .arg(Arg::new("threads")
             .short('t')
