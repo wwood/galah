@@ -1271,7 +1271,7 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_precluster_method_argument)
             .long("precluster-method")
             .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash, 'skani' for Skani")
-            .value_parser(["dashing","finch", "skani"])
+            .value_parser(crate::PRECLUSTER_METHODS)
             .default_value(crate::DEFAULT_PRECLUSTER_METHOD))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_method_argument)
             .long("cluster-method")
