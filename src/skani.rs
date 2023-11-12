@@ -2,9 +2,13 @@ use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
 use crate::ClusterDistanceFinder;
 use crate::PreclusterDistanceFinder;
 
+use rayon::prelude::*;
+
 use skani::chain;
 use skani::file_io;
 use skani::params::*;
+
+use concurrent_queue::ConcurrentQueue;
 
 pub struct SkaniPreclusterer {
     pub threshold: f32,
@@ -26,19 +30,33 @@ fn precluster_skani(
     threshold: f32,
     min_aligned_threshold: f32,
 ) -> SortedPairGenomeDistanceCache {
+    // Right now implemented by parallel collection into a queue, and then
+    // reprocessed into a BTreeMap. Could potentially be made more efficient by
+    // direct collection into a concurrent BTreeMap, but eh for now.
+    let queue = ConcurrentQueue::unbounded();
+    genome_fasta_paths
+        .par_iter()
+        .enumerate()
+        .for_each(|(i, fasta1)| {
+            (genome_fasta_paths[(i + 1)..genome_fasta_paths.len()])
+                .par_iter()
+                .enumerate()
+                .for_each(|(j, fasta2)| {
+                    let genome_index2 = i + j + 1;
+                    let ani = calculate_skani(fasta1, fasta2, min_aligned_threshold);
+                    if ani >= threshold {
+                        queue
+                            .push((i, genome_index2, ani))
+                            .expect("Failed to push to queue during preclustering");
+                    }
+                });
+        });
+
     let mut to_return = SortedPairGenomeDistanceCache::new();
-    for (i, fasta1) in genome_fasta_paths.iter().enumerate() {
-        for (j, fasta2) in genome_fasta_paths[(i + 1)..genome_fasta_paths.len()]
-            .iter()
-            .enumerate()
-        {
-            let genome_index2 = i + j + 1;
-            let ani = calculate_skani(fasta1, fasta2, min_aligned_threshold);
-            if ani >= threshold {
-                to_return.insert((i, genome_index2), Some(ani));
-            }
-        }
+    while let Ok((i, j, ani)) = queue.pop() {
+        to_return.insert((i, j), Some(ani));
     }
+
     to_return
 }
 

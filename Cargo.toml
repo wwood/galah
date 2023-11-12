@@ -34,6 +34,7 @@ bird_tool_utils-man = "0.4.0"
 lazy_static = "1.4.0"
 ansi_term = "0.12"
 skani = "0.1.1"
+concurrent-queue = "2"
 
 [dev-dependencies]
 assert_cli = "0.6.*"
