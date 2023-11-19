@@ -97,7 +97,7 @@ impl ClusterDistanceFinder for SkaniClusterer {
 
 fn default_params(mode: Mode, min_aligned_frac: f32) -> (CommandParams, SketchParams) {
     let cmd_params = CommandParams {
-        screen: false,
+        screen: true,
         screen_val: 0.00,
         mode,
         out_file_name: "".to_string(),
@@ -109,7 +109,7 @@ fn default_params(mode: Mode, min_aligned_frac: f32) -> (CommandParams, SketchPa
         median: false,
         sparse: false,
         full_matrix: false,
-        max_results: 10000000,
+        max_results: 10000000, // for Triange usize::MAX,
         individual_contig_q: false,
         individual_contig_r: false,
         min_aligned_frac: min_aligned_frac as f64,
@@ -118,6 +118,8 @@ fn default_params(mode: Mode, min_aligned_frac: f32) -> (CommandParams, SketchPa
         learned_ani: true,
         learned_ani_cmd: false,
         detailed_out: false,
+        // distance: false,
+        // rescue_small: true,
     };
 
     let m = 1000;
