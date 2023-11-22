@@ -52,7 +52,7 @@ fn precluster_skani(
     sketches.par_iter().enumerate().for_each(|(i, ref_sketch)| {
         let ref_sketch_i = &sketches[i];
         let screened_refs = screen::screen_refs(
-            threshold as f64,
+            0.80,
             &kmer_to_sketch,
             ref_sketch_i,
             &sketch_params,
