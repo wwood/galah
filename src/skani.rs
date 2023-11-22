@@ -66,13 +66,12 @@ fn precluster_skani(
 
         screened_refs.into_par_iter().for_each(|j| {
             if j > i {
-                let genome_index2 = i + j + 1;
                 let map_params = chain::map_params_from_sketch(ref_sketch, false, &command_params);
                 let ani_result = chain::chain_seeds(ref_sketch, &sketches[j], map_params);
                 let ani = ani_result.ani * 100.;
                 if ani >= threshold {
                     queue
-                        .push((i, genome_index2, ani))
+                        .push((i, j, ani))
                         .expect("Failed to push to queue during preclustering");
                 }
             }
