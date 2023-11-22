@@ -7,6 +7,7 @@ use rayon::prelude::*;
 use skani::chain;
 use skani::file_io;
 use skani::params::*;
+use skani::screen;
 
 use concurrent_queue::ConcurrentQueue;
 
@@ -44,22 +45,38 @@ fn precluster_skani(
     // direct collection into a concurrent BTreeMap, but eh for now.
     let queue = ConcurrentQueue::unbounded();
 
+    // Screen genomes before ANI calculation
+    let kmer_to_sketch = screen::kmer_to_sketch_from_refs(sketches);
+
     info!("Calculating ANI from skani sketches ..");
     sketches.par_iter().enumerate().for_each(|(i, ref_sketch)| {
-        (sketches[(i + 1)..sketches.len()])
-            .par_iter()
-            .enumerate()
-            .for_each(|(j, query_sketch)| {
+        let ref_sketch_i = &sketches[i];
+        let screened_refs = screen::screen_refs(
+            threshold as f64,
+            &kmer_to_sketch,
+            ref_sketch_i,
+            &sketch_params,
+            sketches,
+        );
+        debug!(
+            "{} has {} refs passing screening.",
+            ref_sketch_i.file_name,
+            screened_refs.len()
+        );
+
+        screened_refs.into_par_iter().for_each(|j| {
+            if j > i {
                 let genome_index2 = i + j + 1;
                 let map_params = chain::map_params_from_sketch(ref_sketch, false, &command_params);
-                let ani_result = chain::chain_seeds(ref_sketch, query_sketch, map_params);
+                let ani_result = chain::chain_seeds(ref_sketch, &sketches[j], map_params);
                 let ani = ani_result.ani * 100.;
                 if ani >= threshold {
                     queue
                         .push((i, genome_index2, ani))
                         .expect("Failed to push to queue during preclustering");
                 }
-            });
+            }
+        });
     });
     debug!("Converting ANI results into sparse cache ..");
 
