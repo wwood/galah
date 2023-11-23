@@ -36,6 +36,14 @@ impl PreclusterDistanceFinder for Preclusterer {
             Preclusterer::Skani(s) => s.distances(genome_fasta_paths),
         }
     }
+
+    fn method_name(&self) -> &str {
+        match self {
+            Preclusterer::Dashing(d) => d.method_name(),
+            Preclusterer::Finch(f) => f.method_name(),
+            Preclusterer::Skani(s) => s.method_name(),
+        }
+    }
 }
 
 pub enum Clusterer {

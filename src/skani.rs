@@ -24,6 +24,10 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
             self.min_aligned_threshold,
         )
     }
+
+    fn method_name(&self) -> &str {
+        "skani"
+    }
 }
 
 fn precluster_skani(
