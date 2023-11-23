@@ -18,6 +18,10 @@ impl PreclusterDistanceFinder for DashingPreclusterer {
     fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache {
         distances(genome_fasta_paths, self.min_ani, self.threads)
     }
+
+    fn method_name(&self) -> &str {
+        "dashing"
+    }
 }
 
 pub fn distances(

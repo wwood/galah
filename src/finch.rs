@@ -17,6 +17,10 @@ impl PreclusterDistanceFinder for FinchPreclusterer {
             self.kmer_length,
         )
     }
+
+    fn method_name(&self) -> &str {
+        "finch"
+    }
 }
 
 pub fn distances(
