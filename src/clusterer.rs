@@ -18,6 +18,14 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
 ) -> Vec<Vec<usize>> {
     clusterer.initialise();
 
+    let preclusterer_name = preclusterer.method_name();
+    let clusterer_name = clusterer.method_name();
+
+    info!(
+        "Preclustering with {} and clustering with {}",
+        preclusterer_name, clusterer_name
+    );
+
     // Dashing all the genomes together
     let dashing_cache = preclusterer.distances(genomes);
 
@@ -68,9 +76,8 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
             );
 
             debug!(
-                "Calculating genome representatives by dashing+{} in precluster {} ..",
-                clusterer.method_name(),
-                precluster_id
+                "Calculating genome representatives by {}+{} in precluster {} ..",
+                preclusterer_name, clusterer_name, precluster_id
             );
             let (clusters, calculated_fastanis) = find_dashing_fastani_representatives(
                 clusterer,
@@ -84,8 +91,8 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
             );
 
             debug!(
-                "Assigning genomes to representatives by dashing+fastani in precluster {}..",
-                precluster_id
+                "Assigning genomes to representatives by {}+{} in precluster {}..",
+                preclusterer_name, clusterer_name, precluster_id
             );
             let clusters = find_dashing_fastani_memberships(
                 clusterer,
