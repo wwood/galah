@@ -901,6 +901,17 @@ pub fn generate_galah_clusterer<'a>(
 ) -> std::result::Result<GalahClusterer<'a>, String> {
     crate::external_command_checker::check_for_fastani();
 
+    let repeat_clusterer = {
+        clap_matches
+            .get_one::<String>(&argument_definition.dereplication_precluster_method_argument)
+            .unwrap()
+            .as_str()
+            == clap_matches
+                .get_one::<String>(&argument_definition.dereplication_cluster_method_argument)
+                .unwrap()
+                .as_str()
+    };
+
     match filter_genomes_through_checkm(genome_fasta_paths, clap_matches, argument_definition) {
         Err(e) => std::result::Result::Err(e),
 
@@ -970,26 +981,53 @@ pub fn generate_galah_clusterer<'a>(
                         kmer_length: 21,
                     }),
                     "skani" => Preclusterer::Skani(SkaniPreclusterer {
-                        threshold: parse_percentage(
-                            clap_matches,
-                            &argument_definition.dereplication_prethreshold_ani_argument,
-                        )
-                        .unwrap_or_else(|_| {
-                            panic!(
-                                "Failed to parse precluster-ani {:?}",
-                                clap_matches.get_one::<f32>(
-                                    &argument_definition.dereplication_prethreshold_ani_argument
+                        threshold: {
+                            if repeat_clusterer {
+                                parse_percentage(
+                                    clap_matches,
+                                    &argument_definition.dereplication_ani_argument,
                                 )
-                            )
-                        })
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "Failed to parse precluster-ani {:?}",
-                                clap_matches.get_one::<f32>(
-                                    &argument_definition.dereplication_prethreshold_ani_argument
+                                .unwrap_or_else(|_| {
+                                    panic!(
+                                        "Failed to parse ani {:?}",
+                                        clap_matches.get_one::<f32>(
+                                            &argument_definition.dereplication_ani_argument
+                                        )
+                                    )
+                                })
+                                .unwrap_or_else(|| {
+                                    panic!(
+                                        "Failed to parse ani {:?}",
+                                        clap_matches.get_one::<f32>(
+                                            &argument_definition.dereplication_ani_argument
+                                        )
+                                    )
+                                }) * 100.
+                            } else {
+                                parse_percentage(
+                                    clap_matches,
+                                    &argument_definition.dereplication_prethreshold_ani_argument,
                                 )
-                            )
-                        }) * 100.,
+                                .unwrap_or_else(|_| {
+                                    panic!(
+                                        "Failed to parse precluster-ani {:?}",
+                                        clap_matches.get_one::<f32>(
+                                            &argument_definition
+                                                .dereplication_prethreshold_ani_argument
+                                        )
+                                    )
+                                })
+                                .unwrap_or_else(|| {
+                                    panic!(
+                                        "Failed to parse precluster-ani {:?}",
+                                        clap_matches.get_one::<f32>(
+                                            &argument_definition
+                                                .dereplication_prethreshold_ani_argument
+                                        )
+                                    )
+                                }) * 100.
+                            }
+                        },
                         min_aligned_threshold: parse_percentage(
                             clap_matches,
                             &argument_definition.dereplication_aligned_fraction_argument,

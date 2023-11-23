@@ -281,6 +281,38 @@ mod tests {
     }
 
     #[test]
+    fn test_skani_skani_clusterer() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120700_S3X.12.fna",
+                "tests/data/abisko4/73.20110800_S2D.13.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "99",
+                "--ani",
+                "95",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm-tab-table",
+                "tests/data/abisko4/abisko4.csv"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20120800_S1X.13.fna\n\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20110800_S2D.13.fna\n\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20120600_S2D.19.fna\n\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20120700_S3X.12.fna\n")
+                .unwrap();
+    }
+
+    #[test]
     fn test_github7() {
         Assert::main_binary()
             .with_args(&[
