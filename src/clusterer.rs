@@ -26,6 +26,12 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
         preclusterer_name, clusterer_name
     );
 
+    let mut skip_clusterer = false;
+    if clusterer_name == preclusterer_name {
+        info!("Preclustering and clustering methods are the same, so skipping preclustering");
+        skip_clusterer = true;
+    }
+
     // Dashing all the genomes together
     let dashing_cache = preclusterer.distances(genomes);
 
@@ -83,6 +89,7 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
                 clusterer,
                 &precluster_dashing_cache,
                 precluster_genomes.as_slice(),
+                skip_clusterer,
             );
             debug!(
                 "In precluster {}, found {} genome representatives",
@@ -149,6 +156,7 @@ fn find_dashing_fastani_representatives(
     clusterer: &(impl ClusterDistanceFinder + std::marker::Sync),
     dashing_cache: &SortedPairGenomeDistanceCache,
     genomes: &[&str],
+    skip_clusterer: bool,
 ) -> (BTreeSet<usize>, SortedPairGenomeDistanceCache) {
     let mut clusters_to_return: BTreeSet<usize> = BTreeSet::new();
     let mut fastani_cache = SortedPairGenomeDistanceCache::new();
@@ -169,15 +177,23 @@ fn find_dashing_fastani_representatives(
             .collect();
 
         // FastANI all potential reps against the current genome
-        let fastanis = calculate_fastani_many_to_one_pairwise_stop_early(
-            clusterer,
-            potential_refs
-                .iter()
-                .map(|ref_index| genomes[*ref_index])
-                .collect::<Vec<_>>()
-                .as_slice(),
-            genomes[i],
-        );
+        let fastanis = if skip_clusterer {
+            compute_ani_from_preclusterer(
+                dashing_cache,
+                potential_refs.iter().collect::<Vec<_>>().as_slice(),
+                &i,
+            )
+        } else {
+            calculate_fastani_many_to_one_pairwise_stop_early(
+                clusterer,
+                potential_refs
+                    .iter()
+                    .map(|ref_index| genomes[*ref_index])
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+                genomes[i],
+            )
+        };
         let mut is_rep = true;
         for (potential_ref, fastani) in potential_refs.into_iter().zip(fastanis.iter()) {
             debug!(
@@ -243,6 +259,23 @@ fn calculate_fastani_many_to_one_pairwise_stop_early(
         });
 
     to_return.into_inner().unwrap()
+}
+
+fn compute_ani_from_preclusterer(
+    dashing_cache: &SortedPairGenomeDistanceCache,
+    query_genome_indexes: &[&usize],
+    ref_genome_index: &usize,
+) -> Vec<Option<f32>> {
+    query_genome_indexes
+        .iter()
+        .map(|query_genome| {
+            let ani = dashing_cache.get(&(**query_genome, *ref_genome_index));
+            ani.copied()
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .flatten()
+        .collect()
 }
 
 // /// For each genome (sketch) assign it to the closest representative genome:

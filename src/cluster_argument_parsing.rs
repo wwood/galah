@@ -901,7 +901,7 @@ pub fn generate_galah_clusterer<'a>(
 ) -> std::result::Result<GalahClusterer<'a>, String> {
     crate::external_command_checker::check_for_fastani();
 
-    let repeat_clusterer = {
+    let skip_clusterer = {
         clap_matches
             .get_one::<String>(&argument_definition.dereplication_precluster_method_argument)
             .unwrap()
@@ -982,7 +982,7 @@ pub fn generate_galah_clusterer<'a>(
                     }),
                     "skani" => Preclusterer::Skani(SkaniPreclusterer {
                         threshold: {
-                            if repeat_clusterer {
+                            if skip_clusterer {
                                 parse_percentage(
                                     clap_matches,
                                     &argument_definition.dereplication_ani_argument,
