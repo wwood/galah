@@ -28,7 +28,7 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
 
     let mut skip_clusterer = false;
     if clusterer_name == preclusterer_name {
-        info!("Preclustering and clustering methods are the same, so skipping preclustering");
+        info!("Preclustering and clustering methods are the same, so reusing ANI values");
         skip_clusterer = true;
     }
 
