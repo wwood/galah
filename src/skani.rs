@@ -74,18 +74,17 @@ fn precluster_skani(
                 let map_params = chain::map_params_from_sketch(ref_sketch, false, &command_params);
                 let ani_result = chain::chain_seeds(ref_sketch, &sketches[j], map_params);
                 let ani = ani_result.ani * 100.;
+                let ref_name = ref_sketch.file_name.clone();
+                let query_name = sketches[j].file_name.clone();
 
-                debug!(
-                    "Pushing ANI result for {} and {}",
-                    ani_result.ref_file, ani_result.query_file
-                );
+                debug!("Pushing ANI result for {} and {}", ref_name, query_name);
                 let ref_index = genome_fasta_paths
                     .iter()
-                    .position(|&r| r == ani_result.ref_file)
+                    .position(|&r| r == ref_name)
                     .unwrap();
                 let query_index = genome_fasta_paths
                     .iter()
-                    .position(|&r| r == ani_result.query_file)
+                    .position(|&r| r == query_name)
                     .unwrap();
                 if ani >= threshold {
                     queue
