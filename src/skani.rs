@@ -75,6 +75,10 @@ fn precluster_skani(
                 let ani_result = chain::chain_seeds(ref_sketch, &sketches[j], map_params);
                 let ani = ani_result.ani * 100.;
 
+                debug!(
+                    "Pushing ANI result for {} and {}",
+                    ani_result.ref_file, ani_result.query_file
+                );
                 let ref_index = genome_fasta_paths
                     .iter()
                     .position(|&r| r == ani_result.ref_file)
