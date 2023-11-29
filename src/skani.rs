@@ -42,6 +42,7 @@ fn precluster_skani(
         .iter()
         .map(|x| x.to_string())
         .collect::<Vec<String>>();
+    // Note that sketches is now shuffled!
     let sketches = &file_io::fastx_to_sketches(&fasta_strings, &sketch_params, true);
 
     // Right now implemented by parallel collection into a queue, and then
@@ -73,9 +74,18 @@ fn precluster_skani(
                 let map_params = chain::map_params_from_sketch(ref_sketch, false, &command_params);
                 let ani_result = chain::chain_seeds(ref_sketch, &sketches[j], map_params);
                 let ani = ani_result.ani * 100.;
+
+                let ref_index = genome_fasta_paths
+                    .iter()
+                    .position(|&r| r == ani_result.ref_file)
+                    .unwrap();
+                let query_index = genome_fasta_paths
+                    .iter()
+                    .position(|&r| r == ani_result.query_file)
+                    .unwrap();
                 if ani >= threshold {
                     queue
-                        .push((i, j, ani))
+                        .push((ref_index, query_index, ani))
                         .expect("Failed to push to queue during preclustering");
                 }
             }
