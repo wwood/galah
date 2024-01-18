@@ -62,7 +62,7 @@ code span.ot { color: #007020; }
 <div class="cover-card table-cell table-middle">
 <span class="author_name">galah cluster usage</span>
 <span class="author_bio mbm">Ben Woodcroft, Centre for Microbiome Research, Queensland University of Technology</span>
-<span class="author_bio mbm">2021-11-26 (galah 0.3.1)</span>
+<span class="author_bio mbm">2024-01-18 (galah 0.4.0)</span>
 </div>
 </div>
 </div>
@@ -89,7 +89,7 @@ code span.ot { color: #007020; }
 <article class="post-content">
 <div id="name" class="section level1">
 <h1>NAME</h1>
-<p>galah cluster - Cluster genome FASTA files by average nucleotide identity (version 0.3.1)</p>
+<p>galah cluster - Cluster genome FASTA files by average nucleotide identity (version 0.4.0)</p>
 </div>
 <div id="synopsis" class="section level1">
 <h1>SYNOPSIS</h1>
@@ -106,12 +106,21 @@ code span.ot { color: #007020; }
 <dt><strong>-f</strong>, <strong>--genome-fasta-files</strong> <em>PATH ..</em></dt>
 <dd><p>Path(s) to FASTA files of each genome e.g. <code>pathA/genome1.fna pathB/genome2.fa</code>.</p>
 </dd>
-<dt><strong>-d</strong>, <strong>--genome-fasta-directory</strong> <em>PATH</em></dt>
+</dl>
+<!-- -->
+<dl>
+<dt><strong>d</strong>, <strong>--genome-fasta-directory</strong> <em>PATH</em></dt>
 <dd><p>Directory containing FASTA files of each genome.</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>-x</strong>, <strong>--genome-fasta-extension</strong> <em>EXT</em></dt>
 <dd><p>File extension of genomes in the directory specified with <code>-d/--genome-fasta-directory</code>. [default: <code>fna</code>]</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--genome-fasta-list</strong> <em>PATH</em></dt>
 <dd><p>File containing FASTA file paths, one per line.</p>
 </dd>
@@ -120,15 +129,30 @@ code span.ot { color: #007020; }
 <div id="filtering-parameters" class="section level1">
 <h1>FILTERING PARAMETERS</h1>
 <dl>
+<dt><strong>--checkm2-quality-report</strong> <em>PATH</em></dt>
+<dd><p>CheckM version 2 quality_report.tsv (i.e. the <code>quality_report.tsv</code> in the output directory output of <code>checkm2 predict ..</code>) for defining genome quality, which is used both for filtering and to rank genomes during clustering.</p>
+</dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--checkm-tab-table</strong> <em>PATH</em></dt>
-<dd><p>CheckM tab table (i.e. the output of <code>checkm .. --tab_table -f PATH ..</code>) for defining genome quality, which is used both for filtering and to rank genomes during clustering.</p>
+<dd><p>CheckM tab table (i.e. the output of <code>checkm .. --tab_table -f PATH ..</code>). The information contained is used like <code>--checkm2-quality-report</code>.</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--genome-info</strong> <em>PATH</em></dt>
-<dd><p>dRep style genome info table for defining quality. Used like <code>--checkm-tab-table</code>.</p>
+<dd><p>dRep style genome info table for defining quality. The information contained is used like <code>--checkm2-quality-report</code>.</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--min-completeness</strong> <em>FLOAT</em></dt>
 <dd><p>Ignore genomes with less completeness than this percentage. [default: not set]</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--max-contamination</strong> <em>FLOAT</em></dt>
 <dd><p>Ignore genomes with more contamination than this percentage. [default: not set]</p>
 </dd>
@@ -138,19 +162,25 @@ code span.ot { color: #007020; }
 <h1>CLUSTERING PARAMETERS</h1>
 <dl>
 <dt><strong>--ani</strong> <em>FLOAT</em></dt>
-<dd><p>Overall ANI level to dereplicate at with FastANI. [default: <code>99</code>]</p>
+<dd><p>Overall ANI level to dereplicate at with FastANI. [default: <code>95</code>]</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--min-aligned-fraction</strong> <em>FLOAT</em></dt>
-<dd><p>Min aligned fraction of two genomes for clustering. [default: <code>50</code>]</p>
+<dd><p>Min aligned fraction of two genomes for clustering. [default: <code>15</code>]</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--fragment-length</strong> <em>FLOAT</em></dt>
 <dd><p>Length of fragment used in FastANI calculation (i.e. <code>--fragLen</code>). [default: <code>3000</code>]</p>
 </dd>
-<dt><strong>--quality-formula</strong> <em>FORMULA</em></dt>
-<dd><p>Scoring function for genome quality [default: <code>Parks2020_reduced</code>]. One of:</p>
-</dd>
 </dl>
+<!-- -->
+<p><strong>--quality-formula</strong> <em>FORMULA</em></p>
 <table>
+<caption>Scoring function for genome quality [default: <code>Parks2020_reduced</code>]. One of:</caption>
 <thead>
 <tr class="header">
 <th align="left">formula</th>
@@ -178,10 +208,19 @@ code span.ot { color: #007020; }
 </table>
 <dl>
 <dt><strong>--precluster-ani</strong> <em>FLOAT</em></dt>
-<dd><p>Require at least this dashing-derived ANI for preclustering and to avoid FastANI on distant lineages within preclusters. [default: <code>95</code>]</p>
+<dd><p>Require at least this dashing-derived ANI for preclustering and to avoid FastANI on distant lineages within preclusters. [default: <code>90</code>]</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--precluster-method</strong> <em>NAME</em></dt>
-<dd><p>method of calculating rough ANI for dereplication. &#39;<code>dashing</code>&#39; for HyperLogLog, &#39;<code>finch</code>&#39; for finch MinHash. [default: <code>dashing</code>]</p>
+<dd><p>method of calculating rough ANI for dereplication. &#39;<code>dashing</code>&#39; for HyperLogLog, &#39;<code>finch</code>&#39; for finch MinHash, &#39;<code>skani</code>&#39; for Skani. [default: <code>skani</code>]</p>
+</dd>
+</dl>
+<!-- -->
+<dl>
+<dt><strong>--cluster-method</strong> <em>NAME</em></dt>
+<dd><p>method of calculating ANI. &#39;<code>fastani</code>&#39; for FastANI, &#39;<code>skani</code>&#39; for Skani. [default: <code>skani</code>]</p>
 </dd>
 </dl>
 </div>
@@ -191,12 +230,21 @@ code span.ot { color: #007020; }
 <dt><strong>--output-cluster-definition</strong> <em>PATH</em></dt>
 <dd><p>Output a file of representative&lt;TAB&gt;member lines.</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--output-representative-fasta-directory</strong> <em>PATH</em></dt>
 <dd><p>Symlink representative genomes into this directory.</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--output-representative-fasta-directory-copy</strong> <em>PATH</em></dt>
 <dd><p>Copy representative genomes into this directory.</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--output-representative-list</strong> <em>PATH</em></dt>
 <dd><p>Print newline separated list of paths to representatives into this file.</p>
 </dd>
@@ -208,18 +256,33 @@ code span.ot { color: #007020; }
 <dt><strong>-t</strong>, <strong>--threads</strong> <em>INT</em></dt>
 <dd><p>Number of threads. [default: <code>1</code>]</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>-v</strong>, <strong>--verbose</strong></dt>
 <dd><p>Print extra debugging information</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>-q</strong>, <strong>--quiet</strong></dt>
 <dd><p>Unless there is an error, do not print log messages</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>-h</strong>, <strong>--help</strong></dt>
 <dd><p>Output a short usage message.</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--full-help</strong></dt>
 <dd><p>Output a full help message and display in &#39;man&#39;.</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>--full-help-roff</strong></dt>
 <dd><p>Output a full help message in raw ROFF format for conversion to other formats.</p>
 </dd>
@@ -231,9 +294,15 @@ code span.ot { color: #007020; }
 <dt><strong>0</strong></dt>
 <dd><p>Successful program execution.</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>1</strong></dt>
 <dd><p>Unsuccessful program execution.</p>
 </dd>
+</dl>
+<!-- -->
+<dl>
 <dt><strong>101</strong></dt>
 <dd><p>The program panicked.</p>
 </dd>
