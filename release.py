@@ -15,7 +15,7 @@ def get_version(relpath):
 
 if __name__ == "__main__":
     print("running release.sh")
-    extern.run("release.sh")
+    extern.run("./release.sh")
 
     version = get_version('Cargo.toml')
     print("version is {}".format(version))

@@ -1,6 +1,6 @@
 [package]
 name = "galah"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Ben Woodcroft <benjwoodcroft@gmail.com>"]
 edition = "2018"
 license = "GPL-3.0"
@@ -23,8 +23,8 @@ env_logger = "0.10.*"
 checkm = "0.2.0"
 rayon = "1.5"
 csv = "1.1"
-# bird_tool_utils = "0.4.*"
-bird_tool_utils = { git = "https://github.com/wwood/bird_tool_utils" }
+bird_tool_utils = "0.5.*"
+# bird_tool_utils = { git = "https://github.com/wwood/bird_tool_utils" }
 # bird_tool_utils = { path = "../bird_tool_utils" }
 tempfile = "3.*"
 finch = "0.6.*"
