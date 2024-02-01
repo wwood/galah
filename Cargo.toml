@@ -18,7 +18,7 @@ exclude = [ # Max upload is 10MB, as of writing test data was 31MB
 [dependencies]
 clap = { version="4.*", features = ["cargo"] } # cargo feature required for crate_version!
 log = "0.4.*"
-env_logger = "0.10.*"
+env_logger = "0.11.*"
 # checkm = "0.1.*"
 checkm = "0.2.0"
 rayon = "1.5"
