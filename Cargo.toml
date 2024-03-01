@@ -28,7 +28,7 @@ bird_tool_utils = "0.5.*"
 # bird_tool_utils = { path = "../bird_tool_utils" }
 tempfile = "3.*"
 finch = "0.6.*"
-disjoint = { version = "0.6.*" }
+disjoint = { version = "0.7.*" }
 needletail = "0.5.*"
 bird_tool_utils-man = "0.4.0"
 lazy_static = "1.4.0"
