@@ -13,7 +13,7 @@
 
 # Galah
 
-[![Anaconda-Server Badge](https://anaconda.org/bioconda/galah/badges/installer/conda.svg)](https://conda.anaconda.org/bioconda)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/galah/badges/version.svg)](https://anaconda.org/bioconda/galah)
 
 Galah aims to be a more scalable metagenome assembled genome (MAG) dereplication
 method. That is, it clusters microbial genomes together based on their average
@@ -91,7 +91,7 @@ Third party dependencies listed below are required for this method.
 
 ### Dependencies
 
-Galah relies on these 3rd party tools, which must be installed separately.
+For some advanced usage of Galah, 3rd party tools are required, which must be installed separately:
 
 * Dashing v0.4.0 https://github.com/dnbaker/dashing
 * FastANI v1.31 https://github.com/ParBLiSS/FastANI
