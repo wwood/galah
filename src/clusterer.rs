@@ -15,6 +15,7 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     genomes: &[&str],
     preclusterer: &P,
     clusterer: &C,
+    cluster_contigs: bool,
 ) -> Vec<Vec<usize>> {
     clusterer.initialise();
 

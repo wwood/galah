@@ -337,6 +337,26 @@ mod tests {
             .unwrap();
     }
 
+    #[test]
+    fn test_contig_cluster() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/contigs/contigs.fna",
+                "--cluster-contigs",
+                "--output-cluster-definition",
+                "/dev/stdout"])
+                .succeeds()
+                .stdout()
+                .is("\
+                73.20110600_S2D.10_contig_13024	73.20110600_S2D.10_contig_13024\n\
+                73.20110600_S2D.10_contig_13024	73.20110600_S2D.10_contig_13024_2\n\
+                73.20110600_S2D.10_contig_50844	73.20110600_S2D.10_contig_50844\n\
+                73.20110600_S2D.10_contig_37820	73.20110600_S2D.10_contig_37820\n")
+                .unwrap();
+    }
+
     // #[test]
     // fn test_fraglen() {
     //     Assert::main_binary()
