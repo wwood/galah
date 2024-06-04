@@ -79,6 +79,13 @@ impl ClusterDistanceFinder for Clusterer {
             Clusterer::Skani(s) => s.calculate_ani(fasta1, fasta2),
         }
     }
+
+    fn calculate_ani_contigs(&self, fasta1: &str) -> Option<f32> {
+        match self {
+            Clusterer::Fastani(f) => f.calculate_ani_contigs(fasta1),
+            Clusterer::Skani(s) => s.calculate_ani_contigs(fasta1),
+        }
+    }
 }
 
 pub struct GalahClusterer<'a> {
@@ -95,6 +102,7 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_cluster_method_argument: String,
     pub dereplication_aligned_fraction_argument: String,
     pub dereplication_fraglen_argument: String,
+    pub dereplication_cluster_contigs_argument: String,
     // pub dereplication_ani_method_argument: String,
     pub dereplication_output_cluster_definition_file: String,
     pub dereplication_output_representative_fasta_directory: String,
@@ -112,6 +120,7 @@ lazy_static! {
             dereplication_cluster_method_argument: "cluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
+            dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
             // dereplication_ani_method_argument: "ani-method".to_string(),
             dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
             dereplication_output_representative_fasta_directory:
@@ -312,6 +321,14 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 monospace_roff("skani"),
                 default_roff(crate::DEFAULT_CLUSTER_METHOD)
                 )),
+        )
+        .flag(
+            Flag::new()
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_cluster_contigs_argument
+                ))
+                .help("Cluster contigs instead of genomes."),
         )
 }
 
@@ -1152,6 +1169,9 @@ pub fn generate_galah_clusterer<'a>(
                     }),
                     _ => panic!("Programming error"),
                 },
+                cluster_contigs = clap_matches
+                    .get_one::<bool>(&argument_definition.dereplication_cluster_contigs_argument)
+                    .unwrap()
             })
         }
     }
@@ -1187,6 +1207,7 @@ impl GalahClusterer<'_> {
             &self.genome_fasta_paths,
             &self.preclusterer,
             &self.clusterer,
+            &self.cluster_contigs,
         )
     }
 }
@@ -1324,6 +1345,9 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .help("method of calculating ANI. 'fastani' for FastANI, 'skani' for Skani")
             .value_parser(crate::CLUSTER_METHODS)
             .default_value(crate::DEFAULT_CLUSTER_METHOD))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
+            .long("cluster-contigs")
+            .help("Cluster contigs instead of genomes"))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
