@@ -1,6 +1,6 @@
 [package]
 name = "galah"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Ben Woodcroft <benjwoodcroft@gmail.com>"]
 edition = "2018"
 license = "GPL-3.0"
@@ -18,7 +18,7 @@ exclude = [ # Max upload is 10MB, as of writing test data was 31MB
 [dependencies]
 clap = { version="4.*", features = ["cargo"] } # cargo feature required for crate_version!
 log = "0.4.*"
-env_logger = "0.10.*"
+env_logger = "0.11.*"
 # checkm = "0.1.*"
 checkm = "0.2.0"
 rayon = "1.5"
@@ -28,7 +28,7 @@ bird_tool_utils = "0.5.*"
 # bird_tool_utils = { path = "../bird_tool_utils" }
 tempfile = "3.*"
 finch = "0.6.*"
-disjoint = { version = "0.6.*" }
+disjoint = { version = "0.8.*" }
 needletail = "0.5.*"
 bird_tool_utils-man = "0.4.0"
 lazy_static = "1.4.0"
