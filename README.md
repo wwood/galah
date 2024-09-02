@@ -52,11 +52,14 @@ highest ANI with.
 
 ### Install through the bioconda package
 
-Galah can be installed through the [bioconda](https://bioconda.github.io/user/install.html) conda channel. After initial setup of conda and the bioconda channel, it can be installed with
+Galah can be installed through the [bioconda](https://bioconda.github.io/user/install.html) conda channel. After initial setup of conda and the bioconda channel, it can be installed with mamba (or conda) with:
 
 ```
-conda install galah
+mamba install galah
 ```
+
+One can see [details of the galah recipe](https://bioconda.github.io/recipes/galah/README.html).
+
 Galah can also be used indirectly through
 [CoverM](https://github.com/wwood/CoverM) via its `cluster` subcommand, which is also available on bioconda.
 
