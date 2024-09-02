@@ -126,9 +126,13 @@ impl ClusterDistanceFinder for SkaniClusterer {
     fn calculate_ani(&self, fasta1: &str, fasta2: &str) -> Option<f32> {
         Some(calculate_skani(fasta1, fasta2, self.min_aligned_threshold))
     }
+
+    fn calculate_ani_contigs(&self, fasta1: &str) -> Option<f32> {
+        Some(calculate_skani_contigs(fasta1, self.min_aligned_threshold))
+    }
 }
 
-fn default_params(mode: Mode, min_aligned_frac: f32) -> (CommandParams, SketchParams) {
+fn default_params(mode: Mode, min_aligned_frac: f32, cluster_contigs: bool) -> (CommandParams, SketchParams) {
     let cmd_params = CommandParams {
         screen: true,
         screen_val: 0.00,
@@ -143,8 +147,8 @@ fn default_params(mode: Mode, min_aligned_frac: f32) -> (CommandParams, SketchPa
         sparse: false,
         full_matrix: false,
         max_results: 10000000, // for Triange usize::MAX,
-        individual_contig_q: false,
-        individual_contig_r: false,
+        individual_contig_q: cluster_contigs,
+        individual_contig_r: cluster_contigs,
         min_aligned_frac: min_aligned_frac as f64,
         keep_refs: false,
         est_ci: false,
@@ -167,11 +171,23 @@ pub fn calculate_skani(fasta1: &str, fasta2: &str, min_aligned_frac: f32) -> f32
     let refs = vec![fasta1.to_string()];
     let queries = vec![fasta2.to_string()];
 
-    let (command_params, sketch_params) = default_params(Mode::Dist, min_aligned_frac);
+    let (command_params, sketch_params) = default_params(Mode::Dist, min_aligned_frac, false);
     let ref_sketch = &file_io::fastx_to_sketches(&refs, &sketch_params, true)[0];
     let query_sketch = &file_io::fastx_to_sketches(&queries, &sketch_params, true)[0];
     let map_params = chain::map_params_from_sketch(ref_sketch, false, &command_params);
     let ani_result = chain::chain_seeds(ref_sketch, query_sketch, map_params);
+
+    ani_result.ani * 100.0
+}
+
+pub fn calculate_skani_contigs(fasta1: &str, min_aligned_frac: f32) -> f32 {
+    //Vector of Strings
+    let refs = vec![fasta1.to_string()];
+
+    let (command_params, sketch_params) = default_params(Mode::Dist, min_aligned_frac, true);
+    let ref_sketch = &file_io::fastx_to_sketches(&refs, &sketch_params, true)[0];
+    let map_params = chain::map_params_from_sketch(ref_sketch, false, &command_params);
+    let ani_result = chain::chain_seeds(ref_sketch, map_params);
 
     ani_result.ani * 100.0
 }
