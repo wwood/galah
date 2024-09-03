@@ -52,7 +52,7 @@ highest ANI with.
 
 ### Install through the bioconda package
 
-Galah can be installed through the [bioconda](https://bioconda.github.io/user/install.html) conda channel. After initial setup of conda and the bioconda channel, it can be installed with mamba (or conda) with:
+Galah can be installed through the [bioconda](https://bioconda.github.io/) conda channel. After initial setup of conda and the bioconda channel, it can be installed with mamba (or conda) with:
 
 ```
 mamba install galah
