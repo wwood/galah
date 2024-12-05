@@ -35,6 +35,13 @@ fn precluster_skani(
     threshold: f32,
     min_aligned_threshold: f32,
 ) -> SortedPairGenomeDistanceCache {
+    if threshold < 85.0 {
+        panic!(
+            "Error: skani produces inaccurate results with ANI less than 85%. Provided: {}",
+            threshold
+        );
+    }
+
     let (command_params, sketch_params) = default_params(Mode::Dist, min_aligned_threshold);
 
     debug!("Sketching genomes with skani ..");
@@ -174,4 +181,46 @@ pub fn calculate_skani(fasta1: &str, fasta2: &str, min_aligned_frac: f32) -> f32
     let ani_result = chain::chain_seeds(ref_sketch, query_sketch, map_params);
 
     ani_result.ani * 100.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn init() {
+        let _ = env_logger::builder().is_test(true).try_init();
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Error: skani produces inaccurate results with ANI less than 85%. Provided: 80"
+    )]
+    fn test_precluster_skani_with_low_ani() {
+        init();
+        precluster_skani(
+            &[
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120700_S3X.12.fna",
+                "tests/data/abisko4/73.20110800_S2D.13.fna",
+            ],
+            80.0,
+            0.2,
+        );
+    }
+
+    #[test]
+    fn test_precluster_skani_with_valid_ani() {
+        init();
+        precluster_skani(
+            &[
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120700_S3X.12.fna",
+                "tests/data/abisko4/73.20110800_S2D.13.fna",
+            ],
+            95.0,
+            0.2,
+        );
+    }
 }
