@@ -14,6 +14,7 @@ use concurrent_queue::ConcurrentQueue;
 pub struct SkaniPreclusterer {
     pub threshold: f32,
     pub min_aligned_threshold: f32,
+    pub cluster_contigs: bool,
 }
 
 impl PreclusterDistanceFinder for SkaniPreclusterer {
@@ -22,6 +23,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
             genome_fasta_paths,
             self.threshold,
             self.min_aligned_threshold,
+            self.cluster_contigs,
         )
     }
 
@@ -34,8 +36,10 @@ fn precluster_skani(
     genome_fasta_paths: &[&str],
     threshold: f32,
     min_aligned_threshold: f32,
+    cluster_contigs: bool,
 ) -> SortedPairGenomeDistanceCache {
-    let (command_params, sketch_params) = default_params(Mode::Dist, min_aligned_threshold);
+    let (command_params, sketch_params) =
+        default_params(Mode::Dist, min_aligned_threshold, cluster_contigs);
 
     debug!("Sketching genomes with skani ..");
     let fasta_strings = genome_fasta_paths
@@ -132,7 +136,11 @@ impl ClusterDistanceFinder for SkaniClusterer {
     }
 }
 
-fn default_params(mode: Mode, min_aligned_frac: f32, cluster_contigs: bool) -> (CommandParams, SketchParams) {
+fn default_params(
+    mode: Mode,
+    min_aligned_frac: f32,
+    cluster_contigs: bool,
+) -> (CommandParams, SketchParams) {
     let cmd_params = CommandParams {
         screen: true,
         screen_val: 0.00,
@@ -187,7 +195,7 @@ pub fn calculate_skani_contigs(fasta1: &str, min_aligned_frac: f32) -> f32 {
     let (command_params, sketch_params) = default_params(Mode::Dist, min_aligned_frac, true);
     let ref_sketch = &file_io::fastx_to_sketches(&refs, &sketch_params, true)[0];
     let map_params = chain::map_params_from_sketch(ref_sketch, false, &command_params);
-    let ani_result = chain::chain_seeds(ref_sketch, map_params);
+    let ani_result = chain::chain_seeds(ref_sketch, ref_sketch, map_params);
 
     ani_result.ani * 100.0
 }

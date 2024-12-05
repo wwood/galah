@@ -27,7 +27,7 @@ impl ClusterDistanceFinder for FastaniClusterer {
         calculate_fastani(fasta1, fasta2, self.min_aligned_threshold, self.fraglen)
     }
 
-    fn calculate_ani_contigs(&self, fasta1: &str) -> Option<f32> {
+    fn calculate_ani_contigs(&self, _fasta1: &str) -> Option<f32> {
         // FastANI doesn't support self-self comparisons, so we can't use it for contig comparisons
         None
     }

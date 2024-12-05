@@ -92,6 +92,7 @@ pub struct GalahClusterer<'a> {
     pub genome_fasta_paths: Vec<&'a str>,
     pub preclusterer: Preclusterer,
     pub clusterer: Clusterer,
+    pub cluster_contigs: bool,
 }
 
 pub struct GalahClustererCommandDefinition {
@@ -1065,6 +1066,11 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             )
                         }),
+                        cluster_contigs: *clap_matches
+                            .get_one::<bool>(
+                                &argument_definition.dereplication_cluster_contigs_argument,
+                            )
+                            .unwrap(),
                     }),
                     _ => panic!("Programming error"),
                 },
@@ -1169,9 +1175,9 @@ pub fn generate_galah_clusterer<'a>(
                     }),
                     _ => panic!("Programming error"),
                 },
-                cluster_contigs = clap_matches
+                cluster_contigs: *clap_matches
                     .get_one::<bool>(&argument_definition.dereplication_cluster_contigs_argument)
-                    .unwrap()
+                    .unwrap(),
             })
         }
     }
@@ -1207,7 +1213,6 @@ impl GalahClusterer<'_> {
             &self.genome_fasta_paths,
             &self.preclusterer,
             &self.clusterer,
-            &self.cluster_contigs,
         )
     }
 }

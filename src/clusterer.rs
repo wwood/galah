@@ -15,7 +15,6 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     genomes: &[&str],
     preclusterer: &P,
     clusterer: &C,
-    cluster_contigs: bool,
 ) -> Vec<Vec<usize>> {
     clusterer.initialise();
 
@@ -625,6 +624,7 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                cluster_contigs: false,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
@@ -651,6 +651,7 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                cluster_contigs: false,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
@@ -661,5 +662,26 @@ mod tests {
             cluster.sort_unstable();
         }
         assert_eq!(vec![vec![4], vec![0, 1, 3], vec![2]], clusters)
+    }
+
+    #[test]
+    fn test_contig_cluster() {
+        init();
+        let mut clusters = cluster(
+            &["tests/data/contigs/contigs.fna"],
+            &crate::skani::SkaniPreclusterer {
+                threshold: 90.0,
+                min_aligned_threshold: 0.2,
+                cluster_contigs: true,
+            },
+            &crate::skani::SkaniClusterer {
+                threshold: 99.0,
+                min_aligned_threshold: 0.2,
+            },
+        );
+        for cluster in clusters.iter_mut() {
+            cluster.sort_unstable();
+        }
+        assert_eq!(vec![vec![3], vec![0, 1], vec![2]], clusters)
     }
 }
