@@ -624,6 +624,7 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                threads: 1,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
@@ -650,6 +651,7 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                threads: 1,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
