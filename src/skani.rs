@@ -212,3 +212,45 @@ pub fn calculate_skani(fasta1: &str, fasta2: &str, min_aligned_threshold: f32) -
     finish_command_safely(process, "skani");
     to_return
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn init() {
+        let _ = env_logger::builder().is_test(true).try_init();
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Error: skani produces inaccurate results with ANI less than 85%. Provided: 80"
+    )]
+    fn test_precluster_skani_with_low_ani() {
+        init();
+        precluster_skani(
+            &[
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120700_S3X.12.fna",
+                "tests/data/abisko4/73.20110800_S2D.13.fna",
+            ],
+            80.0,
+            0.2,
+        );
+    }
+
+    #[test]
+    fn test_precluster_skani_with_valid_ani() {
+        init();
+        precluster_skani(
+            &[
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120700_S3X.12.fna",
+                "tests/data/abisko4/73.20110800_S2D.13.fna",
+            ],
+            95.0,
+            0.2,
+        );
+    }
+}
