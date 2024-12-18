@@ -64,7 +64,7 @@ fn precluster_skani(
         .arg(&format!("{}", threads))
         .arg("--sparse")
         .arg("--min-af")
-        .arg(&format!("{}", min_aligned_threshold))
+        .arg(&format!("{}", min_aligned_threshold * 100.0))
         .arg("-l")
         .arg(tf.path().to_str().unwrap())
         .stdout(std::process::Stdio::piped())
@@ -163,7 +163,7 @@ pub fn calculate_skani(fasta1: &str, fasta2: &str, min_aligned_threshold: f32) -
     let mut cmd = std::process::Command::new("skani");
     cmd.arg("dist")
         .arg("--min-af")
-        .arg(&format!("{}", min_aligned_threshold))
+        .arg(&format!("{}", min_aligned_threshold * 100.0))
         .arg("-q")
         .arg(fasta1)
         .arg("-r")
