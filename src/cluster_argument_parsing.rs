@@ -1048,6 +1048,7 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             )
                         }),
+                        threads,
                     }),
                     _ => panic!("Programming error"),
                 },
