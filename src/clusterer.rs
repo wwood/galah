@@ -15,6 +15,8 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     genomes: &[&str],
     preclusterer: &P,
     clusterer: &C,
+    cluster_contigs: bool,
+    contig_names: Option<&[&str]>,
 ) -> Vec<Vec<usize>> {
     clusterer.initialise();
 
@@ -32,11 +34,27 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
         skip_clusterer = true;
     }
 
+    if cluster_contigs {
+        if ["finch", "dashing"].contains(&preclusterer_name) {
+            panic!("{} does not support contig comparisons.", preclusterer_name);
+        }
+        info!("Clustering contigs using {} ..", preclusterer_name);
+        skip_clusterer = true;
+    }
+
     // Dashing all the genomes together
-    let dashing_cache = preclusterer.distances(genomes);
+    let dashing_cache = if !cluster_contigs {
+        preclusterer.distances(genomes)
+    } else {
+        preclusterer.distances_contigs(genomes, contig_names.unwrap())
+    };
 
     info!("Preclustering ..");
-    let minhash_preclusters = partition_sketches(genomes, &dashing_cache);
+    let minhash_preclusters = if !cluster_contigs {
+        partition_sketches(genomes, &dashing_cache)
+    } else {
+        partition_sketches(contig_names.unwrap(), &dashing_cache)
+    };
     trace!("Found preclusters: {:?}", minhash_preclusters);
 
     let all_clusters: Mutex<Vec<Vec<usize>>> = Mutex::new(vec![]);
@@ -70,7 +88,11 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
             let precluster_dashing_cache = dashing_cache.transform_ids(original_genome_indices);
             let mut precluster_genomes = vec![];
             for original_genome_index in original_genome_indices {
-                precluster_genomes.push(genomes[*original_genome_index]);
+                if !cluster_contigs {
+                    precluster_genomes.push(genomes[*original_genome_index]);
+                } else {
+                    precluster_genomes.push(contig_names.unwrap()[*original_genome_index]);
+                }
             }
             debug!(
                 "Clustering pre-cluster {}, with genome indices {:?}",
@@ -498,6 +520,8 @@ mod tests {
                 min_aligned_threshold: 0.2,
                 fraglen: 3000,
             },
+            false,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -525,6 +549,8 @@ mod tests {
                 min_aligned_threshold: 0.2,
                 fraglen: 3000,
             },
+            false,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -552,6 +578,8 @@ mod tests {
                 min_aligned_threshold: 0.2,
                 fraglen: 3000,
             },
+            false,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -578,6 +606,8 @@ mod tests {
                 threshold: 95.0,
                 min_aligned_threshold: 0.2,
             },
+            false,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -604,6 +634,8 @@ mod tests {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
             },
+            false,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -630,6 +662,8 @@ mod tests {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
             },
+            false,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -657,10 +691,41 @@ mod tests {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
             },
+            false,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
         }
         assert_eq!(vec![vec![4], vec![0, 1, 3], vec![2]], clusters)
+    }
+
+    #[test]
+    fn test_contig_cluster() {
+        init();
+        let mut clusters = cluster(
+            &["tests/data/contigs/contigs.fna"],
+            &crate::skani::SkaniPreclusterer {
+                threshold: 90.0,
+                min_aligned_threshold: 0.2,
+                threads: 1,
+            },
+            &crate::skani::SkaniClusterer {
+                threshold: 99.0,
+                min_aligned_threshold: 0.2,
+            },
+            true,
+            Some(&[
+                "73.20110600_S2D.10_contig_13024",
+                "73.20110600_S2D.10_contig_13024_2",
+                "73.20110600_S2D.10_contig_50844",
+                "73.20110600_S2D.10_contig_37820",
+            ]),
+        );
+        for cluster in clusters.iter_mut() {
+            cluster.sort_unstable();
+        }
+        clusters.sort_unstable();
+        assert_eq!(vec![vec![0, 1], vec![2], vec![3]], clusters)
     }
 }

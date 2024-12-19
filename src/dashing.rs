@@ -19,6 +19,15 @@ impl PreclusterDistanceFinder for DashingPreclusterer {
         distances(genome_fasta_paths, self.min_ani, self.threads)
     }
 
+    fn distances_contigs(
+        &self,
+        _genome_fasta_paths: &[&str],
+        _contig_names: &[&str],
+    ) -> SortedPairGenomeDistanceCache {
+        // Dashing doesn't offer high-quality ANI with self-self comparisons, so we can't use it for contig comparisons.
+        SortedPairGenomeDistanceCache::new()
+    }
+
     fn method_name(&self) -> &str {
         "dashing"
     }

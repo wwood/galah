@@ -23,6 +23,12 @@ use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
 pub trait PreclusterDistanceFinder {
     fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache;
 
+    fn distances_contigs(
+        &self,
+        genome_fasta_paths: &[&str],
+        contig_names: &[&str],
+    ) -> SortedPairGenomeDistanceCache;
+
     fn method_name(&self) -> &str;
 }
 

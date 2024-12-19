@@ -17,6 +17,7 @@ use bird_tool_utils::clap_utils::*;
 use bird_tool_utils::clap_utils::{default_roff, monospace_roff};
 use bird_tool_utils_man::prelude::{Author, Flag, Manual, Opt, Section};
 use clap::*;
+use needletail::parse_fastx_file;
 use rayon::prelude::*;
 
 use crate::genome_info_file;
@@ -34,6 +35,18 @@ impl PreclusterDistanceFinder for Preclusterer {
             Preclusterer::Dashing(d) => d.distances(genome_fasta_paths),
             Preclusterer::Finch(f) => f.distances(genome_fasta_paths),
             Preclusterer::Skani(s) => s.distances(genome_fasta_paths),
+        }
+    }
+
+    fn distances_contigs(
+        &self,
+        genome_fasta_paths: &[&str],
+        contig_names: &[&str],
+    ) -> SortedPairGenomeDistanceCache {
+        match self {
+            Preclusterer::Dashing(d) => d.distances_contigs(genome_fasta_paths, contig_names),
+            Preclusterer::Finch(f) => f.distances_contigs(genome_fasta_paths, contig_names),
+            Preclusterer::Skani(s) => s.distances_contigs(genome_fasta_paths, contig_names),
         }
     }
 
@@ -85,6 +98,8 @@ pub struct GalahClusterer<'a> {
     pub genome_fasta_paths: Vec<&'a str>,
     pub preclusterer: Preclusterer,
     pub clusterer: Clusterer,
+    pub cluster_contigs: bool,
+    pub contig_names: &'a Option<Vec<&'a str>>,
 }
 
 pub struct GalahClustererCommandDefinition {
@@ -95,6 +110,7 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_cluster_method_argument: String,
     pub dereplication_aligned_fraction_argument: String,
     pub dereplication_fraglen_argument: String,
+    pub dereplication_cluster_contigs_argument: String,
     // pub dereplication_ani_method_argument: String,
     pub dereplication_output_cluster_definition_file: String,
     pub dereplication_output_representative_fasta_directory: String,
@@ -112,6 +128,7 @@ lazy_static! {
             dereplication_cluster_method_argument: "cluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
+            dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
             // dereplication_ani_method_argument: "ani-method".to_string(),
             dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
             dereplication_output_representative_fasta_directory:
@@ -313,6 +330,14 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 default_roff(crate::DEFAULT_CLUSTER_METHOD)
                 )),
         )
+        .flag(
+            Flag::new()
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_cluster_contigs_argument
+                ))
+                .help("Cluster contigs within a fasta file instead of genomes."),
+        )
 }
 
 pub fn add_dereplication_output_parameters_to_section(
@@ -413,8 +438,51 @@ pub fn run_cluster_subcommand(
 
     let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true).unwrap();
 
-    let galah = generate_galah_clusterer(&genome_fasta_files, m, &GALAH_COMMAND_DEFINITION)
-        .expect("Failed to parse galah clustering arguments correctly");
+    let cluster_contigs = m.get_flag("cluster-contigs");
+
+    let contig_names_owned = if cluster_contigs {
+        if m.contains_id("output-representative-fasta-directory")
+            || m.contains_id("output-representative-fasta-directory-copy")
+        {
+            panic!("Cannot specify --cluster-contigs with --output-representative-fasta-directory or --output-representative-fasta-directory-copy");
+        }
+
+        // Get all contig names from the fasta files
+        let mut contig_names2 = vec![];
+        for genome_fasta_path in &genome_fasta_files {
+            let mut reader = parse_fastx_file(genome_fasta_path)
+                .unwrap_or_else(|_| panic!("Failed to read contig names from file '{}' as there was a problem opening the file",
+                    genome_fasta_path));
+            while let Some(seq1) = reader.next() {
+                let seq = seq1.expect("invalid record");
+                let seq_id = String::from_utf8_lossy(seq.id()).into_owned();
+                if contig_names2.contains(&seq_id) {
+                    panic!(
+                        "Duplicate contig name found in file '{}': {}",
+                        genome_fasta_path, seq_id
+                    );
+                }
+                contig_names2.push(seq_id);
+            }
+        }
+
+        Some(contig_names2)
+    } else {
+        None
+    };
+
+    let contig_names = contig_names_owned
+        .as_ref()
+        .map(|c| c.iter().map(String::as_str).collect::<Vec<&str>>());
+
+    let galah = generate_galah_clusterer(
+        &genome_fasta_files,
+        &contig_names,
+        cluster_contigs,
+        m,
+        &GALAH_COMMAND_DEFINITION,
+    )
+    .expect("Failed to parse galah clustering arguments correctly");
 
     // Open file handles here so errors are caught before CPU-heavy clustering
     let output_definitions = setup_galah_outputs(m, &GALAH_COMMAND_DEFINITION);
@@ -425,7 +493,12 @@ pub fn run_cluster_subcommand(
 
     info!("Found {} genome clusters", clusters.len());
 
-    write_galah_outputs(output_definitions, &clusters, passed_genomes);
+    write_galah_outputs(
+        output_definitions,
+        &clusters,
+        passed_genomes,
+        contig_names.as_ref(),
+    );
     info!("Finished printing genome clusters");
 }
 
@@ -433,7 +506,12 @@ pub fn write_galah_outputs(
     output_definitions: GalahOutput,
     clusters: &Vec<Vec<usize>>,
     passed_genomes: &[&str],
+    contig_names: Option<&Vec<&str>>,
 ) {
+    let references = match contig_names {
+        Some(c) => c,
+        None => passed_genomes,
+    };
     if let Some(mut f) = output_definitions.output_clusters_file {
         for cluster in clusters {
             let rep_index = cluster[0];
@@ -441,7 +519,7 @@ pub fn write_galah_outputs(
                 writeln!(
                     f,
                     "{}\t{}",
-                    passed_genomes[rep_index], passed_genomes[*genome_index]
+                    references[rep_index], references[*genome_index]
                 )
                 .expect("Failed to write to output clusters file");
             }
@@ -450,7 +528,7 @@ pub fn write_galah_outputs(
 
     write_cluster_reps_to_directory(
         clusters,
-        passed_genomes,
+        references,
         &output_definitions.output_representative_fasta_directory,
         &|link, current_stab, rep| {
             symlink(link, std::path::Path::new(&current_stab)).unwrap_or_else(|_| {
@@ -463,7 +541,7 @@ pub fn write_galah_outputs(
     );
     write_cluster_reps_to_directory(
         clusters,
-        passed_genomes,
+        references,
         &output_definitions.output_representative_fasta_directory_copy,
         &|link, current_stab, rep| {
             std::fs::copy(link, std::path::Path::new(&current_stab)).unwrap_or_else(|_| {
@@ -478,7 +556,7 @@ pub fn write_galah_outputs(
     if let Some(mut f) = output_definitions.output_representative_list {
         for cluster in clusters {
             let rep_index = cluster[0];
-            writeln!(f, "{}", passed_genomes[rep_index])
+            writeln!(f, "{}", references[rep_index])
                 .expect("Failed to write to output representative list file");
         }
     }
@@ -578,6 +656,10 @@ pub fn filter_genomes_through_checkm<'a>(
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
 ) -> std::result::Result<Vec<&'a str>, String> {
+    if clap_matches.get_flag("cluster-contigs") {
+        return Ok(genome_fasta_files.iter().map(|s| &**s).collect());
+    }
+
     match clap_matches.contains_id("checkm-tab-table")
         || clap_matches.contains_id("genome-info")
         || clap_matches.contains_id("checkm2-quality-report")
@@ -896,6 +978,8 @@ fn filter_and_calculate_genome_stats<
 
 pub fn generate_galah_clusterer<'a>(
     genome_fasta_paths: &'a Vec<String>,
+    contig_names: &'a Option<Vec<&'a str>>,
+    cluster_contigs: bool,
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
 ) -> std::result::Result<GalahClusterer<'a>, String> {
@@ -1153,6 +1237,8 @@ pub fn generate_galah_clusterer<'a>(
                     }),
                     _ => panic!("Programming error"),
                 },
+                cluster_contigs,
+                contig_names,
             })
         }
     }
@@ -1188,6 +1274,8 @@ impl GalahClusterer<'_> {
             &self.genome_fasta_paths,
             &self.preclusterer,
             &self.clusterer,
+            self.cluster_contigs,
+            self.contig_names.as_deref(),
         )
     }
 }
@@ -1317,14 +1405,18 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .default_value(crate::DEFAULT_PRETHRESHOLD_ANI))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_precluster_method_argument)
             .long("precluster-method")
-            .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash, 'skani' for Skani")
+            .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash, 'skani' for skani")
             .value_parser(crate::PRECLUSTER_METHODS)
             .default_value(crate::DEFAULT_PRECLUSTER_METHOD))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_method_argument)
             .long("cluster-method")
-            .help("method of calculating ANI. 'fastani' for FastANI, 'skani' for Skani")
+            .help("method of calculating ANI. 'fastani' for FastANI, 'skani' for skani")
             .value_parser(crate::CLUSTER_METHODS)
             .default_value(crate::DEFAULT_CLUSTER_METHOD))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
+            .long("cluster-contigs")
+            .help("Cluster contigs instead of genomes")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
