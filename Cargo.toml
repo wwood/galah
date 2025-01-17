@@ -29,7 +29,7 @@ bird_tool_utils = "0.5.*"
 tempfile = "3.*"
 finch = "0.6.*"
 disjoint = { version = "0.8.*" }
-needletail = "0.5.*"
+needletail = "0.6.*"
 bird_tool_utils-man = "0.4.0"
 lazy_static = "1.4.0"
 ansi_term = "0.12"
