@@ -20,7 +20,7 @@ clap = { version="4.*", features = ["cargo"] } # cargo feature required for crat
 log = "0.4.*"
 env_logger = "0.11.*"
 # checkm = "0.1.*"
-checkm = "0.2.0"
+checkm = "0.3.0"
 rayon = "1.5"
 csv = "1.1"
 bird_tool_utils = "0.5.*"
