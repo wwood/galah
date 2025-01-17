@@ -281,6 +281,30 @@ mod tests {
     }
 
     #[test]
+    fn test_skani_checkm2() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--precluster-method", // only needed temporarily
+                "finch",
+                "--cluster-method",
+                "skani",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm2-quality-report",
+                "tests/data/abisko4/abisko4_quality_report.tsv"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110800_S2M.16.fna\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20120800_S1D.21.fna\n")
+                .unwrap();
+    }
+
+    #[test]
     fn test_skani_skani_clusterer() {
         Assert::main_binary()
             .with_args(&[
@@ -366,6 +390,26 @@ mod tests {
             .stdout()
             .is("tests/data/antonio_mags/BE_RX_R2_MAG52.fna\n")
             .unwrap();
+    }
+
+    #[test]
+    fn test_github53() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna.gz",
+                "tests/data/abisko4/73.20110800_S2M.16.fna.gz",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm2-quality-report",
+                "tests/data/abisko4/abisko4_quality_report.tsv"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/abisko4/73.20110800_S2M.16.fna.gz	tests/data/abisko4/73.20110800_S2M.16.fna.gz\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna.gz	tests/data/abisko4/73.20120800_S1D.21.fna.gz\n")
+                .unwrap();
     }
 
     // #[test]
