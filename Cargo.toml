@@ -33,7 +33,7 @@ needletail = "0.5.*"
 bird_tool_utils-man = "0.4.0"
 lazy_static = "1.4.0"
 ansi_term = "0.12"
-skani = "0.1.1"
+# skani = "0.1.1"
 # skani = { path = "../skani" }
 concurrent-queue = "2"
 
