@@ -10,6 +10,7 @@ use skani::params::*;
 use skani::screen;
 
 use concurrent_queue::ConcurrentQueue;
+use std::collections::HashMap;
 
 pub struct SkaniPreclusterer {
     pub threshold: f32,
@@ -51,6 +52,7 @@ fn precluster_skani(
         .collect::<Vec<String>>();
     // Note that sketches is now shuffled!
     let sketches = &file_io::fastx_to_sketches(&fasta_strings, &sketch_params, true);
+    let genome_indices: HashMap<_, _> = genome_fasta_paths.into_iter().enumerate().map(|(index, element)| (element, index)).collect();
 
     // Right now implemented by parallel collection into a queue, and then
     // reprocessed into a BTreeMap. Could potentially be made more efficient by
@@ -85,14 +87,8 @@ fn precluster_skani(
                 let query_name = sketches[j].file_name.clone();
 
                 debug!("Pushing ANI result for {} and {}", ref_name, query_name);
-                let ref_index = genome_fasta_paths
-                    .iter()
-                    .position(|&r| r == ref_name)
-                    .unwrap();
-                let query_index = genome_fasta_paths
-                    .iter()
-                    .position(|&r| r == query_name)
-                    .unwrap();
+                let ref_index = genome_indices.get(&ref_name).unwrap();
+                let query_index = genome_indices.get(&query_name).unwrap();
                 if ani >= threshold {
                     queue
                         .push((ref_index, query_index, ani))
@@ -105,7 +101,7 @@ fn precluster_skani(
 
     let mut to_return = SortedPairGenomeDistanceCache::new();
     while let Ok((i, j, ani)) = queue.pop() {
-        to_return.insert((i, j), Some(ani));
+        to_return.insert((*i, *j), Some(ani));
     }
     debug!("Finished skani.");
 
