@@ -25,6 +25,20 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
         )
     }
 
+    fn distances_contigs(
+        &self,
+        genome_fasta_paths: &[&str],
+        contig_names: &[&str],
+    ) -> SortedPairGenomeDistanceCache {
+        precluster_skani_contigs(
+            genome_fasta_paths,
+            self.threshold,
+            self.min_aligned_threshold,
+            self.threads,
+            contig_names,
+        )
+    }
+
     fn method_name(&self) -> &str {
         "skani"
     }
@@ -118,6 +132,105 @@ fn precluster_skani(
                 if ani >= threshold {
                     trace!("Accepting ANI since it passed threshold");
                     distances.insert((genome_id1, genome_id2), Some(ani))
+                }
+            }
+            Err(e) => {
+                error!("Error parsing skani output: {}", e);
+                std::process::exit(1);
+            }
+        }
+    }
+    finish_command_safely(process, "skani");
+    debug!("Found skani distances: {:#?}", distances);
+    info!("Finished skani triangle.");
+
+    distances
+}
+
+fn precluster_skani_contigs(
+    genome_fasta_paths: &[&str],
+    threshold: f32,
+    min_aligned_threshold: f32,
+    threads: u16,
+    contig_names: &[&str],
+) -> SortedPairGenomeDistanceCache {
+    if threshold < 85.0 {
+        panic!(
+            "Error: skani produces inaccurate results with ANI less than 85%. Provided: {}",
+            threshold
+        );
+    }
+
+    // Create a tempfile to list all the fasta file paths
+    let mut tf = tempfile::Builder::new()
+        .prefix("galah-input-genomes")
+        .suffix(".txt")
+        .tempfile()
+        .expect("Failed to open temporary file to run skani");
+
+    for fasta in genome_fasta_paths {
+        writeln!(tf, "{}", fasta)
+            .expect("Failed to write genome fasta paths to tempfile for skani");
+    }
+
+    // --sparse only outputs non-zero entries in an edge-list output
+    info!("Running skani to get distances ..");
+    let mut cmd = std::process::Command::new("skani");
+    cmd.arg("triangle")
+        .arg("-i")
+        .arg("-t")
+        .arg(&format!("{}", threads))
+        .arg("--sparse")
+        .arg("--min-af")
+        .arg(&format!("{}", min_aligned_threshold * 100.0))
+        .arg("-l")
+        .arg(tf.path().to_str().unwrap())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    debug!("Running skani command: {:?}", &cmd);
+
+    // Parse the distances
+    let mut process = cmd
+        .spawn()
+        .unwrap_or_else(|_| panic!("Failed to spawn {}", "skani"));
+    let stdout = process.stdout.as_mut().unwrap();
+    let stdout_reader = BufReader::new(stdout);
+
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(true)
+        .from_reader(stdout_reader);
+
+    let mut distances = SortedPairGenomeDistanceCache::new();
+
+    // Returning contig names from Ref_name and Query_name
+    // Ref_file Query_file ANI Align_fraction_ref Align_fraction_query Ref_name Query_name
+    for record_res in rdr.records() {
+        match record_res {
+            Ok(record) => {
+                debug!("Found skani record {:?}", record);
+
+                // Get index of contigs within contig_names
+                let contig_id1 = contig_names
+                    .iter()
+                    .position(|&x| x == &record[5])
+                    .unwrap_or_else(|| {
+                        panic!("Failed to find contig name in contig_names: {}", &record[5])
+                    });
+                let contig_id2 = contig_names
+                    .iter()
+                    .position(|&x| x == &record[6])
+                    .unwrap_or_else(|| {
+                        panic!("Failed to find contig name in contig_names: {}", &record[6])
+                    });
+
+                let ani: f32 = record[2].parse().unwrap_or_else(|_| {
+                    panic!("Failed to convert skani ANI to float value: {}", &record[2])
+                });
+                trace!("Found ANI {}", ani);
+                if ani >= threshold {
+                    trace!("Accepting ANI since it passed threshold");
+                    distances.insert((contig_id1, contig_id2), Some(ani))
                 }
             }
             Err(e) => {
