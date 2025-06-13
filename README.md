@@ -96,8 +96,9 @@ Third party dependencies listed below are required for this method.
 
 For some advanced usage of Galah, 3rd party tools are required, which must be installed separately:
 
+* skani v0.2.2 https://github.com/bluenote-1577/skani
 * Dashing v0.4.0 https://github.com/dnbaker/dashing
-* FastANI v1.31 https://github.com/ParBLiSS/FastANI
+* FastANI v1.34 https://github.com/ParBLiSS/FastANI
 
 ## Usage
 For clustering a set of genomes at 99% ANI:
@@ -110,9 +111,10 @@ The full usage is described on the [manual page](https://wwood.github.io/galah/g
 
 ### Precluster ANI
 Similar to dRep, galah operates in two stages. In the first, a fast
-pre-clustering distance ([dashing](https://github.com/dnbaker/dashing)) is
+pre-clustering distance ([finch](https://github.com/onecodex/finch-rs)
+or [dashing](https://github.com/dnbaker/dashing)) is
 calculated between each pair of genomes. Genome pairs are only considered as
-potentially in the same cluster with
+potentially in the same cluster with [skani](https://github.com/bluenote-1577/skani) or
 [FastANI](https://github.com/ParBLiSS/FastANI) if the prethreshold ANI is
 greater than the specified value. By default, the precluster ANI is set at 95%
 and the final ANI is set at 99%.

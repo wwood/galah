@@ -241,7 +241,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
         .option(
             Opt::new("FLOAT")
                 .long(&format!("--{}", definition.dereplication_ani_argument))
-                .help(&format!("Overall ANI level to dereplicate at with FastANI. {}", 
+                .help(&format!("Overall ANI level to dereplicate at with the primary clusterer. {}", 
                     &default_roff(crate::DEFAULT_ANI))),
         )
         .option(
@@ -293,8 +293,8 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     definition.dereplication_prethreshold_ani_argument
                 ))
                 .help(
-                    &format!("Require at least this dashing-derived ANI \
-                for preclustering and to avoid FastANI on \
+                    &format!("Require at least this precluster-derived ANI \
+                for preclustering and to avoid primary clustering on \
                 distant lineages within preclusters. {}",
                     default_roff(crate::DEFAULT_PRETHRESHOLD_ANI)
                 )),
