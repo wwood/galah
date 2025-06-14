@@ -167,7 +167,7 @@ lazy_static! {
 
 See {} cluster --full-help for further options and further detail.
 ",
-        ansi_term::Colour::Green.paint(&format!(
+        ansi_term::Colour::Green.paint(format!(
             "{} cluster",
             std::env::current_exe()
                 .ok()
@@ -176,7 +176,7 @@ See {} cluster --full-help for further options and further detail.
                 .expect("Failed to find running program basename")
         )),
         ansi_term::Colour::Green.paint("Cluster (dereplicate) genomes"),
-        ansi_term::Colour::Purple.paint(&format!(
+        ansi_term::Colour::Purple.paint(format!(
             "Example: Dereplicate at {}% (after pre-clustering at {}%) a directory of .fna\n\
             FASTA files and create a new directory of symlinked FASTA files of\n\representatives:",
             crate::DEFAULT_ANI,
@@ -605,37 +605,33 @@ fn write_cluster_reps_to_directory(
     output_representative_fasta_directory: &Option<std::path::PathBuf>,
     file_creation_fn: &dyn Fn(&std::path::Path, String, &str),
 ) {
-    match output_representative_fasta_directory {
-        Some(dir) => {
-            let mut some_names_clashed = false;
-            for cluster in clusters {
-                let rep = passed_genomes[cluster[0]];
-                let link = std::fs::canonicalize(rep).unwrap_or_else(|_| {
-                    panic!(
-                        "Failed to convert representative path into an absolute path: {}",
-                        rep
-                    )
-                });
+    if let Some(dir) = output_representative_fasta_directory {
+        let mut some_names_clashed = false;
+        for cluster in clusters {
+            let rep = passed_genomes[cluster[0]];
+            let link = std::fs::canonicalize(rep).unwrap_or_else(|_| {
+                panic!(
+                    "Failed to convert representative path into an absolute path: {}",
+                    rep
+                )
+            });
 
-                let basename = std::path::Path::new(rep)
-                    .file_name()
-                    .unwrap_or_else(|| panic!("Failed to find file_name from {}", rep));
-                // Check that no output files have the same name. If so, add .1.fna, .2.fna etc.
-                let mut current_stab = dir.join(basename).to_str().unwrap().to_string();
-                let mut counter = 0usize;
-                while std::path::Path::new(&current_stab).exists() {
-                    if !some_names_clashed {
-                        warn!("One or more sequence files have the same file name (e.g. ). Renaming clashes by adding .1.fna, .2.fna etc.");
-                        some_names_clashed = true;
-                    }
-                    counter += 1;
-                    current_stab =
-                        format!("{}.{}.fna", dir.join(basename).to_str().unwrap(), counter);
+            let basename = std::path::Path::new(rep)
+                .file_name()
+                .unwrap_or_else(|| panic!("Failed to find file_name from {}", rep));
+            // Check that no output files have the same name. If so, add .1.fna, .2.fna etc.
+            let mut current_stab = dir.join(basename).to_str().unwrap().to_string();
+            let mut counter = 0usize;
+            while std::path::Path::new(&current_stab).exists() {
+                if !some_names_clashed {
+                    warn!("One or more sequence files have the same file name (e.g. ). Renaming clashes by adding .1.fna, .2.fna etc.");
+                    some_names_clashed = true;
                 }
-                file_creation_fn(&link, current_stab, rep);
+                counter += 1;
+                current_stab = format!("{}.{}.fna", dir.join(basename).to_str().unwrap(), counter);
             }
+            file_creation_fn(&link, current_stab, rep);
         }
-        None => {}
     };
 }
 
@@ -711,14 +707,8 @@ pub fn filter_genomes_through_checkm<'a>(
                 panic!("Programming error");
             };
 
-            let max_contamination = match parse_percentage(clap_matches, "max-contamination") {
-                Ok(fraction_opt) => fraction_opt,
-                Err(e) => return Err(e),
-            };
-            let min_completeness = match parse_percentage(clap_matches, "min-completeness") {
-                Ok(fraction_opt) => fraction_opt,
-                Err(e) => return Err(e),
-            };
+            let max_contamination = parse_percentage(clap_matches, "max-contamination")?;
+            let min_completeness = parse_percentage(clap_matches, "min-completeness")?;
             debug!("{:?}", clap_matches);
             debug!(
                 "Using max contamination {:?} and min completeness {:?}",

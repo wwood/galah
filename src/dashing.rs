@@ -57,7 +57,7 @@ pub fn distances(
         .arg("-o")
         .arg("/dev/null")
         .arg("--nthreads")
-        .arg(&format!("{}", threads))
+        .arg(format!("{}", threads))
         .arg("-M")
         // so that the order of the output remains consistent. Could get around
         // this by finding the indices afterwards but eh.
@@ -107,7 +107,9 @@ pub fn distances(
             }
         }
     }
-    finish_command_safely(process, "dashing");
+    finish_command_safely(process, "dashing")
+        .wait()
+        .expect("Unexpected wait failure outside bird_tool_utils for dashing");
     debug!("Found dashing distances: {:#?}", distances);
     info!("Finished dashing genomes against each other.");
 

@@ -224,18 +224,15 @@ fn find_dashing_fastani_representatives(
             );
             // The reps always have a lower index that the genome under
             // consideration, and the cache key is in ascending order.
-            match fastani {
-                Some(ani) => {
-                    debug!(
-                        "Inserting into cache {}/{} {:?}",
-                        potential_ref, i, *fastani
-                    );
-                    fastani_cache.insert((potential_ref, i), *fastani);
-                    if *ani >= clusterer.get_ani_threshold() {
-                        is_rep = false
-                    }
+            if let Some(ani) = fastani {
+                debug!(
+                    "Inserting into cache {}/{} {:?}",
+                    potential_ref, i, *fastani
+                );
+                fastani_cache.insert((potential_ref, i), *fastani);
+                if *ani >= clusterer.get_ani_threshold() {
+                    is_rep = false
                 }
-                None => {}
             }
         }
         if is_rep {

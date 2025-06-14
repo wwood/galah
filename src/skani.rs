@@ -75,10 +75,10 @@ fn precluster_skani(
     let mut cmd = std::process::Command::new("skani");
     cmd.arg("triangle")
         .arg("-t")
-        .arg(&format!("{}", threads))
+        .arg(format!("{}", threads))
         .arg("--sparse")
         .arg("--min-af")
-        .arg(&format!("{}", min_aligned_threshold * 100.0))
+        .arg(format!("{}", min_aligned_threshold * 100.0))
         .arg("-l")
         .arg(tf.path().to_str().unwrap())
         .stdout(std::process::Stdio::piped())
@@ -140,7 +140,9 @@ fn precluster_skani(
             }
         }
     }
-    finish_command_safely(process, "skani");
+    finish_command_safely(process, "skani")
+        .wait()
+        .expect("Unexpected wait failure outside bird_tool_utils for skani");
     debug!("Found skani distances: {:#?}", distances);
     info!("Finished skani triangle.");
 
@@ -179,10 +181,10 @@ fn precluster_skani_contigs(
     cmd.arg("triangle")
         .arg("-i")
         .arg("-t")
-        .arg(&format!("{}", threads))
+        .arg(format!("{}", threads))
         .arg("--sparse")
         .arg("--min-af")
-        .arg(&format!("{}", min_aligned_threshold * 100.0))
+        .arg(format!("{}", min_aligned_threshold * 100.0))
         .arg("-l")
         .arg(tf.path().to_str().unwrap())
         .stdout(std::process::Stdio::piped())
@@ -239,7 +241,9 @@ fn precluster_skani_contigs(
             }
         }
     }
-    finish_command_safely(process, "skani");
+    finish_command_safely(process, "skani")
+        .wait()
+        .expect("Unexpected wait failure outside bird_tool_utils for skani");
     debug!("Found skani distances: {:#?}", distances);
     info!("Finished skani triangle.");
 
@@ -276,7 +280,7 @@ pub fn calculate_skani(fasta1: &str, fasta2: &str, min_aligned_threshold: f32) -
     let mut cmd = std::process::Command::new("skani");
     cmd.arg("dist")
         .arg("--min-af")
-        .arg(&format!("{}", min_aligned_threshold * 100.0))
+        .arg(format!("{}", min_aligned_threshold * 100.0))
         .arg("-q")
         .arg(fasta1)
         .arg("-r")
@@ -322,7 +326,9 @@ pub fn calculate_skani(fasta1: &str, fasta2: &str, min_aligned_threshold: f32) -
     }
 
     debug!("skani of {} against {} was {:?}", fasta1, fasta2, to_return);
-    finish_command_safely(process, "skani");
+    finish_command_safely(process, "skani")
+        .wait()
+        .expect("Unexpected wait failure outside bird_tool_utils for skani");
     to_return
 }
 

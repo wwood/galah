@@ -91,7 +91,7 @@ fn calculate_fastani_one_way(
         // .arg("--minFraction")
         // .arg(&format!("{}", fastani_min_aligned_threshold))
         .arg("--fragLen")
-        .arg(&format!("{}", fastani_fraglen))
+        .arg(format!("{}", fastani_fraglen))
         .arg("--query")
         .arg(fasta1)
         .arg("--ref")
@@ -145,6 +145,8 @@ fn calculate_fastani_one_way(
         "FastANI of {} against {} was {:?}",
         fasta1, fasta2, to_return
     );
-    finish_command_safely(process, "FastANI");
+    finish_command_safely(process, "FastANI")
+        .wait()
+        .expect("Unexpected wait failure outside bird_tool_utils for FastANI");
     to_return
 }
