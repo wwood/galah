@@ -393,7 +393,7 @@ mod tests {
     }
 
     #[test]
-    fn test_github53() {
+    fn test_contig_cluster() {
         Assert::main_binary()
             .with_args(&[
                 "cluster",
@@ -414,7 +414,7 @@ mod tests {
     }
 
     #[test]
-    fn test_contig_cluster() {
+    fn test_github53() {
         Assert::main_binary()
             .with_args(&[
                 "cluster",
