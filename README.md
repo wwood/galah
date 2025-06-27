@@ -88,7 +88,7 @@ To run an unreleased version of Galah, after installing
 ```
 git clone https://github.com/wwood/galah
 cd galah
-cargo run -- cluster ...etc...
+pixi run cargo run -- cluster ...etc...
 ```
 Third party dependencies listed below are required for this method.
 
