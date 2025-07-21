@@ -413,6 +413,35 @@ mod tests {
             .unwrap();
     }
 
+    // pixi run skani triangle -i -t 1 --sparse --min-af 15.000001 tests/data/contigs/contigs_specific.fna -c 30 -m 200 --faster-small
+    // see skani github for new arg with v2.2
+    #[test]
+    fn test_contig_cluster_specific() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/contigs/contigs_specific.fna",
+                "--cluster-contigs",
+                "--small-genomes",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+                73.20110600_S2D.10_contig_13024	73.20110600_S2D.10_contig_13024\n\
+                73.20110600_S2D.10_contig_13024	100ANI_100AF\n\
+                73.20110600_S2D.10_contig_13024	100ANI_100refAF_90queryAF\n\
+                73.20110600_S2D.10_contig_13024	100ANI_90refAF_90queryAF\n\
+                73.20110600_S2D.10_contig_13024	100ANI_80refAF_80queryAF\n\
+                73.20110600_S2D.10_contig_13024	96ANI_80refAF_80queryAF\n\
+                94ANI_80refAF_80queryAF	94ANI_80refAF_80queryAF\n\
+                73.20110600_S2D.10_contig_50844	73.20110600_S2D.10_contig_50844\n\
+                73.20110600_S2D.10_contig_37820	73.20110600_S2D.10_contig_37820\n")
+            .unwrap();
+    }
+
     #[test]
     fn test_github53() {
         Assert::main_binary()

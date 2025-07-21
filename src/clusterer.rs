@@ -602,6 +602,7 @@ mod tests {
             &crate::skani::SkaniClusterer {
                 threshold: 95.0,
                 min_aligned_threshold: 0.2,
+                small_genomes: false,
             },
             false,
             None,
@@ -630,6 +631,7 @@ mod tests {
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
+                small_genomes: false,
             },
             false,
             None,
@@ -653,11 +655,13 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                small_genomes: false,
                 threads: 1,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
+                small_genomes: false,
             },
             false,
             None,
@@ -682,11 +686,13 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                small_genomes: false,
                 threads: 1,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
+                small_genomes: false,
             },
             false,
             None,
@@ -705,11 +711,13 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                small_genomes: false,
                 threads: 1,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
+                small_genomes: false,
             },
             true,
             Some(&[

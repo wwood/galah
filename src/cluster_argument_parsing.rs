@@ -109,6 +109,7 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_precluster_method_argument: String,
     pub dereplication_cluster_method_argument: String,
     pub dereplication_aligned_fraction_argument: String,
+    pub dereplication_small_genomes_argument: String,
     pub dereplication_fraglen_argument: String,
     pub dereplication_cluster_contigs_argument: String,
     // pub dereplication_ani_method_argument: String,
@@ -127,6 +128,7 @@ lazy_static! {
             dereplication_precluster_method_argument: "precluster-method".to_string(),
             dereplication_cluster_method_argument: "cluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
+            dereplication_small_genomes_argument: "small-genomes".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
             dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
             // dereplication_ani_method_argument: "ani-method".to_string(),
@@ -256,6 +258,14 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     default_roff(crate::DEFAULT_ALIGNED_FRACTION)
                 )),
         )
+        .flag(
+            Flag::new()
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_small_genomes_argument
+                ))
+                .help("Use small-genomes settings in skani calculation. Recommended for sequences < 20kb."),
+        )
         .option(
             Opt::new("FLOAT")
                 .long(&format!("--{}", definition.dereplication_fraglen_argument))
@@ -336,7 +346,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_cluster_contigs_argument
                 ))
-                .help("Cluster contigs within a fasta file instead of genomes."),
+                .help("Cluster contigs within a fasta file instead of genomes. `--small-genomes` is recommend for sequences < 20kb."),
         )
 }
 
@@ -1122,6 +1132,8 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             )
                         }),
+                        small_genomes: clap_matches
+                            .get_flag(&argument_definition.dereplication_small_genomes_argument),
                         threads,
                     }),
                     _ => panic!("Programming error"),
@@ -1224,6 +1236,8 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             )
                         }),
+                        small_genomes: clap_matches
+                            .get_flag(&argument_definition.dereplication_small_genomes_argument),
                     }),
                     _ => panic!("Programming error"),
                 },
@@ -1246,8 +1260,7 @@ pub fn parse_percentage(
             } else if !(0.0..=100.0).contains(&percentage) {
                 error!("Invalid alignment percentage: '{}'", percentage);
                 let err = std::result::Result::Err(format!(
-                    "Invalid percentage specified for --{}: '{}'",
-                    parameter, percentage
+                    "Invalid percentage specified for --{parameter}: '{percentage}'",
                 ));
                 return err;
             }
@@ -1271,8 +1284,8 @@ impl GalahClusterer<'_> {
 }
 
 pub fn cluster_full_help(program_basename: &str, program_version: &str) -> Manual {
-    let mut manual = Manual::new(&format!("{} cluster", program_basename))
-        .about(format!("Cluster genome FASTA files by average nucleotide identity (version {})", program_version))
+    let mut manual = Manual::new(&format!("{program_basename} cluster"))
+        .about(format!("Cluster genome FASTA files by average nucleotide identity (version {program_version})"))
         .author(Author::new(crate::AUTHOR).email("benjwoodcroft near gmail.com"))
         .description("This cluster mode dereplicates genomes, choosing a subset of the input genomes as representatives. \
             Required inputs are (1) a genome definition, and (2) an output format definition.\n\n\
@@ -1352,6 +1365,10 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .help("Average nucleotide identity threshold for clustering")
             .value_parser(clap::value_parser!(f32))
             .default_value(crate::DEFAULT_ANI))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_small_genomes_argument)
+            .long("small-genomes")
+            .help("Use small-genomes settings in skani calculation. Recommended for sequences < 20kb.")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_fraglen_argument)
             .long(&*GALAH_COMMAND_DEFINITION.dereplication_fraglen_argument)
             .help("Length of fragment used in FastANI calculation (i.e. --fragLen)")
@@ -1405,7 +1422,7 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .default_value(crate::DEFAULT_CLUSTER_METHOD))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
             .long("cluster-contigs")
-            .help("Cluster contigs instead of genomes")
+            .help("Cluster contigs within a fasta file instead of genomes. `--small-genomes` is recommend for sequences < 20kb.")
             .action(clap::ArgAction::SetTrue))
         .arg(Arg::new("threads")
             .short('t')

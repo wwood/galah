@@ -105,7 +105,12 @@ For clustering a set of genomes at 99% ANI:
 ```
 galah cluster --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna --output-cluster-definition clusters.tsv
 ```
-There are several other options for specifying genomes, ANI cutoffs, etc. 
+There are several other options for specifying genomes, ANI cutoffs, etc.
+
+For clustering a set of contigs at 99% ANI:
+```
+galah cluster --cluster-contigs --small-genomes --genome-fasta-files /path/to/contigs.fna --output-cluster-definition clusters.tsv
+```
 
 The full usage is described on the [manual page](https://wwood.github.io/galah/galah-cluster.html), which can be accessed on the command line running `galah cluster --full-help`.
 
