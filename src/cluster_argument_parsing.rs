@@ -110,6 +110,8 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_cluster_method_argument: String,
     pub dereplication_aligned_fraction_argument: String,
     pub dereplication_small_genomes_argument: String,
+    pub dereplication_small_contigs_argument: String,
+    pub dereplication_large_contigs_argument: String,
     pub dereplication_fraglen_argument: String,
     pub dereplication_cluster_contigs_argument: String,
     // pub dereplication_ani_method_argument: String,
@@ -129,6 +131,8 @@ lazy_static! {
             dereplication_cluster_method_argument: "cluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
             dereplication_small_genomes_argument: "small-genomes".to_string(),
+            dereplication_small_contigs_argument: "small-contigs".to_string(),
+            dereplication_large_contigs_argument: "large-contigs".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
             dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
             // dereplication_ani_method_argument: "ani-method".to_string(),
@@ -346,7 +350,23 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_cluster_contigs_argument
                 ))
-                .help("Cluster contigs within a fasta file instead of genomes. `--small-genomes` is recommend for sequences < 20kb."),
+                .help("Cluster contigs within a fasta file instead of genomes. When used, either --small-contigs or --large-contigs must be specified."),
+        )
+        .flag(
+            Flag::new()
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_small_contigs_argument
+                ))
+                .help("Use small-genomes settings in skani when clustering contigs. Recommended for contigs < 20kb. Mutually exclusive with --large-contigs."),
+        )
+        .flag(
+            Flag::new()
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_large_contigs_argument
+                ))
+                .help("Do not use small-genomes settings in skani when clustering contigs. Recommended for contigs >= 20kb. Mutually exclusive with --small-contigs."),
         )
 }
 
@@ -449,6 +469,29 @@ pub fn run_cluster_subcommand(
     let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true).unwrap();
 
     let cluster_contigs = m.get_flag("cluster-contigs");
+
+    // Validate that when --cluster-contigs is used, exactly one of --small-contigs or --large-contigs is specified
+    if cluster_contigs {
+        let small_contigs =
+            m.get_flag(&GALAH_COMMAND_DEFINITION.dereplication_small_contigs_argument);
+        let large_contigs =
+            m.get_flag(&GALAH_COMMAND_DEFINITION.dereplication_large_contigs_argument);
+
+        match (small_contigs, large_contigs) {
+            (false, false) => {
+                eprintln!("Error: When --cluster-contigs is used, either --small-contigs or --large-contigs must be specified.");
+                eprintln!(
+                    "Use --small-contigs for contigs < 20kb, --large-contigs for contigs >= 20kb."
+                );
+                std::process::exit(1);
+            }
+            (true, true) => {
+                eprintln!("Error: Cannot specify both --small-contigs and --large-contigs.");
+                std::process::exit(1);
+            }
+            _ => {} // Valid: exactly one is specified
+        }
+    }
 
     let contig_names_owned = if cluster_contigs {
         if m.contains_id("output-representative-fasta-directory")
@@ -1003,6 +1046,13 @@ pub fn generate_galah_clusterer<'a>(
             let threads = *clap_matches
                 .get_one::<u16>("threads")
                 .expect("Failed to parse --threads argument");
+
+            let small_genomes = determine_small_genomes_setting(
+                clap_matches,
+                argument_definition,
+                cluster_contigs,
+            )?;
+
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
                 preclusterer: match clap_matches
@@ -1132,8 +1182,7 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             )
                         }),
-                        small_genomes: clap_matches
-                            .get_flag(&argument_definition.dereplication_small_genomes_argument),
+                        small_genomes,
                         threads,
                     }),
                     _ => panic!("Programming error"),
@@ -1236,8 +1285,7 @@ pub fn generate_galah_clusterer<'a>(
                                 )
                             )
                         }),
-                        small_genomes: clap_matches
-                            .get_flag(&argument_definition.dereplication_small_genomes_argument),
+                        small_genomes,
                     }),
                     _ => panic!("Programming error"),
                 },
@@ -1422,8 +1470,19 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .default_value(crate::DEFAULT_CLUSTER_METHOD))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
             .long("cluster-contigs")
-            .help("Cluster contigs within a fasta file instead of genomes. `--small-genomes` is recommend for sequences < 20kb.")
+            .help("Cluster contigs within a fasta file instead of genomes. When used, either --small-contigs or --large-contigs must be specified.")
             .action(clap::ArgAction::SetTrue))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_small_contigs_argument)
+            .long("small-contigs")
+            .help("Use small-genomes settings in skani calculation when clustering contigs. Recommended for contigs < 20kb.")
+            .action(clap::ArgAction::SetTrue)
+            .requires(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_large_contigs_argument)
+            .long("large-contigs")
+            .help("Do not use small-genomes settings in skani calculation when clustering contigs. Recommended for contigs >= 20kb.")
+            .action(clap::ArgAction::SetTrue)
+            .requires(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
+            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_small_contigs_argument))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
@@ -1472,4 +1531,29 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
         bird_tool_utils::clap_utils::add_genome_specification_arguments(cluster_subcommand);
 
     app.subcommand(cluster_subcommand)
+}
+
+/// Determine the small_genomes setting based on contig-specific flags
+fn determine_small_genomes_setting(
+    clap_matches: &clap::ArgMatches,
+    argument_definition: &GalahClustererCommandDefinition,
+    cluster_contigs: bool,
+) -> std::result::Result<bool, String> {
+    if cluster_contigs {
+        // When clustering contigs, exactly one of --small-contigs or --large-contigs must be set
+        let small_contigs =
+            clap_matches.get_flag(&argument_definition.dereplication_small_contigs_argument);
+        let large_contigs =
+            clap_matches.get_flag(&argument_definition.dereplication_large_contigs_argument);
+
+        match (small_contigs, large_contigs) {
+            (true, false) => Ok(true),
+            (false, true) => Ok(false),
+            (false, false) => Err("When --cluster-contigs is used, either --small-contigs or --large-contigs must be specified".to_string()),
+            (true, true) => unreachable!("clap should prevent both flags from being set due to conflicts_with"),
+        }
+    } else {
+        // When not clustering contigs, use the regular --small-genomes flag
+        Ok(clap_matches.get_flag(&argument_definition.dereplication_small_genomes_argument))
+    }
 }
