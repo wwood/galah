@@ -12,6 +12,7 @@ use tempfile;
 pub struct SkaniPreclusterer {
     pub threshold: f32,
     pub min_aligned_threshold: f32,
+    pub small_genomes: bool,
     pub threads: u16,
 }
 
@@ -21,6 +22,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
             genome_fasta_paths,
             self.threshold,
             self.min_aligned_threshold,
+            self.small_genomes,
             self.threads,
         )
     }
@@ -34,6 +36,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
             genome_fasta_paths,
             self.threshold,
             self.min_aligned_threshold,
+            self.small_genomes,
             self.threads,
             contig_names,
         )
@@ -48,6 +51,7 @@ fn precluster_skani(
     genome_fasta_paths: &[&str],
     threshold: f32,
     min_aligned_threshold: f32,
+    small_genomes: bool,
     threads: u16,
 ) -> SortedPairGenomeDistanceCache {
     if threshold < 85.0 {
@@ -65,8 +69,7 @@ fn precluster_skani(
         .expect("Failed to open temporary file to run skani");
 
     for fasta in genome_fasta_paths {
-        writeln!(tf, "{}", fasta)
-            .expect("Failed to write genome fasta paths to tempfile for skani");
+        writeln!(tf, "{fasta}").expect("Failed to write genome fasta paths to tempfile for skani");
     }
 
     // --sparse only outputs non-zero entries in an edge-list output
@@ -75,11 +78,16 @@ fn precluster_skani(
     let mut cmd = std::process::Command::new("skani");
     cmd.arg("triangle")
         .arg("-t")
-        .arg(format!("{}", threads))
+        .arg(format!("{threads}"))
         .arg("--sparse")
         .arg("--min-af")
-        .arg(format!("{}", min_aligned_threshold * 100.0))
-        .arg("-l")
+        .arg(format!("{}", min_aligned_threshold * 100.0));
+
+    if small_genomes {
+        cmd.arg("--small-genomes");
+    }
+
+    cmd.arg("-l")
         .arg(tf.path().to_str().unwrap())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
@@ -153,6 +161,7 @@ fn precluster_skani_contigs(
     genome_fasta_paths: &[&str],
     threshold: f32,
     min_aligned_threshold: f32,
+    small_genomes: bool,
     threads: u16,
     contig_names: &[&str],
 ) -> SortedPairGenomeDistanceCache {
@@ -171,8 +180,7 @@ fn precluster_skani_contigs(
         .expect("Failed to open temporary file to run skani");
 
     for fasta in genome_fasta_paths {
-        writeln!(tf, "{}", fasta)
-            .expect("Failed to write genome fasta paths to tempfile for skani");
+        writeln!(tf, "{fasta}").expect("Failed to write genome fasta paths to tempfile for skani");
     }
 
     // --sparse only outputs non-zero entries in an edge-list output
@@ -181,11 +189,16 @@ fn precluster_skani_contigs(
     cmd.arg("triangle")
         .arg("-i")
         .arg("-t")
-        .arg(format!("{}", threads))
+        .arg(format!("{threads}"))
         .arg("--sparse")
         .arg("--min-af")
-        .arg(format!("{}", min_aligned_threshold * 100.0))
-        .arg("-l")
+        .arg(format!("{}", min_aligned_threshold * 100.0));
+
+    if small_genomes {
+        cmd.arg("--small-genomes");
+    }
+
+    cmd.arg("-l")
         .arg(tf.path().to_str().unwrap())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
@@ -253,6 +266,7 @@ fn precluster_skani_contigs(
 pub struct SkaniClusterer {
     pub threshold: f32,
     pub min_aligned_threshold: f32,
+    pub small_genomes: bool,
 }
 
 impl ClusterDistanceFinder for SkaniClusterer {
@@ -269,19 +283,34 @@ impl ClusterDistanceFinder for SkaniClusterer {
     }
 
     fn calculate_ani(&self, fasta1: &str, fasta2: &str) -> Option<f32> {
-        Some(calculate_skani(fasta1, fasta2, self.min_aligned_threshold))
+        Some(calculate_skani(
+            fasta1,
+            fasta2,
+            self.small_genomes,
+            self.min_aligned_threshold,
+        ))
     }
 }
 
-pub fn calculate_skani(fasta1: &str, fasta2: &str, min_aligned_threshold: f32) -> f32 {
+pub fn calculate_skani(
+    fasta1: &str,
+    fasta2: &str,
+    small_genomes: bool,
+    min_aligned_threshold: f32,
+) -> f32 {
     // --sparse only outputs non-zero entries in an edge-list output
     // Ref_file Query_file ANI Align_fraction_ref Align_fraction_query Ref_name Query_name
     info!("Running skani to get distances ..");
     let mut cmd = std::process::Command::new("skani");
     cmd.arg("dist")
         .arg("--min-af")
-        .arg(format!("{}", min_aligned_threshold * 100.0))
-        .arg("-q")
+        .arg(format!("{}", min_aligned_threshold * 100.0));
+
+    if small_genomes {
+        cmd.arg("--small-genomes");
+    }
+
+    cmd.arg("-q")
         .arg(fasta1)
         .arg("-r")
         .arg(fasta2)
@@ -355,6 +384,7 @@ mod tests {
             ],
             80.0,
             0.2,
+            false,
             1,
         );
     }
@@ -371,6 +401,7 @@ mod tests {
             ],
             95.0,
             0.2,
+            false,
             1,
         );
     }

@@ -40,8 +40,7 @@ pub fn read_genome_info_file(
         let res = result.expect("Parsing error in genomeInfo file");
         if res.len() != 3 {
             return Err(format!(
-                "Parsing error in genomeInfo file - didn't find 3 columns in line {:?}",
-                res
+                "Parsing error in genomeInfo file - didn't find 3 columns in line {res:?}",
             ));
         }
         let completeness: f32 = res[1]

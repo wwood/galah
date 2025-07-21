@@ -91,7 +91,7 @@ fn calculate_fastani_one_way(
         // .arg("--minFraction")
         // .arg(&format!("{}", fastani_min_aligned_threshold))
         .arg("--fragLen")
-        .arg(format!("{}", fastani_fraglen))
+        .arg(format!("{fastani_fraglen}"))
         .arg("--query")
         .arg(fasta1)
         .arg("--ref")

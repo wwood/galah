@@ -46,7 +46,7 @@ pub fn distances(
         .expect("Failed to open temporary file to run dashing");
 
     for fasta in genome_fasta_paths {
-        writeln!(tf, "{}", fasta)
+        writeln!(tf, "{fasta}")
             .expect("Failed to write genome fasta paths to tempfile for dashing");
     }
 
@@ -57,7 +57,7 @@ pub fn distances(
         .arg("-o")
         .arg("/dev/null")
         .arg("--nthreads")
-        .arg(format!("{}", threads))
+        .arg(format!("{threads}"))
         .arg("-M")
         // so that the order of the output remains consistent. Could get around
         // this by finding the indices afterwards but eh.
