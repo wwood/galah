@@ -720,7 +720,7 @@ pub fn filter_genomes_through_checkm<'a>(
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
 ) -> std::result::Result<Vec<&'a str>, String> {
-    if clap_matches.get_flag(&GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument) {
+    if clap_matches.get_flag(&argument_definition.dereplication_cluster_contigs_argument) {
         return Ok(genome_fasta_files.iter().map(|s| &**s).collect());
     }
 
