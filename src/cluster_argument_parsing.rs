@@ -482,7 +482,8 @@ pub fn run_cluster_subcommand(
 
     let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true).unwrap();
 
-    let cluster_contigs = m.get_flag("cluster-contigs");
+    let cluster_contigs =
+        m.get_flag(&GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument);
 
     // Validate that when --cluster-contigs is used, exactly one of --small-contigs or --large-contigs is specified
     if cluster_contigs {
@@ -719,7 +720,7 @@ pub fn filter_genomes_through_checkm<'a>(
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
 ) -> std::result::Result<Vec<&'a str>, String> {
-    if clap_matches.get_flag("cluster-contigs") {
+    if clap_matches.get_flag(&GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument) {
         return Ok(genome_fasta_files.iter().map(|s| &**s).collect());
     }
 
