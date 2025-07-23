@@ -520,6 +520,48 @@ mod tests {
     }
 
     #[test]
+    fn test_contig_cluster_rep_bug_large() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/contigs/contigs_rep_bug.fna",
+                "--cluster-contigs",
+                "--large-contigs",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+                k141_313035 flag=1 multi=13.9893 len=27966	k141_313035 flag=1 multi=13.9893 len=27966\n\
+                k141_313035 flag=1 multi=13.9893 len=27966	k141_401621 flag=1 multi=12.7497 len=42088\n\
+                k141_313035 flag=1 multi=13.9893 len=27966	NODE_1070_length_34582_cov_11.872969\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_contig_cluster_rep_bug_small() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/contigs/contigs_rep_bug.fna",
+                "--cluster-contigs",
+                "--small-contigs",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+                k141_313035 flag=1 multi=13.9893 len=27966	k141_313035 flag=1 multi=13.9893 len=27966\n\
+                k141_313035 flag=1 multi=13.9893 len=27966	k141_401621 flag=1 multi=12.7497 len=42088\n\
+                NODE_1070_length_34582_cov_11.872969	NODE_1070_length_34582_cov_11.872969\n")
+            .unwrap();
+    }
+
+    #[test]
     fn test_github53() {
         Assert::main_binary()
             .with_args(&[

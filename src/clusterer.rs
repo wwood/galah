@@ -229,7 +229,9 @@ fn find_dashing_fastani_representatives(
                     "Inserting into cache {}/{} {:?}",
                     potential_ref, i, *fastani
                 );
-                fastani_cache.insert((potential_ref, i), *fastani);
+                if !skip_clusterer {
+                    fastani_cache.insert((potential_ref, i), *fastani);
+                }
                 if *ani >= clusterer.get_ani_threshold() {
                     is_rep = false
                 }
@@ -240,7 +242,14 @@ fn find_dashing_fastani_representatives(
             clusters_to_return.insert(i);
         }
     }
-    (clusters_to_return, fastani_cache)
+
+    // When skip_clusterer is true, return all ANI in dashing_cache
+    // Fixes bug when transitive property is not satisfied (see test_contig_cluster_rep_bug_small)
+    if skip_clusterer {
+        (clusters_to_return, dashing_cache.clone())
+    } else {
+        (clusters_to_return, fastani_cache)
+    }
 }
 
 /// Calculate FastANI values, submitting each genome pair in parallel.
@@ -700,7 +709,7 @@ mod tests {
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
         }
-        assert_eq!(vec![vec![4], vec![0, 1, 3], vec![2]], clusters)
+        assert_eq!(vec![vec![0, 1, 3], vec![2], vec![4]], clusters)
     }
 
     #[test]
