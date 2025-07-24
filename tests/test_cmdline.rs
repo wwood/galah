@@ -624,4 +624,337 @@ mod tests {
     //             tests/data/fraglen_test/sequence2.fna")
     //         .unwrap();
     // }
+
+    #[test]
+    fn test_reference_genomes_argument() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes",
+                "tests/data/set2/1mbp.fna",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_list_argument() {
+        let td = tempfile::TempDir::new().unwrap();
+        let ref_list_path = td.path().join("ref_list.txt");
+        std::fs::write(&ref_list_path, "tests/data/set2/1mbp.fna\n").unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes-list",
+                ref_list_path.to_str().unwrap(),
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_mutual_exclusion() {
+        let td = tempfile::TempDir::new().unwrap();
+        let ref_list_path = td.path().join("ref_list.txt");
+        std::fs::write(&ref_list_path, "tests/data/set2/1mbp.fna\n").unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "--reference-genomes",
+                "tests/data/set2/1mbp.fna",
+                "--reference-genomes-list",
+                ref_list_path.to_str().unwrap(),
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .fails()
+            .stderr()
+            .contains("error: the argument '--reference-genomes <reference-genomes>...' cannot be used with '--reference-genomes-list <reference-genomes-list>'")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_with_multiple_references() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes",
+                "tests/data/set2/1mbp.fna",
+                "tests/data/set2/1mbp.half_aligned.fna",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_list_with_multiple_references() {
+        let td = tempfile::TempDir::new().unwrap();
+        let ref_list_path = td.path().join("ref_list.txt");
+        std::fs::write(&ref_list_path, "tests/data/set2/1mbp.fna\ntests/data/set2/1mbp.half_aligned.fna\n").unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes-list",
+                ref_list_path.to_str().unwrap(),
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_list_file_not_found() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "--reference-genomes-list",
+                "/nonexistent/file.txt",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .fails()
+            .stderr()
+            .contains("Failed to read reference genomes list file: /nonexistent/file.txt")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_list_empty_lines_ignored() {
+        let td = tempfile::TempDir::new().unwrap();
+        let ref_list_path = td.path().join("ref_list.txt");
+        std::fs::write(&ref_list_path, "tests/data/set2/1mbp.fna\n\n\ntests/data/set2/1mbp.half_aligned.fna\n\n").unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes-list",
+                ref_list_path.to_str().unwrap(),
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_with_contig_clustering_not_supported() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/contigs/contigs.fna",
+                "--cluster-contigs",
+                "--small-contigs",
+                "--reference-genomes",
+                "tests/data/set2/1mbp.fna",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .fails()
+            .stderr()
+            .contains("Reference genome clustering is not currently supported with --cluster-contigs")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_with_different_precluster_methods() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes",
+                "tests/data/set2/1mbp.fna",
+                "--precluster-method",
+                "skani",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes",
+                "tests/data/set2/1mbp.fna",
+                "--precluster-method",
+                "finch",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .fails()
+            .stderr()
+            .contains("Reference genome clustering currently only supported with skani preclusterer")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_clustering_output() {
+        // Test that reference genome clustering produces expected cluster outputs
+        // Use completely separate datasets for input genomes and reference genomes
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/set1/500kb.fna",
+                "--reference-genomes",
+                "tests/data/set1/1mbp.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "90",
+                "--ani",
+                "95",
+                "--output-cluster-definition",
+                "/dev/stdout"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/set1/1mbp.fna	tests/data/set1/1mbp.fna\n\
+                tests/data/set1/1mbp.fna	tests/data/set1/500kb.fna\n\
+                tests/data/abisko4/73.20120600_S2D.19.fna	tests/data/abisko4/73.20120600_S2D.19.fna\n\
+                tests/data/abisko4/73.20120600_S2D.19.fna	tests/data/abisko4/73.20120800_S1X.13.fna\n")
+                .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_separate_datasets() {
+        // Test clustering where reference genomes are from a completely different dataset
+        // This tests the actual reference-based preclustering functionality with exact expected output
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes",
+                "tests/data/set2/1mbp.fna",
+                "tests/data/antonio_mags/BE_RX_R2_MAG52.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "90",
+                "--ani",
+                "95",
+                "--output-cluster-definition",
+                "/dev/stdout"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/set2/1mbp.fna	tests/data/set2/1mbp.fna\n\
+                tests/data/set2/1mbp.fna	tests/data/set1/500kb.fna\n\
+                tests/data/set2/1mbp.fna	tests/data/set1/1mbp.fna\n\
+                tests/data/antonio_mags/BE_RX_R2_MAG52.fna	tests/data/antonio_mags/BE_RX_R2_MAG52.fna\n")
+                .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_with_checkm2_quality() {
+        // Test that when using reference genomes with CheckM2 quality reports,
+        // the highest quality genome becomes the representative within each cluster
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20110600_S3M.17.fna",
+                "tests/data/abisko4/73.20120700_S1D.20.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--reference-genomes",
+                "tests/data/abisko4/73.20110600_S2D.10.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "90",
+                "--ani",
+                "95",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm2-quality-report",
+                "tests/data/abisko4/abisko4_quality_report.tsv"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110800_S2M.16.fna\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20120700_S1D.20.fna\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S3M.17.fna\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S2D.10.fna\n")
+                .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_with_checkm2_quality_hq_reference() {
+        // Test that when using reference genomes with CheckM2 quality reports,
+        // the highest quality genome becomes the representative within each cluster
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20110600_S2D.10.fna",
+                "tests/data/abisko4/73.20110600_S3M.17.fna",
+                "tests/data/abisko4/73.20120700_S1D.20.fna",
+                "--reference-genomes",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "90",
+                "--ani",
+                "95",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm2-quality-report",
+                "tests/data/abisko4/abisko4_quality_report.tsv"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110800_S2M.16.fna\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20120700_S1D.20.fna\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S3M.17.fna\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S2D.10.fna\n")
+                .unwrap();
+    }
 }

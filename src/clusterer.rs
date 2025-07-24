@@ -9,6 +9,91 @@ use crate::PreclusterDistanceFinder;
 use disjoint::DisjointSetVec;
 use rayon::prelude::*;
 
+/// Reference-based preclusterer that uses a set of reference genomes to create preclusters
+pub struct ReferencePreclusterer<'a> {
+    pub reference_genomes: &'a [&'a str],
+    pub skani_threshold: f32,
+    pub min_aligned_threshold: f32,
+    pub small_genomes: bool,
+    pub threads: u16,
+}
+
+impl<'a> PreclusterDistanceFinder for ReferencePreclusterer<'a> {
+    fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache {
+        precluster_with_references(
+            genome_fasta_paths,
+            self.reference_genomes,
+            self.skani_threshold,
+            self.min_aligned_threshold,
+            self.small_genomes,
+        )
+    }
+
+    fn distances_contigs(
+        &self,
+        _genome_fasta_paths: &[&str],
+        _contig_names: &[&str],
+    ) -> SortedPairGenomeDistanceCache {
+        panic!("Reference genome clustering is not supported with contig clustering");
+    }
+
+    fn method_name(&self) -> &str {
+        "reference-skani"
+    }
+}
+
+/// Create preclusters based on reference genomes
+fn precluster_with_references(
+    genome_fasta_paths: &[&str],
+    reference_genomes: &[&str],
+    threshold: f32,
+    min_aligned_threshold: f32,
+    small_genomes: bool,
+) -> SortedPairGenomeDistanceCache {
+    let mut cache = SortedPairGenomeDistanceCache::new();
+
+    // Assign each genome to the first reference it's close to
+    let mut genome_to_precluster: Vec<Option<usize>> = vec![None; genome_fasta_paths.len()];
+
+    for (ref_idx, reference_genome) in reference_genomes.iter().enumerate() {
+        for (genome_idx, target_genome) in genome_fasta_paths.iter().enumerate() {
+            // Skip if this genome has already been assigned to a precluster
+            if genome_to_precluster[genome_idx].is_some() {
+                continue;
+            }
+
+            // Calculate distance between this genome and the reference genome
+            let ani = crate::skani::calculate_skani(
+                target_genome,
+                reference_genome,
+                small_genomes,
+                min_aligned_threshold,
+            );
+
+            // If genome is close enough to this reference, add it to this precluster
+            if ani >= threshold {
+                genome_to_precluster[genome_idx] = Some(ref_idx);
+            }
+        }
+    }
+
+    // For genomes in the same precluster, set their distance to a high value (close)
+    // This creates the clustering structure expected by the downstream code
+    for i in 0..genome_fasta_paths.len() {
+        for j in (i + 1)..genome_fasta_paths.len() {
+            if let (Some(cluster_i), Some(cluster_j)) = (genome_to_precluster[i], genome_to_precluster[j])
+            {
+                if cluster_i == cluster_j {
+                    // Genomes in the same precluster should be considered similar
+                    cache.insert((i, j), Some(0.95)); // Use a high ANI value
+                }
+            }
+        }
+    }
+
+    cache
+}
+
 /// Given a list of genomes, return them clustered. Use preclusterer for first pass
 /// analysis, then clusterer as the actual threshold.
 pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::marker::Sync>(
@@ -147,34 +232,6 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     all_clusters.into_inner().unwrap()
 }
 
-// /// Choose representatives, greedily assigning based on the min_ani threshold.
-// fn find_minhash_representatives(
-//     sketches: &[Sketch],
-//     ani_threshold: f64)
-//     -> BTreeSet<usize> {
-
-//     let mut to_return: BTreeSet<usize> = BTreeSet::new();
-
-//     for (i, sketch1) in sketches.iter().enumerate() {
-//         let mut is_rep = true;
-//         for j in &to_return {
-//             let sketch2: &Sketch = &sketches[*j];
-//             if distance(&sketch1.hashes, &sketch2.hashes, "", "", true)
-//                 .expect("Failed to calculate distance by sketch comparison")
-//                 .mashDistance
-//                 <= ani_threshold {
-
-//                 is_rep = false;
-//                 break;
-//             }
-//         }
-//         if is_rep {
-//             to_return.insert(i);
-//         }
-//     }
-//     return to_return;
-// }
-
 fn find_precluster_cluster_representatives(
     clusterer: &(impl ClusterDistanceFinder + std::marker::Sync),
     preclusterer_cache: &SortedPairGenomeDistanceCache,
@@ -229,10 +286,10 @@ fn find_precluster_cluster_representatives(
             if let Some(ani) = clusterer_ani {
                 debug!(
                     "Inserting into cache {}/{} {:?}",
-                    potential_ref, i, *clusterer_ani
+                    potential_ref, i, clusterer_ani
                 );
                 if !skip_clusterer {
-                    clusterer_cache.insert((potential_ref, i), *clusterer_ani);
+                    clusterer_cache.insert((potential_ref, i), Some(*ani));
                 }
                 if *ani >= clusterer.get_ani_threshold() {
                     is_rep = false
@@ -753,5 +810,36 @@ mod tests {
         }
         clusters.sort_unstable();
         assert_eq!(vec![vec![0, 1], vec![2], vec![3]], clusters)
+    }
+
+    #[test]
+    fn test_reference_preclusterer() {
+        init();
+        // Use existing test files as reference genomes
+        let reference_genomes = &[
+            "tests/data/abisko4/73.20120800_S1X.13.fna",
+            "tests/data/abisko4/73.20120600_S2D.19.fna",
+        ];
+        let skani_threshold = 95.0;
+        let min_aligned_threshold = 0.2;
+        let small_genomes = false;
+        let _threads = 1;
+
+        let preclusterer = ReferencePreclusterer {
+            reference_genomes,
+            skani_threshold,
+            min_aligned_threshold,
+            small_genomes,
+            threads: _threads,
+        };
+
+        // Test that the preclusterer can be created and has the right method name
+        assert_eq!(preclusterer.method_name(), "reference-skani");
+        
+        // Test that it panics for contig clustering as expected
+        let result = std::panic::catch_unwind(|| {
+            preclusterer.distances_contigs(&[], &[])
+        });
+        assert!(result.is_err(), "Expected panic for contig clustering with reference genomes");
     }
 }

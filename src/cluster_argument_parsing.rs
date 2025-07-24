@@ -23,18 +23,20 @@ use rayon::prelude::*;
 use crate::genome_info_file;
 use crate::genome_stats;
 
-pub enum Preclusterer {
+pub enum Preclusterer<'a> {
     Dashing(DashingPreclusterer),
     Finch(FinchPreclusterer),
     Skani(SkaniPreclusterer),
+    Reference(crate::clusterer::ReferencePreclusterer<'a>),
 }
 
-impl PreclusterDistanceFinder for Preclusterer {
+impl<'a> PreclusterDistanceFinder for Preclusterer<'a> {
     fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache {
         match self {
             Preclusterer::Dashing(d) => d.distances(genome_fasta_paths),
             Preclusterer::Finch(f) => f.distances(genome_fasta_paths),
             Preclusterer::Skani(s) => s.distances(genome_fasta_paths),
+            Preclusterer::Reference(r) => r.distances(genome_fasta_paths),
         }
     }
 
@@ -47,6 +49,7 @@ impl PreclusterDistanceFinder for Preclusterer {
             Preclusterer::Dashing(d) => d.distances_contigs(genome_fasta_paths, contig_names),
             Preclusterer::Finch(f) => f.distances_contigs(genome_fasta_paths, contig_names),
             Preclusterer::Skani(s) => s.distances_contigs(genome_fasta_paths, contig_names),
+            Preclusterer::Reference(r) => r.distances_contigs(genome_fasta_paths, contig_names),
         }
     }
 
@@ -55,6 +58,7 @@ impl PreclusterDistanceFinder for Preclusterer {
             Preclusterer::Dashing(d) => d.method_name(),
             Preclusterer::Finch(f) => f.method_name(),
             Preclusterer::Skani(s) => s.method_name(),
+            Preclusterer::Reference(r) => r.method_name(),
         }
     }
 }
@@ -96,7 +100,7 @@ impl ClusterDistanceFinder for Clusterer {
 
 pub struct GalahClusterer<'a> {
     pub genome_fasta_paths: Vec<&'a str>,
-    pub preclusterer: Preclusterer,
+    pub preclusterer: Preclusterer<'a>,
     pub clusterer: Clusterer,
     pub cluster_contigs: bool,
     pub contig_names: &'a Option<Vec<&'a str>>,
@@ -114,6 +118,8 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_large_contigs_argument: String,
     pub dereplication_fraglen_argument: String,
     pub dereplication_cluster_contigs_argument: String,
+    pub dereplication_reference_genomes_argument: String,
+    pub dereplication_reference_genomes_list_argument: String,
     // pub dereplication_ani_method_argument: String,
     pub dereplication_output_cluster_definition_file: String,
     pub dereplication_output_representative_fasta_directory: String,
@@ -135,6 +141,8 @@ lazy_static! {
             dereplication_large_contigs_argument: "large-contigs".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
             dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
+            dereplication_reference_genomes_argument: "reference-genomes".to_string(),
+            dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
             // dereplication_ani_method_argument: "ani-method".to_string(),
             dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
             dereplication_output_representative_fasta_directory:
@@ -364,7 +372,8 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_cluster_contigs_argument
                 ))
-                .help("Cluster contigs within a fasta file instead of genomes. When used, either --small-contigs or --large-contigs must be specified."),
+                .help("Cluster contigs within a fasta file instead of genomes. \
+                When used, either --small-contigs or --large-contigs must be specified."),
         )
         .flag(
             Flag::new()
@@ -372,7 +381,8 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_small_contigs_argument
                 ))
-                .help("Use small-genomes settings in skani when clustering contigs. Recommended for contigs < 20kb. Mutually exclusive with --large-contigs."),
+                .help("Use small-genomes settings in skani when clustering contigs. \
+                Recommended for contigs < 20kb. Mutually exclusive with --large-contigs."),
         )
         .flag(
             Flag::new()
@@ -380,7 +390,30 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_large_contigs_argument
                 ))
-                .help("Do not use small-genomes settings in skani when clustering contigs. Recommended for contigs >= 20kb. Mutually exclusive with --small-contigs."),
+                .help("Do not use small-genomes settings in skani when clustering contigs. \
+                Recommended for contigs >= 20kb. Mutually exclusive with --small-contigs."),
+        )
+        .option(
+            Opt::new("PATH ...")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_reference_genomes_argument
+                ))
+                .help("Reference genomes to cluster against. These should be pre-clustered at the chosen %ANI. \
+                If quality is provided for representative selection, values for these genomes must also be provided. \
+                Genomes within the precluster ANI cutoff of each reference will be placed in the same precluster. \
+                Mutually exclusive with --reference-genomes-list."),
+        )
+        .option(
+            Opt::new("PATH")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_reference_genomes_list_argument
+                ))
+                .help("File containing paths to reference genomes (one per line). These should be pre-clustered at the chosen %ANI. \
+                If quality is provided for representative selection, values for these genomes must also be provided. \
+                Genomes within the precluster ANI cutoff of each reference will be placed in the same precluster. \
+                Mutually exclusive with --reference-genomes."),
         )
 }
 
@@ -543,12 +576,42 @@ pub fn run_cluster_subcommand(
         .as_ref()
         .map(|c| c.iter().map(String::as_str).collect::<Vec<&str>>());
 
+    // Handle reference genomes if provided
+    let reference_genomes_owned = if let Some(refs) = m.get_many::<String>(&GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument) {
+        Some(refs.map(|s| s.clone()).collect::<Vec<String>>())
+    } else if let Some(ref_file) = m.get_one::<String>(&GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument) {
+        let content = std::fs::read_to_string(ref_file)
+            .unwrap_or_else(|_| panic!("Failed to read reference genomes list file: {}", ref_file));
+        Some(content.lines().filter(|line| !line.trim().is_empty()).map(|s| s.to_string()).collect::<Vec<String>>())
+    } else {
+        None
+    };
+
+    let reference_genomes = reference_genomes_owned.as_ref().map(|refs| refs.iter().map(|s| s.as_str()).collect::<Vec<&str>>());
+
+    // Validate that reference genomes are not used with contig clustering
+    if reference_genomes.is_some() && cluster_contigs {
+        eprintln!("Error: Reference genome clustering is not currently supported with --cluster-contigs");
+        std::process::exit(1);
+    }
+
+    // Combine genome files with reference genomes for clustering
+    // Put reference genomes first so they become representatives when there's no quality ordering
+    let all_genome_files = if let Some(ref_genomes) = &reference_genomes {
+        let mut combined = ref_genomes.iter().map(|s| s.to_string()).collect::<Vec<String>>();
+        combined.extend(genome_fasta_files.clone());
+        combined
+    } else {
+        genome_fasta_files
+    };
+
     let galah = generate_galah_clusterer(
-        &genome_fasta_files,
+        &all_genome_files,
         &contig_names,
         cluster_contigs,
         m,
         &GALAH_COMMAND_DEFINITION,
+        reference_genomes.as_deref(),
     )
     .expect("Failed to parse galah clustering arguments correctly");
 
@@ -1040,6 +1103,7 @@ pub fn generate_galah_clusterer<'a>(
     cluster_contigs: bool,
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
+    reference_genomes: Option<&'a [&'a str]>,
 ) -> std::result::Result<GalahClusterer<'a>, String> {
     crate::external_command_checker::check_for_fastani();
 
@@ -1070,13 +1134,76 @@ pub fn generate_galah_clusterer<'a>(
 
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
-                preclusterer: match clap_matches
-                    .get_one::<String>(
-                        &argument_definition.dereplication_precluster_method_argument,
+                preclusterer: if let Some(ref_genomes) = reference_genomes {
+                    // When reference genomes are provided, use reference-based preclustering
+                    info!("Using {} reference genomes for preclustering", ref_genomes.len());
+                    
+                    if clap_matches
+                        .get_one::<String>(&argument_definition.dereplication_precluster_method_argument)
+                        .unwrap()
+                        .as_str() != "skani"
+                    {
+                        return Err("Reference genome clustering currently only supported with skani preclusterer".to_string());
+                    }
+                    
+                    let precluster_ani = parse_percentage(
+                        clap_matches,
+                        &argument_definition.dereplication_prethreshold_ani_argument,
                     )
-                    .unwrap()
-                    .as_str()
-                {
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Failed to parse precluster-ani {:?}",
+                            clap_matches.get_one::<f32>(
+                                &argument_definition.dereplication_prethreshold_ani_argument
+                            )
+                        )
+                    })
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to parse precluster-ani {:?}",
+                            clap_matches.get_one::<f32>(
+                                &argument_definition.dereplication_prethreshold_ani_argument
+                            )
+                        )
+                    }) * 100.0; // Convert back to percentage for skani
+
+                    let min_aligned_threshold = parse_percentage(
+                        clap_matches,
+                        &argument_definition.dereplication_aligned_fraction_argument,
+                    )
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Failed to parse min-aligned-fraction {:?}",
+                            clap_matches.get_one::<f32>(
+                                &argument_definition.dereplication_aligned_fraction_argument
+                            )
+                        )
+                    })
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to parse min-aligned-fraction {:?}",
+                            clap_matches.get_one::<f32>(
+                                &argument_definition.dereplication_aligned_fraction_argument
+                            )
+                        )
+                    });
+
+                    Preclusterer::Reference(crate::clusterer::ReferencePreclusterer {
+                        reference_genomes: ref_genomes,
+                        skani_threshold: precluster_ani,
+                        min_aligned_threshold,
+                        small_genomes,
+                        threads,
+                    })
+                } else {
+                    // Normal preclustering without reference genomes
+                    match clap_matches
+                        .get_one::<String>(
+                            &argument_definition.dereplication_precluster_method_argument,
+                        )
+                        .unwrap()
+                        .as_str()
+                    {
                     "dashing" => {
                         crate::external_command_checker::check_for_dashing();
                         Preclusterer::Dashing(DashingPreclusterer {
@@ -1201,6 +1328,7 @@ pub fn generate_galah_clusterer<'a>(
                         threads,
                     }),
                     _ => panic!("Programming error"),
+                    }
                 },
                 clusterer: match clap_matches
                     .get_one::<String>(&argument_definition.dereplication_cluster_method_argument)
@@ -1498,6 +1626,16 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue)
             .requires(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_small_contigs_argument))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
+            .long("reference-genomes")
+            .help("Reference genomes to cluster against. These should be representatives already clustered.")
+            .value_delimiter(' ')
+            .num_args(1..)
+            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
+            .long("reference-genomes-list")
+            .help("File containing paths to reference genomes (one per line). These should be representatives already clustered.")
+            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
