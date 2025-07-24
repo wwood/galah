@@ -720,7 +720,7 @@ mod tests {
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
         }
-        assert_eq!(vec![vec![0, 1, 3], vec![2], vec![4]], clusters)
+        assert_eq!(vec![vec![4], vec![0, 1, 3], vec![2]], clusters)
     }
 
     #[test]
