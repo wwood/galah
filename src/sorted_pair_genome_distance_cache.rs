@@ -1,7 +1,7 @@
 use std;
 
 /// Like a BTreeMap except the keys are sorted before insertion / get etc.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct SortedPairGenomeDistanceCache {
     internal: std::collections::BTreeMap<(usize, usize), Option<f32>>,
 }

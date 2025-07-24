@@ -9,8 +9,8 @@ use crate::PreclusterDistanceFinder;
 use disjoint::DisjointSetVec;
 use rayon::prelude::*;
 
-/// Given a list of genomes, return them clustered. Use dashing for first pass
-/// analysis, then fastani as the actual threshold.
+/// Given a list of genomes, return them clustered. Use preclusterer for first pass
+/// analysis, then clusterer as the actual threshold.
 pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::marker::Sync>(
     genomes: &[&str],
     preclusterer: &P,
@@ -42,8 +42,8 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
         skip_clusterer = true;
     }
 
-    // Dashing all the genomes together
-    let dashing_cache = if !cluster_contigs {
+    // Preclusterer all the genomes together
+    let preclusterer_cache = if !cluster_contigs {
         preclusterer.distances(genomes)
     } else {
         preclusterer.distances_contigs(genomes, contig_names.unwrap())
@@ -51,9 +51,9 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
 
     info!("Preclustering ..");
     let minhash_preclusters = if !cluster_contigs {
-        partition_sketches(genomes, &dashing_cache)
+        partition_sketches(genomes, &preclusterer_cache)
     } else {
-        partition_sketches(contig_names.unwrap(), &dashing_cache)
+        partition_sketches(contig_names.unwrap(), &preclusterer_cache)
     };
     trace!("Found preclusters: {:?}", minhash_preclusters);
 
@@ -85,7 +85,8 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
         .par_iter()
         .enumerate()
         .for_each(|(precluster_id, original_genome_indices)| {
-            let precluster_dashing_cache = dashing_cache.transform_ids(original_genome_indices);
+            let precluster_preclusterer_cache =
+                preclusterer_cache.transform_ids(original_genome_indices);
             let mut precluster_genomes = vec![];
             for original_genome_index in original_genome_indices {
                 if !cluster_contigs {
@@ -99,17 +100,17 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
                 precluster_id, original_genome_indices
             );
             trace!(
-                "Found precluster dashing cache {:#?}",
-                precluster_dashing_cache
+                "Found precluster preclusterer cache {:#?}",
+                precluster_preclusterer_cache
             );
 
             debug!(
                 "Calculating genome representatives by {}+{} in precluster {} ..",
                 preclusterer_name, clusterer_name, precluster_id
             );
-            let (clusters, calculated_fastanis) = find_dashing_fastani_representatives(
+            let (clusters, calculated_clusterer_anis) = find_precluster_cluster_representatives(
                 clusterer,
-                &precluster_dashing_cache,
+                &precluster_preclusterer_cache,
                 precluster_genomes.as_slice(),
                 skip_clusterer,
             );
@@ -123,12 +124,12 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
                 "Assigning genomes to representatives by {}+{} in precluster {}..",
                 preclusterer_name, clusterer_name, precluster_id
             );
-            let clusters = find_dashing_fastani_memberships(
+            let clusters = find_precluster_cluster_memberships(
                 clusterer,
                 &clusters,
-                &precluster_dashing_cache,
+                &precluster_preclusterer_cache,
                 precluster_genomes.as_slice(),
-                calculated_fastanis,
+                calculated_clusterer_anis,
             );
             // Indices here are within this single linkage cluster only, so
             // here we map them back to their original indices, and then
@@ -174,21 +175,21 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
 //     return to_return;
 // }
 
-fn find_dashing_fastani_representatives(
+fn find_precluster_cluster_representatives(
     clusterer: &(impl ClusterDistanceFinder + std::marker::Sync),
-    dashing_cache: &SortedPairGenomeDistanceCache,
+    preclusterer_cache: &SortedPairGenomeDistanceCache,
     genomes: &[&str],
     skip_clusterer: bool,
 ) -> (BTreeSet<usize>, SortedPairGenomeDistanceCache) {
     let mut clusters_to_return: BTreeSet<usize> = BTreeSet::new();
-    let mut fastani_cache = SortedPairGenomeDistanceCache::new();
+    let mut clusterer_cache = SortedPairGenomeDistanceCache::new();
 
     for (i, _) in genomes.iter().enumerate() {
         // Gather a list of all genomes which pass the minhash threshold, sorted
         // so highest ANIs are first
         let mut minhash_indices_and_distances: Vec<_> = clusters_to_return
             .iter()
-            .map(|j| (j, dashing_cache.get(&(i, *j))))
+            .map(|j| (j, preclusterer_cache.get(&(i, *j))))
             .filter(|(_, ani_opt)| ani_opt.is_some())
             .map(|(j, ani_opt)| (j, ani_opt.unwrap()))
             .collect();
@@ -198,15 +199,15 @@ fn find_dashing_fastani_representatives(
             .map(|(rep_index, _)| *rep_index)
             .collect();
 
-        // FastANI all potential reps against the current genome
-        let fastanis = if skip_clusterer {
+        // Clusterer all potential reps against the current genome
+        let clusterer_anis = if skip_clusterer {
             compute_ani_from_preclusterer(
-                dashing_cache,
+                preclusterer_cache,
                 potential_refs.iter().collect::<Vec<_>>().as_slice(),
                 &i,
             )
         } else {
-            calculate_fastani_many_to_one_pairwise_stop_early(
+            calculate_clusterer_many_to_one_pairwise_stop_early(
                 clusterer,
                 potential_refs
                     .iter()
@@ -217,19 +218,22 @@ fn find_dashing_fastani_representatives(
             )
         };
         let mut is_rep = true;
-        for (potential_ref, fastani) in potential_refs.into_iter().zip(fastanis.iter()) {
+        for (potential_ref, clusterer_ani) in potential_refs.into_iter().zip(clusterer_anis.iter())
+        {
             debug!(
-                "Read in fastani {:?} from ref {} {} and genome {} {}",
-                fastani, potential_ref, genomes[potential_ref], i, genomes[i]
+                "Read in clusterer {:?} from ref {} {} and genome {} {}",
+                clusterer_ani, potential_ref, genomes[potential_ref], i, genomes[i]
             );
             // The reps always have a lower index that the genome under
             // consideration, and the cache key is in ascending order.
-            if let Some(ani) = fastani {
+            if let Some(ani) = clusterer_ani {
                 debug!(
                     "Inserting into cache {}/{} {:?}",
-                    potential_ref, i, *fastani
+                    potential_ref, i, *clusterer_ani
                 );
-                fastani_cache.insert((potential_ref, i), *fastani);
+                if !skip_clusterer {
+                    clusterer_cache.insert((potential_ref, i), *clusterer_ani);
+                }
                 if *ani >= clusterer.get_ani_threshold() {
                     is_rep = false
                 }
@@ -240,11 +244,18 @@ fn find_dashing_fastani_representatives(
             clusters_to_return.insert(i);
         }
     }
-    (clusters_to_return, fastani_cache)
+
+    // When skip_clusterer is true, return all ANI in preclusterer_cache
+    // Fixes bug when transitive property is not satisfied (see test_contig_cluster_rep_bug_small)
+    if skip_clusterer {
+        (clusters_to_return, preclusterer_cache.clone())
+    } else {
+        (clusters_to_return, clusterer_cache)
+    }
 }
 
-/// Calculate FastANI values, submitting each genome pair in parallel.
-fn calculate_fastani_many_to_one_pairwise(
+/// Calculate Clusterer ANI values, submitting each genome pair in parallel.
+fn calculate_clusterer_many_to_one_pairwise(
     clusterer: &(impl ClusterDistanceFinder + std::marker::Sync),
     query_genome_paths: &[&str],
     ref_genome_path: &str,
@@ -255,10 +266,10 @@ fn calculate_fastani_many_to_one_pairwise(
         .collect()
 }
 
-/// Calculate FastANI values, submitting each genome pair in parallel until one
-/// passes the ani_threshold. Then stop. Return a list of FastANI values.
+/// Calculate Clusterer values, submitting each genome pair in parallel until one
+/// passes the ani_threshold. Then stop. Return a list of Clusterer ANI values.
 /// These need to be screened to determine if any passed the threshold.
-fn calculate_fastani_many_to_one_pairwise_stop_early(
+fn calculate_clusterer_many_to_one_pairwise_stop_early(
     clusterer: &(impl ClusterDistanceFinder + std::marker::Sync),
     query_genome_paths: &[&str],
     ref_genome_path: &str,
@@ -281,14 +292,14 @@ fn calculate_fastani_many_to_one_pairwise_stop_early(
 }
 
 fn compute_ani_from_preclusterer(
-    dashing_cache: &SortedPairGenomeDistanceCache,
+    preclusterer_cache: &SortedPairGenomeDistanceCache,
     query_genome_indexes: &[&usize],
     ref_genome_index: &usize,
 ) -> Vec<Option<f32>> {
     query_genome_indexes
         .iter()
         .map(|query_genome| {
-            let ani = dashing_cache.get(&(**query_genome, *ref_genome_index));
+            let ani = preclusterer_cache.get(&(**query_genome, *ref_genome_index));
             ani.copied()
         })
         .collect::<Vec<_>>()
@@ -332,12 +343,12 @@ fn compute_ani_from_preclusterer(
 
 /// Given a list of representative genomes and a list of genomes, assign each
 /// genome to the closest representative.
-fn find_dashing_fastani_memberships(
+fn find_precluster_cluster_memberships(
     clusterer: &(impl ClusterDistanceFinder + std::marker::Sync),
     representatives: &BTreeSet<usize>,
-    dashing_cache: &SortedPairGenomeDistanceCache,
+    preclusterer_cache: &SortedPairGenomeDistanceCache,
     genomes: &[&str],
-    calculated_fastanis: SortedPairGenomeDistanceCache,
+    calculated_clusterer_anis: SortedPairGenomeDistanceCache,
 ) -> Vec<Vec<usize>> {
     let mut rep_to_index = BTreeMap::new();
     for (i, rep) in representatives.iter().enumerate() {
@@ -345,12 +356,12 @@ fn find_dashing_fastani_memberships(
     }
 
     debug!(
-        "Before re-assignment, fastani cache is {:#?}",
-        calculated_fastanis
+        "Before re-assignment, clusterer cache is {:#?}",
+        calculated_clusterer_anis
     );
 
     let to_return: Mutex<Vec<Vec<usize>>> = Mutex::new(vec![vec![]; representatives.len()]);
-    let calculated_fastanis_lock = Mutex::new(calculated_fastanis);
+    let calculated_clusterer_anis_lock = Mutex::new(calculated_clusterer_anis);
 
     // Push all reps first so they are at the beginning of the list.
     for i in representatives.iter() {
@@ -362,19 +373,19 @@ fn find_dashing_fastani_memberships(
             let potential_refs: Vec<&usize> = representatives
                 .iter()
                 .filter(|rep| {
-                    if calculated_fastanis_lock
+                    if calculated_clusterer_anis_lock
                         .lock()
                         .unwrap()
                         .contains_key(&(i, **rep))
                     {
-                        false // FastANI not needed since already cached
+                        false // Clusterer not needed since already cached
                     } else {
-                        dashing_cache.contains_key(&(i, **rep))
+                        preclusterer_cache.contains_key(&(i, **rep))
                     }
                 })
                 .collect();
 
-            let new_fastanis = calculate_fastani_many_to_one_pairwise(
+            let new_clusterers = calculate_clusterer_many_to_one_pairwise(
                 clusterer,
                 &potential_refs
                     .iter()
@@ -382,39 +393,48 @@ fn find_dashing_fastani_memberships(
                     .collect::<Vec<_>>(),
                 genomes[i],
             );
-            for (ref_i, ani_opt) in potential_refs.iter().zip(new_fastanis.iter()) {
-                calculated_fastanis_lock
+            for (ref_i, ani_opt) in potential_refs.iter().zip(new_clusterers.iter()) {
+                calculated_clusterer_anis_lock
                     .lock()
                     .unwrap()
                     .insert((i, **ref_i), *ani_opt);
             }
 
-            // TODO: Is there FastANI bugs here? Donovan/Pierre seem to think so
+            // TODO: Is there Clusterer bugs here? Donovan/Pierre seem to think so
             let mut best_rep_min_ani = None;
             let mut best_rep = None;
             for rep in representatives.iter() {
-                let fastani: Option<f32> = match i < *rep {
-                    true => match calculated_fastanis_lock.lock().unwrap().get(&(i, *rep)) {
+                let clusterer: Option<f32> = match i < *rep {
+                    true => match calculated_clusterer_anis_lock
+                        .lock()
+                        .unwrap()
+                        .get(&(i, *rep))
+                    {
                         // ani could be known as f32, None for calculated
                         // but below threshold, of not calculated. If not calculated, it isn't nearby
                         Some(ani_opt) => ani_opt.as_ref().copied(),
                         None => None,
                     },
-                    false => match calculated_fastanis_lock.lock().unwrap().get(&(*rep, i)) {
+                    false => match calculated_clusterer_anis_lock
+                        .lock()
+                        .unwrap()
+                        .get(&(*rep, i))
+                    {
                         Some(ani_opt) => ani_opt.as_ref().copied(),
                         None => None,
                     },
                 };
                 debug!(
-                    "Between rep {} {} and genome {} {}, after decaching found fastani {:?}",
-                    rep, genomes[*rep], i, genomes[i], fastani
+                    "Between rep {} {} and genome {} {}, after decaching found clusterer {:?}",
+                    rep, genomes[*rep], i, genomes[i], clusterer
                 );
 
-                if fastani.is_some()
-                    && (best_rep_min_ani.is_none() || fastani.unwrap() > best_rep_min_ani.unwrap())
+                if clusterer.is_some()
+                    && (best_rep_min_ani.is_none()
+                        || clusterer.unwrap() > best_rep_min_ani.unwrap())
                 {
                     best_rep = Some(rep);
-                    best_rep_min_ani = fastani;
+                    best_rep_min_ani = clusterer;
                 }
             }
             to_return.lock().unwrap()[rep_to_index[best_rep.unwrap()]].push(i);
@@ -427,7 +447,7 @@ fn find_dashing_fastani_memberships(
 /// Create sub-sets by single linkage clustering
 fn partition_sketches(
     genomes: &[&str],
-    dashing_cache: &SortedPairGenomeDistanceCache,
+    preclusterer_cache: &SortedPairGenomeDistanceCache,
 ) -> DisjointSetVec<usize> {
     let mut to_return: DisjointSetVec<usize> = DisjointSetVec::with_capacity(genomes.len());
     for (i, _) in genomes.iter().enumerate() {
@@ -437,7 +457,7 @@ fn partition_sketches(
     genomes.iter().enumerate().for_each(|(i, _)| {
         genomes[0..i].iter().enumerate().for_each(|(j, _)| {
             trace!("Testing precluster between {} and {}", i, j);
-            if dashing_cache.contains_key(&(i, j)) {
+            if preclusterer_cache.contains_key(&(i, j)) {
                 debug!(
                     "During preclustering, found a match between genomes {} and {}",
                     i, j
@@ -700,7 +720,8 @@ mod tests {
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
         }
-        assert_eq!(vec![vec![4], vec![0, 1, 3], vec![2]], clusters)
+        clusters.sort_unstable();
+        assert_eq!(vec![vec![0, 1, 3], vec![2], vec![4]], clusters)
     }
 
     #[test]
