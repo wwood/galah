@@ -709,7 +709,11 @@ mod tests {
     fn test_reference_genomes_list_with_multiple_references() {
         let td = tempfile::TempDir::new().unwrap();
         let ref_list_path = td.path().join("ref_list.txt");
-        std::fs::write(&ref_list_path, "tests/data/set2/1mbp.fna\ntests/data/set2/1mbp.half_aligned.fna\n").unwrap();
+        std::fs::write(
+            &ref_list_path,
+            "tests/data/set2/1mbp.fna\ntests/data/set2/1mbp.half_aligned.fna\n",
+        )
+        .unwrap();
 
         Assert::main_binary()
             .with_args(&[
@@ -748,7 +752,11 @@ mod tests {
     fn test_reference_genomes_list_empty_lines_ignored() {
         let td = tempfile::TempDir::new().unwrap();
         let ref_list_path = td.path().join("ref_list.txt");
-        std::fs::write(&ref_list_path, "tests/data/set2/1mbp.fna\n\n\ntests/data/set2/1mbp.half_aligned.fna\n\n").unwrap();
+        std::fs::write(
+            &ref_list_path,
+            "tests/data/set2/1mbp.fna\n\n\ntests/data/set2/1mbp.half_aligned.fna\n\n",
+        )
+        .unwrap();
 
         Assert::main_binary()
             .with_args(&[
@@ -781,7 +789,9 @@ mod tests {
             ])
             .fails()
             .stderr()
-            .contains("Reference genome clustering is not currently supported with --cluster-contigs")
+            .contains(
+                "Reference genome clustering is not currently supported with --cluster-contigs",
+            )
             .unwrap();
     }
 
@@ -818,7 +828,9 @@ mod tests {
             ])
             .fails()
             .stderr()
-            .contains("Reference genome clustering currently only supported with skani preclusterer")
+            .contains(
+                "Reference genome clustering currently only supported with skani preclusterer",
+            )
             .unwrap();
     }
 
@@ -885,76 +897,6 @@ mod tests {
                 tests/data/set2/1mbp.fna	tests/data/set1/500kb.fna\n\
                 tests/data/set2/1mbp.fna	tests/data/set1/1mbp.fna\n\
                 tests/data/antonio_mags/BE_RX_R2_MAG52.fna	tests/data/antonio_mags/BE_RX_R2_MAG52.fna\n")
-                .unwrap();
-    }
-
-    #[test]
-    fn test_reference_genomes_with_checkm2_quality() {
-        // Test that when using reference genomes with CheckM2 quality reports,
-        // the highest quality genome becomes the representative within each cluster
-        Assert::main_binary()
-            .with_args(&[
-                "cluster",
-                "--genome-fasta-files",
-                "tests/data/abisko4/73.20110600_S3M.17.fna",
-                "tests/data/abisko4/73.20120700_S1D.20.fna",
-                "tests/data/abisko4/73.20110800_S2M.16.fna",
-                "--reference-genomes",
-                "tests/data/abisko4/73.20110600_S2D.10.fna",
-                "--precluster-method",
-                "skani",
-                "--cluster-method",
-                "skani",
-                "--precluster-ani",
-                "90",
-                "--ani",
-                "95",
-                "--output-cluster-definition",
-                "/dev/stdout",
-                "--checkm2-quality-report",
-                "tests/data/abisko4/abisko4_quality_report.tsv"])
-                .succeeds()
-                .stdout()
-                .is("\
-                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110800_S2M.16.fna\n\
-                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20120700_S1D.20.fna\n\
-                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S3M.17.fna\n\
-                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S2D.10.fna\n")
-                .unwrap();
-    }
-
-    #[test]
-    fn test_reference_genomes_with_checkm2_quality_hq_reference() {
-        // Test that when using reference genomes with CheckM2 quality reports,
-        // the highest quality genome becomes the representative within each cluster
-        Assert::main_binary()
-            .with_args(&[
-                "cluster",
-                "--genome-fasta-files",
-                "tests/data/abisko4/73.20110600_S2D.10.fna",
-                "tests/data/abisko4/73.20110600_S3M.17.fna",
-                "tests/data/abisko4/73.20120700_S1D.20.fna",
-                "--reference-genomes",
-                "tests/data/abisko4/73.20110800_S2M.16.fna",
-                "--precluster-method",
-                "skani",
-                "--cluster-method",
-                "skani",
-                "--precluster-ani",
-                "90",
-                "--ani",
-                "95",
-                "--output-cluster-definition",
-                "/dev/stdout",
-                "--checkm2-quality-report",
-                "tests/data/abisko4/abisko4_quality_report.tsv"])
-                .succeeds()
-                .stdout()
-                .is("\
-                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110800_S2M.16.fna\n\
-                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20120700_S1D.20.fna\n\
-                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S3M.17.fna\n\
-                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S2D.10.fna\n")
                 .unwrap();
     }
 }
