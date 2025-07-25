@@ -42,6 +42,20 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
         )
     }
 
+    fn distances_with_references(
+        &self,
+        genome_fasta_paths: &[&str],
+        reference_genomes: &[&str],
+    ) -> SortedPairGenomeDistanceCache {
+        precluster_skani_with_references(
+            genome_fasta_paths,
+            reference_genomes,
+            self.threshold,
+            self.min_aligned_threshold,
+            self.small_genomes,
+        )
+    }
+
     fn method_name(&self) -> &str {
         "skani"
     }
@@ -259,6 +273,44 @@ fn precluster_skani_contigs(
         .expect("Unexpected wait failure outside bird_tool_utils for skani");
     debug!("Found skani distances: {:#?}", distances);
     info!("Finished skani triangle.");
+
+    distances
+}
+
+/// Create preclusters based on reference genomes using skani
+// Assumes that both genome sets are already independently dereplicated
+fn precluster_skani_with_references(
+    genome_fasta_paths: &[&str],
+    reference_genomes: &[&str],
+    threshold: f32,
+    min_aligned_threshold: f32,
+    small_genomes: bool,
+) -> SortedPairGenomeDistanceCache {
+    let mut distances = SortedPairGenomeDistanceCache::new();
+    let ref_count = reference_genomes.len();
+
+    // Compare each genome against each reference genome
+    for (genome_idx, target_genome) in genome_fasta_paths.iter().enumerate() {
+        for (ref_idx, reference_genome) in reference_genomes.iter().enumerate() {
+            trace!(
+                "Calculating ANI between {} and {}",
+                target_genome,
+                reference_genome
+            );
+            let ani = calculate_skani(
+                target_genome,
+                reference_genome,
+                small_genomes,
+                min_aligned_threshold,
+            );
+
+            trace!("Found ANI {}", ani);
+            if ani >= threshold {
+                trace!("Accepting ANI since it passed threshold");
+                distances.insert((ref_idx, genome_idx + ref_count), Some(ani))
+            }
+        }
+    }
 
     distances
 }

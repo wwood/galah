@@ -9,19 +9,125 @@ use crate::PreclusterDistanceFinder;
 use disjoint::DisjointSetVec;
 use rayon::prelude::*;
 
+/// Reference-based preclusterer that uses a set of reference genomes to create preclusters
+pub struct ReferencePreclusterer<'a> {
+    pub reference_genomes: &'a [&'a str],
+    pub skani_threshold: f32,
+    pub min_aligned_threshold: f32,
+    pub small_genomes: bool,
+    pub threads: u16,
+}
+
+impl<'a> PreclusterDistanceFinder for ReferencePreclusterer<'a> {
+    fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache {
+        precluster_with_references(
+            genome_fasta_paths,
+            self.reference_genomes,
+            self.skani_threshold,
+            self.min_aligned_threshold,
+            self.small_genomes,
+        )
+    }
+
+    fn distances_contigs(
+        &self,
+        _genome_fasta_paths: &[&str],
+        _contig_names: &[&str],
+    ) -> SortedPairGenomeDistanceCache {
+        panic!("Reference genome clustering is not supported with contig clustering");
+    }
+
+    fn distances_with_references(
+        &self,
+        genome_fasta_paths: &[&str],
+        reference_genomes: &[&str],
+    ) -> SortedPairGenomeDistanceCache {
+        precluster_with_references(
+            genome_fasta_paths,
+            reference_genomes,
+            self.skani_threshold,
+            self.min_aligned_threshold,
+            self.small_genomes,
+        )
+    }
+
+    fn method_name(&self) -> &str {
+        "reference-skani"
+    }
+}
+
+/// Create preclusters based on reference genomes
+fn precluster_with_references(
+    genome_fasta_paths: &[&str],
+    reference_genomes: &[&str],
+    threshold: f32,
+    min_aligned_threshold: f32,
+    small_genomes: bool,
+) -> SortedPairGenomeDistanceCache {
+    let mut cache = SortedPairGenomeDistanceCache::new();
+
+    // Assign each genome to the first reference it's close to
+    let mut genome_to_precluster: Vec<Option<usize>> = vec![None; genome_fasta_paths.len()];
+
+    for (ref_idx, reference_genome) in reference_genomes.iter().enumerate() {
+        for (genome_idx, target_genome) in genome_fasta_paths.iter().enumerate() {
+            // Skip if this genome has already been assigned to a precluster
+            if genome_to_precluster[genome_idx].is_some() {
+                continue;
+            }
+
+            // Calculate distance between this genome and the reference genome
+            let ani = crate::skani::calculate_skani(
+                target_genome,
+                reference_genome,
+                small_genomes,
+                min_aligned_threshold,
+            );
+
+            // If genome is close enough to this reference, add it to this precluster
+            if ani >= threshold {
+                genome_to_precluster[genome_idx] = Some(ref_idx);
+            }
+        }
+    }
+
+    // For genomes in the same precluster, set their distance to a high value (close)
+    // This creates the clustering structure expected by the downstream code
+    for i in 0..genome_fasta_paths.len() {
+        for j in (i + 1)..genome_fasta_paths.len() {
+            if let (Some(cluster_i), Some(cluster_j)) =
+                (genome_to_precluster[i], genome_to_precluster[j])
+            {
+                if cluster_i == cluster_j {
+                    // Genomes in the same precluster should be considered similar
+                    cache.insert((i, j), Some(0.95)); // Use a high ANI value
+                }
+            }
+        }
+    }
+
+    cache
+}
+
 /// Given a list of genomes, return them clustered. Use preclusterer for first pass
 /// analysis, then clusterer as the actual threshold.
 pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::marker::Sync>(
-    genomes: &[&str],
+    input_genomes: &[&str],
     preclusterer: &P,
     clusterer: &C,
     cluster_contigs: bool,
     contig_names: Option<&[&str]>,
+    reference_genomes: Option<&[&str]>,
 ) -> Vec<Vec<usize>> {
     clusterer.initialise();
 
     let preclusterer_name = preclusterer.method_name();
     let clusterer_name = clusterer.method_name();
+
+    let skip_clusterer = preclusterer_name == clusterer_name;
+    if skip_clusterer {
+        info!("Preclustering and clustering methods are the same, so reusing ANI values");
+    }
 
     info!(
         "Preclustering with {} and clustering with {}",
@@ -43,24 +149,36 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     }
 
     // Preclusterer all the genomes together
-    let preclusterer_cache = if !cluster_contigs {
-        preclusterer.distances(genomes)
+    let (preclusterer_cache, genomes) = if let Some(ref_genomes) = reference_genomes {
+        // For reference-based clustering, we need to compare genomes with ref_genomes
+        let cache = preclusterer.distances_with_references(input_genomes, ref_genomes);
+
+        // Create combined genome list: references first, then input genomes
+        let reference_genomes_slice: Vec<&str> = ref_genomes.iter().map(|s| s.as_ref()).collect();
+        let mut combined_genomes = reference_genomes_slice.clone();
+        combined_genomes.extend(input_genomes);
+
+        (cache, combined_genomes)
+    } else if !cluster_contigs {
+        let cache = preclusterer.distances(input_genomes);
+        (cache, input_genomes.to_vec())
     } else {
-        preclusterer.distances_contigs(genomes, contig_names.unwrap())
+        let cache = preclusterer.distances_contigs(input_genomes, contig_names.unwrap());
+        (cache, input_genomes.to_vec())
     };
 
     info!("Preclustering ..");
-    let minhash_preclusters = if !cluster_contigs {
-        partition_sketches(genomes, &preclusterer_cache)
+    let single_linkage_preclusters = if !cluster_contigs {
+        partition_sketches(&genomes, &preclusterer_cache)
     } else {
         partition_sketches(contig_names.unwrap(), &preclusterer_cache)
     };
-    trace!("Found preclusters: {:?}", minhash_preclusters);
+    trace!("Found preclusters: {:?}", single_linkage_preclusters);
 
     let all_clusters: Mutex<Vec<Vec<usize>>> = Mutex::new(vec![]);
 
     // Convert single linkage data structure into just a list of list of indices
-    let mut preclusters: Vec<Vec<usize>> = minhash_preclusters
+    let mut preclusters: Vec<Vec<usize>> = single_linkage_preclusters
         .indices()
         .sets()
         .iter()
@@ -146,34 +264,6 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
         });
     all_clusters.into_inner().unwrap()
 }
-
-// /// Choose representatives, greedily assigning based on the min_ani threshold.
-// fn find_minhash_representatives(
-//     sketches: &[Sketch],
-//     ani_threshold: f64)
-//     -> BTreeSet<usize> {
-
-//     let mut to_return: BTreeSet<usize> = BTreeSet::new();
-
-//     for (i, sketch1) in sketches.iter().enumerate() {
-//         let mut is_rep = true;
-//         for j in &to_return {
-//             let sketch2: &Sketch = &sketches[*j];
-//             if distance(&sketch1.hashes, &sketch2.hashes, "", "", true)
-//                 .expect("Failed to calculate distance by sketch comparison")
-//                 .mashDistance
-//                 <= ani_threshold {
-
-//                 is_rep = false;
-//                 break;
-//             }
-//         }
-//         if is_rep {
-//             to_return.insert(i);
-//         }
-//     }
-//     return to_return;
-// }
 
 fn find_precluster_cluster_representatives(
     clusterer: &(impl ClusterDistanceFinder + std::marker::Sync),
@@ -539,6 +629,7 @@ mod tests {
             },
             false,
             None,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -567,6 +658,7 @@ mod tests {
                 fraglen: 3000,
             },
             false,
+            None,
             None,
         );
         for cluster in clusters.iter_mut() {
@@ -597,6 +689,7 @@ mod tests {
             },
             false,
             None,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -625,6 +718,7 @@ mod tests {
                 small_genomes: false,
             },
             false,
+            None,
             None,
         );
         for cluster in clusters.iter_mut() {
@@ -655,6 +749,7 @@ mod tests {
             },
             false,
             None,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -684,6 +779,7 @@ mod tests {
                 small_genomes: false,
             },
             false,
+            None,
             None,
         );
         for cluster in clusters.iter_mut() {
@@ -716,6 +812,7 @@ mod tests {
             },
             false,
             None,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -747,6 +844,7 @@ mod tests {
                 "73.20110600_S2D.10_contig_50844",
                 "73.20110600_S2D.10_contig_37820",
             ]),
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();

@@ -27,6 +27,14 @@ impl PreclusterDistanceFinder for FinchPreclusterer {
         SortedPairGenomeDistanceCache::new()
     }
 
+    fn distances_with_references(
+        &self,
+        _genome_fasta_paths: &[&str],
+        _reference_genomes: &[&str],
+    ) -> SortedPairGenomeDistanceCache {
+        panic!("Reference genome clustering currently only supported with skani preclusterer");
+    }
+
     fn method_name(&self) -> &str {
         "finch"
     }
