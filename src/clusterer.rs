@@ -12,7 +12,7 @@ use rayon::prelude::*;
 /// Given a list of genomes, return them clustered. Use preclusterer for first pass
 /// analysis, then clusterer as the actual threshold.
 pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::marker::Sync>(
-    input_genomes: &[&str],
+    genomes: &[&str],
     preclusterer: &P,
     clusterer: &C,
     cluster_contigs: bool,
@@ -23,11 +23,6 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
 
     let preclusterer_name = preclusterer.method_name();
     let clusterer_name = clusterer.method_name();
-
-    let skip_clusterer = preclusterer_name == clusterer_name;
-    if skip_clusterer {
-        info!("Preclustering and clustering methods are the same, so reusing ANI values");
-    }
 
     info!(
         "Preclustering with {} and clustering with {}",
@@ -51,18 +46,18 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     // Preclusterer all the genomes together
     let preclusterer_cache = if let Some(ref_genomes) = reference_genomes {
         // For reference-based clustering, we need to compare genomes with ref_genomes
-        preclusterer.distances_with_references(input_genomes, ref_genomes)
-    } else if !cluster_contigs {
-        preclusterer.distances(input_genomes)
+        preclusterer.distances_with_references(genomes, ref_genomes)
+    } else if cluster_contigs {
+        preclusterer.distances_contigs(genomes, contig_names.unwrap())
     } else {
-        preclusterer.distances_contigs(input_genomes, contig_names.unwrap())
+        preclusterer.distances(genomes)
     };
 
     info!("Preclustering ..");
-    let single_linkage_preclusters = if !cluster_contigs {
-        partition_sketches(input_genomes, &preclusterer_cache)
-    } else {
+    let single_linkage_preclusters = if cluster_contigs {
         partition_sketches(contig_names.unwrap(), &preclusterer_cache)
+    } else {
+        partition_sketches(genomes, &preclusterer_cache)
     };
     trace!("Found preclusters: {:?}", single_linkage_preclusters);
 
@@ -99,7 +94,7 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
             let mut precluster_genomes = vec![];
             for original_genome_index in original_genome_indices {
                 if !cluster_contigs {
-                    precluster_genomes.push(input_genomes[*original_genome_index]);
+                    precluster_genomes.push(genomes[*original_genome_index]);
                 } else {
                     precluster_genomes.push(contig_names.unwrap()[*original_genome_index]);
                 }
@@ -155,6 +150,34 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
         });
     all_clusters.into_inner().unwrap()
 }
+
+// /// Choose representatives, greedily assigning based on the min_ani threshold.
+// fn find_minhash_representatives(
+//     sketches: &[Sketch],
+//     ani_threshold: f64)
+//     -> BTreeSet<usize> {
+
+//     let mut to_return: BTreeSet<usize> = BTreeSet::new();
+
+//     for (i, sketch1) in sketches.iter().enumerate() {
+//         let mut is_rep = true;
+//         for j in &to_return {
+//             let sketch2: &Sketch = &sketches[*j];
+//             if distance(&sketch1.hashes, &sketch2.hashes, "", "", true)
+//                 .expect("Failed to calculate distance by sketch comparison")
+//                 .mashDistance
+//                 <= ani_threshold {
+
+//                 is_rep = false;
+//                 break;
+//             }
+//         }
+//         if is_rep {
+//             to_return.insert(i);
+//         }
+//     }
+//     return to_return;
+// }
 
 fn find_precluster_cluster_representatives(
     clusterer: &(impl ClusterDistanceFinder + std::marker::Sync),

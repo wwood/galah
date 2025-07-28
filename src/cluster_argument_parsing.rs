@@ -616,7 +616,7 @@ pub fn run_cluster_subcommand(
         .as_ref()
         .map(|refs| refs.iter().map(|s| s.as_str()).collect::<Vec<&str>>());
 
-    if reference_genomes_owned.is_some() {
+    if reference_genomes.is_some() {
         let num_reference_genomes = reference_genomes.as_ref().map_or(0, |r| r.len());
         info!(
             "Clustering against {} reference genomes",
