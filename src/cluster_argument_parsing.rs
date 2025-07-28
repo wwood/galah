@@ -196,6 +196,12 @@ lazy_static! {
 
 {}
 
+  {} cluster --genome-fasta-list genome_reps.txt
+    --reference-genomes-list reference_genomes.txt
+    --output-cluster-definition clusters.tsv
+
+{}
+
   {} cluster --cluster-contigs --small-contigs --genome-fasta-files contigs.fasta 
     --output-cluster-definition contig_clusters.tsv
 
@@ -225,6 +231,15 @@ See {} cluster --full-help for further options and further detail.
             "Example: Dereplicate a set of genomes with paths specified in genomes.txt at\n\
             95% ANI, after a preclustering at 90% using the MinHash finch method, and\n\
             output the cluster definition to clusters.tsv:"
+        ),
+        std::env::current_exe()
+            .ok()
+            .and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
+            .and_then(|s| s.into_string().ok())
+            .expect("Failed to find running program basename"),
+        ansi_term::Colour::Purple.paint(
+            "Example: Dereplicate a set of genome representatives against a set of reference\n\
+            genomes, and output the cluster definition to clusters.tsv:"
         ),
         std::env::current_exe()
             .ok()
