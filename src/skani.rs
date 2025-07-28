@@ -280,18 +280,27 @@ fn precluster_skani_contigs(
 /// Create preclusters based on reference genomes using skani
 // Assumes that both genome sets are already independently dereplicated
 fn precluster_skani_with_references(
-    genome_fasta_paths: &[&str],
+    combined_genomes: &[&str],
     reference_genomes: &[&str],
     threshold: f32,
     min_aligned_threshold: f32,
     small_genomes: bool,
 ) -> SortedPairGenomeDistanceCache {
     let mut distances = SortedPairGenomeDistanceCache::new();
-    let ref_count = reference_genomes.len();
 
-    // Compare each genome against each reference genome
-    for (genome_idx, target_genome) in genome_fasta_paths.iter().enumerate() {
-        for (ref_idx, reference_genome) in reference_genomes.iter().enumerate() {
+    for reference_genome in reference_genomes.iter() {
+        // Find idx of reference genome within combined genomes
+        let ref_idx_in_combined = combined_genomes
+            .iter()
+            .position(|&x| x == *reference_genome);
+
+        for (genome_idx, target_genome) in combined_genomes.iter().enumerate() {
+            // Skip reference genomes
+            if reference_genomes.contains(target_genome) {
+                continue;
+            }
+
+            // Calculate distance between this genome and the reference genome
             trace!(
                 "Calculating ANI between {} and {}",
                 target_genome,
@@ -307,7 +316,7 @@ fn precluster_skani_with_references(
             trace!("Found ANI {}", ani);
             if ani >= threshold {
                 trace!("Accepting ANI since it passed threshold");
-                distances.insert((ref_idx, genome_idx + ref_count), Some(ani))
+                distances.insert((genome_idx, ref_idx_in_combined.unwrap()), Some(ani));
             }
         }
     }

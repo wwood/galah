@@ -616,6 +616,14 @@ pub fn run_cluster_subcommand(
         .as_ref()
         .map(|refs| refs.iter().map(|s| s.as_str()).collect::<Vec<&str>>());
 
+    if reference_genomes_owned.is_some() {
+        let num_reference_genomes = reference_genomes.as_ref().map_or(0, |r| r.len());
+        info!(
+            "Clustering against {} reference genomes",
+            num_reference_genomes
+        );
+    }
+
     // Validate that reference genomes are not used with contig clustering
     if reference_genomes.is_some() && cluster_contigs {
         eprintln!(
@@ -624,17 +632,21 @@ pub fn run_cluster_subcommand(
         std::process::exit(1);
     }
 
-    // For reference genome clustering, we need to keep input genomes and reference genomes separate
-    // The galah clusterer will handle the combination internally
-    let (input_genomes, ref_genomes_for_clusterer) = if let Some(ref_genomes) = &reference_genomes {
-        // Use only the input genomes for the main genome list
-        (genome_fasta_files.clone(), Some(ref_genomes.clone()))
-    } else {
-        (genome_fasta_files, None)
-    };
+    // Combine input genomes with reference genomes (when available) for quality filtering
+    let (combined_genomes, ref_genomes_for_clusterer) =
+        if let Some(ref_genomes) = &reference_genomes {
+            let mut combined = ref_genomes
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>();
+            combined.extend(genome_fasta_files.iter().cloned());
+            (combined, Some(ref_genomes.clone()))
+        } else {
+            (genome_fasta_files, None)
+        };
 
     let galah = generate_galah_clusterer(
-        &input_genomes,
+        &combined_genomes,
         &contig_names,
         cluster_contigs,
         m,
@@ -652,20 +664,10 @@ pub fn run_cluster_subcommand(
 
     info!("Found {} genome clusters", clusters.len());
 
-    // For output, we need the combined genome list when reference genomes are used
-    let output_genome_list: Vec<&str> = if let Some(ref_genomes) = &ref_genomes_for_clusterer {
-        // Create combined list: references first, then input genomes
-        let mut combined = ref_genomes.to_vec();
-        combined.extend(passed_genomes.iter().copied());
-        combined
-    } else {
-        passed_genomes.to_vec()
-    };
-
     write_galah_outputs(
         output_definitions,
         &clusters,
-        &output_genome_list,
+        passed_genomes,
         contig_names.as_ref(),
     );
     info!("Finished printing genome clusters");
@@ -1170,7 +1172,7 @@ pub fn generate_galah_clusterer<'a>(
                 cluster_contigs,
             )?;
 
-            // Parse reference genomes from command line arguments (but we already have them)
+            // Parse reference genomes as Vec<String> if provided
             let reference_genomes = reference_genomes
                 .map(|refs| refs.iter().map(|s| s.to_string()).collect::<Vec<String>>());
 

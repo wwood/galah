@@ -835,9 +835,44 @@ mod tests {
     }
 
     #[test]
+    fn test_reference_genomes_with_different_cluster_methods() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes",
+                "tests/data/set2/1mbp.fna",
+                "--cluster-method",
+                "skani",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes",
+                "tests/data/set2/1mbp.fna",
+                "--cluster-method",
+                "fastani",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .unwrap();
+    }
+
+    #[test]
     fn test_reference_genomes_clustering_output() {
         // Test that reference genome clustering produces expected cluster outputs
-        // Use completely separate datasets for input genomes and reference genomes
+        // Ensure that genome fasta files and reference genomes are preclustered
         Assert::main_binary()
             .with_args(&[
                 "cluster",
@@ -868,18 +903,16 @@ mod tests {
     }
 
     #[test]
-    fn test_reference_genomes_separate_datasets() {
-        // Test clustering where reference genomes are from a completely different dataset
-        // This tests the actual reference-based preclustering functionality with exact expected output
+    fn test_reference_genomes_with_checkm2_quality() {
+        // Test that when using reference genomes with CheckM2 quality reports,
+        // the highest quality genome becomes the representative within each cluster
         Assert::main_binary()
             .with_args(&[
                 "cluster",
                 "--genome-fasta-files",
-                "tests/data/set1/500kb.fna",
-                "tests/data/set1/1mbp.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
                 "--reference-genomes",
-                "tests/data/set2/1mbp.fna",
-                "tests/data/antonio_mags/BE_RX_R2_MAG52.fna",
+                "tests/data/abisko4/73.20110600_S2D.10.fna",
                 "--precluster-method",
                 "skani",
                 "--cluster-method",
@@ -889,14 +922,45 @@ mod tests {
                 "--ani",
                 "95",
                 "--output-cluster-definition",
-                "/dev/stdout"])
+                "/dev/stdout",
+                "--checkm2-quality-report",
+                "tests/data/abisko4/abisko4_quality_report.tsv"])
                 .succeeds()
                 .stdout()
                 .is("\
-                tests/data/set2/1mbp.fna	tests/data/set2/1mbp.fna\n\
-                tests/data/set2/1mbp.fna	tests/data/set1/500kb.fna\n\
-                tests/data/set2/1mbp.fna	tests/data/set1/1mbp.fna\n\
-                tests/data/antonio_mags/BE_RX_R2_MAG52.fna	tests/data/antonio_mags/BE_RX_R2_MAG52.fna\n")
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110800_S2M.16.fna\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S2D.10.fna\n")
+                .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_with_checkm2_quality_hq_reference() {
+        // Test that when using reference genomes with CheckM2 quality reports,
+        // the highest quality genome becomes the representative within each cluster
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20110600_S2D.10.fna",
+                "--reference-genomes",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "90",
+                "--ani",
+                "95",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm2-quality-report",
+                "tests/data/abisko4/abisko4_quality_report.tsv"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110800_S2M.16.fna\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S2D.10.fna\n")
                 .unwrap();
     }
 }
