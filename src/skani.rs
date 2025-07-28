@@ -361,7 +361,6 @@ pub fn calculate_skani(
 ) -> f32 {
     // --sparse only outputs non-zero entries in an edge-list output
     // Ref_file Query_file ANI Align_fraction_ref Align_fraction_query Ref_name Query_name
-    info!("Running skani to get distances ..");
     let mut cmd = std::process::Command::new("skani");
     cmd.arg("dist")
         .arg("--min-af")
