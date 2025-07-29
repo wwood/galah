@@ -53,6 +53,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
             self.threshold,
             self.min_aligned_threshold,
             self.small_genomes,
+            self.threads,
         )
     }
 
@@ -285,41 +286,122 @@ fn precluster_skani_with_references(
     threshold: f32,
     min_aligned_threshold: f32,
     small_genomes: bool,
+    threads: u16,
 ) -> SortedPairGenomeDistanceCache {
+    if threshold < 85.0 {
+        panic!(
+            "Error: skani produces inaccurate results with ANI less than 85%. Provided: {}",
+            threshold
+        );
+    }
+
+    // Create a tempfile to list all the genome file paths
+    let mut tf = tempfile::Builder::new()
+        .prefix("galah-input-genomes")
+        .suffix(".txt")
+        .tempfile()
+        .expect("Failed to open temporary file to run skani");
+
+    for fasta in combined_genomes {
+        if reference_genomes.contains(fasta) {
+            continue;
+        }
+        writeln!(tf, "{fasta}").expect("Failed to write genome fasta paths to tempfile for skani");
+    }
+
+    // Create a tempfile to list all the reference file paths
+    let mut tf_ref = tempfile::Builder::new()
+        .prefix("galah-input-reference-genomes")
+        .suffix(".txt")
+        .tempfile()
+        .expect("Failed to open temporary file to run skani");
+
+    for fasta in reference_genomes {
+        writeln!(tf_ref, "{fasta}")
+            .expect("Failed to write reference genome fasta paths to tempfile for skani");
+    }
+
+    info!("Running skani to get distances ..");
+    let mut cmd = std::process::Command::new("skani");
+    cmd.arg("dist")
+        .arg("-t")
+        .arg(format!("{threads}"))
+        .arg("--min-af")
+        .arg(format!("{}", min_aligned_threshold * 100.0));
+
+    if small_genomes {
+        cmd.arg("--small-genomes");
+    }
+
+    cmd.arg("--ql")
+        .arg(tf.path().to_str().unwrap())
+        .arg("--rl")
+        .arg(tf_ref.path().to_str().unwrap())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    debug!("Running skani command: {:?}", &cmd);
+
+    // Parse the distances
+    // Ref_file Query_file ANI Align_fraction_ref Align_fraction_query Ref_name Query_name
+    let mut process = cmd
+        .spawn()
+        .unwrap_or_else(|_| panic!("Failed to spawn {}", "skani"));
+    let stdout = process.stdout.as_mut().unwrap();
+    let stdout_reader = BufReader::new(stdout);
+
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(true)
+        .from_reader(stdout_reader);
+
     let mut distances = SortedPairGenomeDistanceCache::new();
 
-    for reference_genome in reference_genomes.iter() {
-        // Find idx of reference genome within combined genomes
-        let ref_idx_in_combined = combined_genomes
-            .iter()
-            .position(|&x| x == *reference_genome);
+    // Order is likely not conserved, so need to keep track
+    for record_res in rdr.records() {
+        match record_res {
+            Ok(record) => {
+                debug!("Found skani record {:?}", record);
 
-        for (genome_idx, target_genome) in combined_genomes.iter().enumerate() {
-            // Skip reference genomes
-            if reference_genomes.contains(target_genome) {
-                continue;
+                // Get index of genomes within combined_genomes
+                let genome_id1 = combined_genomes
+                    .iter()
+                    .position(|&x| x == &record[0])
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to find genome fasta path in combined_genomes: {}",
+                            &record[0]
+                        )
+                    });
+                let genome_id2 = combined_genomes
+                    .iter()
+                    .position(|&x| x == &record[1])
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to find genome fasta path in combined_genomes: {}",
+                            &record[1]
+                        )
+                    });
+
+                let ani: f32 = record[2].parse().unwrap_or_else(|_| {
+                    panic!("Failed to convert skani ANI to float value: {}", &record[2])
+                });
+                trace!("Found ANI {}", ani);
+                if ani >= threshold {
+                    trace!("Accepting ANI since it passed threshold");
+                    distances.insert((genome_id1, genome_id2), Some(ani))
+                }
             }
-
-            // Calculate distance between this genome and the reference genome
-            trace!(
-                "Calculating ANI between {} and {}",
-                target_genome,
-                reference_genome
-            );
-            let ani = calculate_skani(
-                target_genome,
-                reference_genome,
-                small_genomes,
-                min_aligned_threshold,
-            );
-
-            trace!("Found ANI {}", ani);
-            if ani >= threshold {
-                trace!("Accepting ANI since it passed threshold");
-                distances.insert((genome_idx, ref_idx_in_combined.unwrap()), Some(ani));
+            Err(e) => {
+                error!("Error parsing skani output: {}", e);
+                std::process::exit(1);
             }
         }
     }
+    finish_command_safely(process, "skani")
+        .wait()
+        .expect("Unexpected wait failure outside bird_tool_utils for skani");
+    debug!("Found skani distances: {:#?}", distances);
+    info!("Finished skani dist to references.");
 
     distances
 }
