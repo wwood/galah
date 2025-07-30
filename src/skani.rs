@@ -295,18 +295,8 @@ fn precluster_skani_with_references(
         );
     }
 
-    // Create a tempfile to list all the genome file paths
-    let mut tf = tempfile::Builder::new()
-        .prefix("galah-input-genomes")
-        .suffix(".txt")
-        .tempfile()
-        .expect("Failed to open temporary file to run skani");
-
-    for fasta in combined_genomes {
-        if reference_genomes.contains(fasta) {
-            continue;
-        }
-        writeln!(tf, "{fasta}").expect("Failed to write genome fasta paths to tempfile for skani");
+    if small_genomes {
+        panic!("Error: skani does not support small genomes with reference genome preclustering");
     }
 
     // Create a tempfile to list all the reference file paths
@@ -321,22 +311,58 @@ fn precluster_skani_with_references(
             .expect("Failed to write reference genome fasta paths to tempfile for skani");
     }
 
-    info!("Running skani to get distances ..");
+    // Create a tempdir to store the reference genome sketches
+    let ref_db = tempfile::TempDir::new()
+        .expect("Failed to create temporary directory for skani reference genomes");
+
+    info!("Running skani to sketch reference genomes ..");
+    let mut cmd_sketch = std::process::Command::new("skani");
+    cmd_sketch
+        .arg("sketch")
+        .arg("-t")
+        .arg(format!("{threads}"))
+        .arg("-l")
+        .arg(tf_ref.path().to_str().unwrap())
+        .arg("-o")
+        .arg(ref_db.path().join("galah-skani").to_str().unwrap())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    debug!("Running skani command: {:?}", &cmd_sketch);
+
+    let mut process_sketch = cmd_sketch
+        .spawn()
+        .unwrap_or_else(|_| panic!("Failed to spawn {}", "skani"));
+
+    // Wait for sketching to complete and check the result
+    process_sketch
+        .wait()
+        .expect("Failed to wait for skani sketch");
+
+    // Create a tempfile to list all the genome file paths
+    let mut tf = tempfile::Builder::new()
+        .prefix("galah-input-genomes")
+        .suffix(".txt")
+        .tempfile()
+        .expect("Failed to open temporary file to run skani");
+
+    for fasta in combined_genomes {
+        if reference_genomes.contains(fasta) {
+            continue;
+        }
+        writeln!(tf, "{fasta}").expect("Failed to write genome fasta paths to tempfile for skani");
+    }
+
+    info!("Running skani search to get distances ..");
     let mut cmd = std::process::Command::new("skani");
-    cmd.arg("dist")
+    cmd.arg("search")
         .arg("-t")
         .arg(format!("{threads}"))
         .arg("--min-af")
-        .arg(format!("{}", min_aligned_threshold * 100.0));
-
-    if small_genomes {
-        cmd.arg("--small-genomes");
-    }
-
-    cmd.arg("--ql")
+        .arg(format!("{}", min_aligned_threshold * 100.0))
+        .arg("--ql")
         .arg(tf.path().to_str().unwrap())
-        .arg("--rl")
-        .arg(tf_ref.path().to_str().unwrap())
+        .arg("-d")
+        .arg(ref_db.path().join("galah-skani").to_str().unwrap())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
     debug!("Running skani command: {:?}", &cmd);
