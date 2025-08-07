@@ -325,8 +325,8 @@ fn precluster_skani_with_references(
         .arg(tf_ref.path().to_str().unwrap())
         .arg("-o")
         .arg(ref_db.path().join("galah-skani").to_str().unwrap())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
     debug!("Running skani command: {:?}", &cmd_sketch);
 
     let mut process_sketch = cmd_sketch
