@@ -364,7 +364,7 @@ fn precluster_skani_with_references(
         .arg("-d")
         .arg(ref_db.path().join("galah-skani").to_str().unwrap())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
+        .stderr(std::process::Stdio::null());
     debug!("Running skani command: {:?}", &cmd);
 
     // Parse the distances
