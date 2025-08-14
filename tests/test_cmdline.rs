@@ -963,4 +963,27 @@ mod tests {
                 tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110600_S2D.10.fna\n")
                 .unwrap();
     }
+
+    #[test]
+    fn test_reference_genome_high_contamination_excluded() {
+        // Test that reference genomes with contamination above default threshold (10%) are excluded
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20110600_S2D.10.fna",
+                "--reference-genomes",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm2-quality-report",
+                "tests/data/abisko4/abisko4_quality_report_high_contam.tsv",
+                "--max-contamination",
+                "10"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/abisko4/73.20110600_S2D.10.fna	tests/data/abisko4/73.20110600_S2D.10.fna\n")
+                .unwrap();
+    }
 }

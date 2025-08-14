@@ -1187,9 +1187,13 @@ pub fn generate_galah_clusterer<'a>(
                 cluster_contigs,
             )?;
 
-            // Parse reference genomes as Vec<String> if provided
-            let reference_genomes = reference_genomes
-                .map(|refs| refs.iter().map(|s| s.to_string()).collect::<Vec<String>>());
+            // Filter reference genomes to only include those that passed quality filtering
+            let reference_genomes = reference_genomes.map(|refs| {
+                refs.iter()
+                    .filter(|ref_genome| v2.contains(ref_genome))
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>()
+            });
 
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
