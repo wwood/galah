@@ -458,18 +458,31 @@ fn partition_sketches(
         to_return.push(i);
     }
 
-    genomes.iter().enumerate().for_each(|(i, _)| {
-        genomes[0..i].iter().enumerate().for_each(|(j, _)| {
-            trace!("Testing precluster between {} and {}", i, j);
-            if preclusterer_cache.contains_key(&(i, j)) {
-                debug!(
-                    "During preclustering, found a match between genomes {} and {}",
-                    i, j
-                );
-                to_return.join(i, j);
-            }
-        });
-    });
+    // Collect all pairs that need to be joined in parallel
+    let pairs_to_join: Vec<(usize, usize)> = genomes
+        .par_iter()
+        .enumerate()
+        .flat_map(|(i, _)| {
+            (0..i).into_par_iter().filter_map(move |j| {
+                trace!("Testing precluster between {} and {}", i, j);
+                if preclusterer_cache.contains_key(&(i, j)) {
+                    debug!(
+                        "During preclustering, found a match between genomes {} and {}",
+                        i, j
+                    );
+                    Some((i, j))
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+
+    // Join all pairs sequentially
+    for (i, j) in pairs_to_join {
+        to_return.join(i, j);
+    }
+
     to_return
 }
 
