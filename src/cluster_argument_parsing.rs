@@ -238,8 +238,11 @@ See {} cluster --full-help for further options and further detail.
             .and_then(|s| s.into_string().ok())
             .expect("Failed to find running program basename"),
         ansi_term::Colour::Purple.paint(
-            "Example: Dereplicate a set of genome representatives against a set of reference\n\
-            genomes, and output the cluster definition to clusters.tsv:"
+            "Example: Dereplicate a set of genome representatives against a set of reference genomes,\n\
+            output the cluster definition to clusters.tsv:\n\
+            Note: assumes that each group (inputs and references) is already dereplicated previously.\n\
+            Galah will only form clusters across the two groups (input <-> reference), never within a\n\
+            group. Uses less memory than clustering together."
         ),
         std::env::current_exe()
             .ok()
@@ -1634,13 +1637,13 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_small_contigs_argument))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .long("reference-genomes")
-            .help("Reference genomes to cluster against. These should be representatives already clustered.")
+            .help("Reference genomes to cluster against. These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
             .value_delimiter(' ')
             .num_args(1..)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
             .long("reference-genomes-list")
-            .help("File containing paths to reference genomes (one per line). These should be representatives already clustered.")
+            .help("File containing paths to reference genomes (one per line). These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument))
         .arg(Arg::new("threads")
             .short('t')
