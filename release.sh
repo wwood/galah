@@ -4,9 +4,6 @@ set -o pipefail
 
 export VERSION=`cargo run -- --version |awk '{print $2}'`
 
-# For dashing which does not currently work on desktop via conda.
-export PATH=~/bioinfo/dashing:$PATH
-
 echo "Found version $VERSION .."
 
 echo "Building normally .."

@@ -36,7 +36,7 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     }
 
     if cluster_contigs {
-        if ["finch", "dashing"].contains(&preclusterer_name) {
+        if preclusterer_name == "finch" {
             panic!("{} does not support contig comparisons.", preclusterer_name);
         }
         info!("Clustering contigs using {} ..", preclusterer_name);

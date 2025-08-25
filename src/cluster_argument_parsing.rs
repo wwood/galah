@@ -5,7 +5,6 @@ use std::os::unix::fs::symlink;
 #[cfg(target_family = "windows")]
 use std::os::windows::fs::symlink_file as symlink;
 
-use crate::dashing::DashingPreclusterer;
 use crate::fastani::FastaniClusterer;
 use crate::finch::FinchPreclusterer;
 use crate::skani::SkaniClusterer;
@@ -24,7 +23,6 @@ use crate::genome_info_file;
 use crate::genome_stats;
 
 pub enum Preclusterer {
-    Dashing(DashingPreclusterer),
     Finch(FinchPreclusterer),
     Skani(SkaniPreclusterer),
 }
@@ -32,7 +30,6 @@ pub enum Preclusterer {
 impl PreclusterDistanceFinder for Preclusterer {
     fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache {
         match self {
-            Preclusterer::Dashing(d) => d.distances(genome_fasta_paths),
             Preclusterer::Finch(f) => f.distances(genome_fasta_paths),
             Preclusterer::Skani(s) => s.distances(genome_fasta_paths),
         }
@@ -44,7 +41,6 @@ impl PreclusterDistanceFinder for Preclusterer {
         contig_names: &[&str],
     ) -> SortedPairGenomeDistanceCache {
         match self {
-            Preclusterer::Dashing(d) => d.distances_contigs(genome_fasta_paths, contig_names),
             Preclusterer::Finch(f) => f.distances_contigs(genome_fasta_paths, contig_names),
             Preclusterer::Skani(s) => s.distances_contigs(genome_fasta_paths, contig_names),
         }
@@ -56,9 +52,6 @@ impl PreclusterDistanceFinder for Preclusterer {
         reference_genomes: &[&str],
     ) -> SortedPairGenomeDistanceCache {
         match self {
-            Preclusterer::Dashing(d) => {
-                d.distances_with_references(genome_fasta_paths, reference_genomes)
-            }
             Preclusterer::Finch(f) => {
                 f.distances_with_references(genome_fasta_paths, reference_genomes)
             }
@@ -70,7 +63,6 @@ impl PreclusterDistanceFinder for Preclusterer {
 
     fn method_name(&self) -> &str {
         match self {
-            Preclusterer::Dashing(d) => d.method_name(),
             Preclusterer::Finch(f) => f.method_name(),
             Preclusterer::Skani(s) => s.method_name(),
         }
@@ -376,9 +368,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 ))
                 .help(&format!(
                     "method of calculating rough ANI for \
-                dereplication. '{}' for HyperLogLog, \
-                '{}' for finch MinHash, '{}' for Skani. {}",
-                monospace_roff("dashing"),
+                dereplication. '{}' for finch MinHash, '{}' for Skani. {}",
                 monospace_roff("finch"),
                 monospace_roff("skani"),
                 default_roff(crate::DEFAULT_PRECLUSTER_METHOD)
@@ -1207,34 +1197,6 @@ pub fn generate_galah_clusterer<'a>(
                     .unwrap()
                     .as_str()
                 {
-                    "dashing" => {
-                        crate::external_command_checker::check_for_dashing();
-                        Preclusterer::Dashing(DashingPreclusterer {
-                            min_ani: parse_percentage(
-                                clap_matches,
-                                &argument_definition.dereplication_prethreshold_ani_argument,
-                            )
-                            .unwrap_or_else(|_| {
-                                panic!(
-                                    "Failed to parse precluster-ani {:?}",
-                                    clap_matches.get_one::<f32>(
-                                        &argument_definition
-                                            .dereplication_prethreshold_ani_argument
-                                    )
-                                )
-                            })
-                            .unwrap_or_else(|| {
-                                panic!(
-                                    "Failed to parse precluster-ani {:?}",
-                                    clap_matches.get_one::<f32>(
-                                        &argument_definition
-                                            .dereplication_prethreshold_ani_argument
-                                    )
-                                )
-                            }),
-                            threads,
-                        })
-                    }
                     "finch" => Preclusterer::Finch(FinchPreclusterer {
                         min_ani: parse_percentage(
                             clap_matches,
@@ -1612,7 +1574,7 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .default_value(crate::DEFAULT_PRETHRESHOLD_ANI))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_precluster_method_argument)
             .long("precluster-method")
-            .help("method of calculating rough ANI. 'dashing' for HyperLogLog, 'finch' for finch MinHash, 'skani' for skani")
+            .help("method of calculating rough ANI. 'finch' for finch MinHash, 'skani' for skani")
             .value_parser(crate::PRECLUSTER_METHODS)
             .default_value(crate::DEFAULT_PRECLUSTER_METHOD))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_method_argument)
