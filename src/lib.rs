@@ -28,6 +28,12 @@ pub trait PreclusterDistanceFinder {
         contig_names: &[&str],
     ) -> SortedPairGenomeDistanceCache;
 
+    fn distances_with_references(
+        &self,
+        genome_fasta_paths: &[&str],
+        reference_genomes: &[&str],
+    ) -> SortedPairGenomeDistanceCache;
+
     fn method_name(&self) -> &str;
 }
 

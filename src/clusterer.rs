@@ -17,6 +17,7 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     clusterer: &C,
     cluster_contigs: bool,
     contig_names: Option<&[&str]>,
+    reference_genomes: Option<&[&str]>,
 ) -> Vec<Vec<usize>> {
     clusterer.initialise();
 
@@ -43,24 +44,27 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     }
 
     // Preclusterer all the genomes together
-    let preclusterer_cache = if !cluster_contigs {
-        preclusterer.distances(genomes)
-    } else {
+    let preclusterer_cache = if let Some(ref_genomes) = reference_genomes {
+        // For reference-based clustering, we need to compare genomes with ref_genomes
+        preclusterer.distances_with_references(genomes, ref_genomes)
+    } else if cluster_contigs {
         preclusterer.distances_contigs(genomes, contig_names.unwrap())
+    } else {
+        preclusterer.distances(genomes)
     };
 
     info!("Preclustering ..");
-    let minhash_preclusters = if !cluster_contigs {
-        partition_sketches(genomes, &preclusterer_cache)
-    } else {
+    let single_linkage_preclusters = if cluster_contigs {
         partition_sketches(contig_names.unwrap(), &preclusterer_cache)
+    } else {
+        partition_sketches(genomes, &preclusterer_cache)
     };
-    trace!("Found preclusters: {:?}", minhash_preclusters);
+    trace!("Found preclusters: {:?}", single_linkage_preclusters);
 
     let all_clusters: Mutex<Vec<Vec<usize>>> = Mutex::new(vec![]);
 
     // Convert single linkage data structure into just a list of list of indices
-    let mut preclusters: Vec<Vec<usize>> = minhash_preclusters
+    let mut preclusters: Vec<Vec<usize>> = single_linkage_preclusters
         .indices()
         .sets()
         .iter()
@@ -454,18 +458,31 @@ fn partition_sketches(
         to_return.push(i);
     }
 
-    genomes.iter().enumerate().for_each(|(i, _)| {
-        genomes[0..i].iter().enumerate().for_each(|(j, _)| {
-            trace!("Testing precluster between {} and {}", i, j);
-            if preclusterer_cache.contains_key(&(i, j)) {
-                debug!(
-                    "During preclustering, found a match between genomes {} and {}",
-                    i, j
-                );
-                to_return.join(i, j);
-            }
-        });
-    });
+    // Collect all pairs that need to be joined in parallel
+    let pairs_to_join: Vec<(usize, usize)> = genomes
+        .par_iter()
+        .enumerate()
+        .flat_map(|(i, _)| {
+            (0..i).into_par_iter().filter_map(move |j| {
+                trace!("Testing precluster between {} and {}", i, j);
+                if preclusterer_cache.contains_key(&(i, j)) {
+                    debug!(
+                        "During preclustering, found a match between genomes {} and {}",
+                        i, j
+                    );
+                    Some((i, j))
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+
+    // Join all pairs sequentially
+    for (i, j) in pairs_to_join {
+        to_return.join(i, j);
+    }
+
     to_return
 }
 
@@ -539,6 +556,7 @@ mod tests {
             },
             false,
             None,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -567,6 +585,7 @@ mod tests {
                 fraglen: 3000,
             },
             false,
+            None,
             None,
         );
         for cluster in clusters.iter_mut() {
@@ -597,6 +616,7 @@ mod tests {
             },
             false,
             None,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -625,6 +645,7 @@ mod tests {
                 small_genomes: false,
             },
             false,
+            None,
             None,
         );
         for cluster in clusters.iter_mut() {
@@ -655,6 +676,7 @@ mod tests {
             },
             false,
             None,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -684,6 +706,7 @@ mod tests {
                 small_genomes: false,
             },
             false,
+            None,
             None,
         );
         for cluster in clusters.iter_mut() {
@@ -716,6 +739,7 @@ mod tests {
             },
             false,
             None,
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -747,6 +771,7 @@ mod tests {
                 "73.20110600_S2D.10_contig_50844",
                 "73.20110600_S2D.10_contig_37820",
             ]),
+            None,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();

@@ -46,6 +46,21 @@ impl PreclusterDistanceFinder for Preclusterer {
         }
     }
 
+    fn distances_with_references(
+        &self,
+        genome_fasta_paths: &[&str],
+        reference_genomes: &[&str],
+    ) -> SortedPairGenomeDistanceCache {
+        match self {
+            Preclusterer::Finch(f) => {
+                f.distances_with_references(genome_fasta_paths, reference_genomes)
+            }
+            Preclusterer::Skani(s) => {
+                s.distances_with_references(genome_fasta_paths, reference_genomes)
+            }
+        }
+    }
+
     fn method_name(&self) -> &str {
         match self {
             Preclusterer::Finch(f) => f.method_name(),
@@ -95,6 +110,7 @@ pub struct GalahClusterer<'a> {
     pub clusterer: Clusterer,
     pub cluster_contigs: bool,
     pub contig_names: &'a Option<Vec<&'a str>>,
+    pub reference_genomes: Option<Vec<String>>,
 }
 
 pub struct GalahClustererCommandDefinition {
@@ -109,6 +125,8 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_large_contigs_argument: String,
     pub dereplication_fraglen_argument: String,
     pub dereplication_cluster_contigs_argument: String,
+    pub dereplication_reference_genomes_argument: String,
+    pub dereplication_reference_genomes_list_argument: String,
     // pub dereplication_ani_method_argument: String,
     pub dereplication_output_cluster_definition_file: String,
     pub dereplication_output_representative_fasta_directory: String,
@@ -130,6 +148,8 @@ lazy_static! {
             dereplication_large_contigs_argument: "large-contigs".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
             dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
+            dereplication_reference_genomes_argument: "reference-genomes".to_string(),
+            dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
             // dereplication_ani_method_argument: "ani-method".to_string(),
             dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
             dereplication_output_representative_fasta_directory:
@@ -168,6 +188,12 @@ lazy_static! {
 
 {}
 
+  {} cluster --genome-fasta-list genome_reps.txt
+    --reference-genomes-list reference_genomes.txt
+    --output-cluster-definition clusters.tsv
+
+{}
+
   {} cluster --cluster-contigs --small-contigs --genome-fasta-files contigs.fasta 
     --output-cluster-definition contig_clusters.tsv
 
@@ -197,6 +223,18 @@ See {} cluster --full-help for further options and further detail.
             "Example: Dereplicate a set of genomes with paths specified in genomes.txt at\n\
             95% ANI, after a preclustering at 90% using the MinHash finch method, and\n\
             output the cluster definition to clusters.tsv:"
+        ),
+        std::env::current_exe()
+            .ok()
+            .and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
+            .and_then(|s| s.into_string().ok())
+            .expect("Failed to find running program basename"),
+        ansi_term::Colour::Purple.paint(
+            "Example: Dereplicate a set of genome representatives against a set of reference genomes,\n\
+            output the cluster definition to clusters.tsv:\n\
+            Note: assumes that each group (inputs and references) is already dereplicated previously.\n\
+            Galah will only form clusters across the two groups (input <-> reference), never within a\n\
+            group. Uses less memory than clustering together."
         ),
         std::env::current_exe()
             .ok()
@@ -357,7 +395,8 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_cluster_contigs_argument
                 ))
-                .help("Cluster contigs within a fasta file instead of genomes. When used, either --small-contigs or --large-contigs must be specified."),
+                .help("Cluster contigs within a fasta file instead of genomes. \
+                When used, either --small-contigs or --large-contigs must be specified."),
         )
         .flag(
             Flag::new()
@@ -365,7 +404,8 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_small_contigs_argument
                 ))
-                .help("Use small-genomes settings in skani when clustering contigs. Recommended for contigs < 20kb. Mutually exclusive with --large-contigs."),
+                .help("Use small-genomes settings in skani when clustering contigs. \
+                Recommended for contigs < 20kb. Mutually exclusive with --large-contigs."),
         )
         .flag(
             Flag::new()
@@ -373,7 +413,30 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_large_contigs_argument
                 ))
-                .help("Do not use small-genomes settings in skani when clustering contigs. Recommended for contigs >= 20kb. Mutually exclusive with --small-contigs."),
+                .help("Do not use small-genomes settings in skani when clustering contigs. \
+                Recommended for contigs >= 20kb. Mutually exclusive with --small-contigs."),
+        )
+        .option(
+            Opt::new("PATH ...")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_reference_genomes_argument
+                ))
+                .help("Reference genomes to cluster against. These should be pre-clustered at the chosen %ANI. \
+                If quality is provided for representative selection, values for these genomes must also be provided. \
+                Genomes within the precluster ANI cutoff of each reference will be placed in the same precluster. \
+                Mutually exclusive with --reference-genomes-list."),
+        )
+        .option(
+            Opt::new("PATH")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_reference_genomes_list_argument
+                ))
+                .help("File containing paths to reference genomes (one per line). These should be pre-clustered at the chosen %ANI. \
+                If quality is provided for representative selection, values for these genomes must also be provided. \
+                Genomes within the precluster ANI cutoff of each reference will be placed in the same precluster. \
+                Mutually exclusive with --reference-genomes."),
         )
 }
 
@@ -536,12 +599,67 @@ pub fn run_cluster_subcommand(
         .as_ref()
         .map(|c| c.iter().map(String::as_str).collect::<Vec<&str>>());
 
+    // Handle reference genomes if provided
+    let reference_genomes_owned = if let Some(refs) =
+        m.get_many::<String>(&GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
+    {
+        Some(refs.cloned().collect::<Vec<String>>())
+    } else if let Some(ref_file) =
+        m.get_one::<String>(&GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
+    {
+        let content = std::fs::read_to_string(ref_file)
+            .unwrap_or_else(|_| panic!("Failed to read reference genomes list file: {}", ref_file));
+        Some(
+            content
+                .lines()
+                .filter(|line| !line.trim().is_empty())
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>(),
+        )
+    } else {
+        None
+    };
+
+    let reference_genomes = reference_genomes_owned
+        .as_ref()
+        .map(|refs| refs.iter().map(|s| s.as_str()).collect::<Vec<&str>>());
+
+    if reference_genomes.is_some() {
+        let num_reference_genomes = reference_genomes.as_ref().map_or(0, |r| r.len());
+        info!(
+            "Clustering against {} reference genomes",
+            num_reference_genomes
+        );
+    }
+
+    // Validate that reference genomes are not used with contig clustering
+    if reference_genomes.is_some() && cluster_contigs {
+        eprintln!(
+            "Error: Reference genome clustering is not currently supported with --cluster-contigs"
+        );
+        std::process::exit(1);
+    }
+
+    // Combine input genomes with reference genomes (when available) for quality filtering
+    let (combined_genomes, ref_genomes_for_clusterer) =
+        if let Some(ref_genomes) = &reference_genomes {
+            let mut combined = ref_genomes
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>();
+            combined.extend(genome_fasta_files.iter().cloned());
+            (combined, Some(ref_genomes.clone()))
+        } else {
+            (genome_fasta_files, None)
+        };
+
     let galah = generate_galah_clusterer(
-        &genome_fasta_files,
+        &combined_genomes,
         &contig_names,
         cluster_contigs,
         m,
         &GALAH_COMMAND_DEFINITION,
+        ref_genomes_for_clusterer.as_deref(),
     )
     .expect("Failed to parse galah clustering arguments correctly");
 
@@ -1033,6 +1151,7 @@ pub fn generate_galah_clusterer<'a>(
     cluster_contigs: bool,
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
+    reference_genomes: Option<&[&str]>,
 ) -> std::result::Result<GalahClusterer<'a>, String> {
     crate::external_command_checker::check_for_fastani();
 
@@ -1060,6 +1179,14 @@ pub fn generate_galah_clusterer<'a>(
                 argument_definition,
                 cluster_contigs,
             )?;
+
+            // Filter reference genomes to only include those that passed quality filtering
+            let reference_genomes = reference_genomes.map(|refs| {
+                refs.iter()
+                    .filter(|ref_genome| v2.contains(ref_genome))
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>()
+            });
 
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
@@ -1271,6 +1398,7 @@ pub fn generate_galah_clusterer<'a>(
                 },
                 cluster_contigs,
                 contig_names,
+                reference_genomes,
             })
         }
     }
@@ -1301,12 +1429,18 @@ pub fn parse_percentage(
 
 impl GalahClusterer<'_> {
     pub fn cluster(&self) -> Vec<Vec<usize>> {
+        let reference_genomes_strs: Option<Vec<&str>> = self
+            .reference_genomes
+            .as_ref()
+            .map(|refs| refs.iter().map(|s| s.as_ref()).collect());
+
         crate::clusterer::cluster(
             &self.genome_fasta_paths,
             &self.preclusterer,
             &self.clusterer,
             self.cluster_contigs,
             self.contig_names.as_deref(),
+            reference_genomes_strs.as_deref(),
         )
     }
 }
@@ -1463,6 +1597,16 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue)
             .requires(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_small_contigs_argument))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
+            .long("reference-genomes")
+            .help("Reference genomes to cluster against. These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
+            .value_delimiter(' ')
+            .num_args(1..)
+            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
+            .long("reference-genomes-list")
+            .help("File containing paths to reference genomes (one per line). These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
+            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
