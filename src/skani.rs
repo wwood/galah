@@ -42,6 +42,21 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
         )
     }
 
+    fn distances_with_references(
+        &self,
+        genome_fasta_paths: &[&str],
+        reference_genomes: &[&str],
+    ) -> SortedPairGenomeDistanceCache {
+        precluster_skani_with_references(
+            genome_fasta_paths,
+            reference_genomes,
+            self.threshold,
+            self.min_aligned_threshold,
+            self.small_genomes,
+            self.threads,
+        )
+    }
+
     fn method_name(&self) -> &str {
         "skani"
     }
@@ -263,6 +278,160 @@ fn precluster_skani_contigs(
     distances
 }
 
+/// Create preclusters based on reference genomes using skani
+// Assumes that both genome sets are already independently dereplicated
+fn precluster_skani_with_references(
+    combined_genomes: &[&str],
+    reference_genomes: &[&str],
+    threshold: f32,
+    min_aligned_threshold: f32,
+    small_genomes: bool,
+    threads: u16,
+) -> SortedPairGenomeDistanceCache {
+    if threshold < 85.0 {
+        panic!(
+            "Error: skani produces inaccurate results with ANI less than 85%. Provided: {}",
+            threshold
+        );
+    }
+
+    if small_genomes {
+        panic!("Error: skani does not support small genomes with reference genome preclustering");
+    }
+
+    // Create a tempfile to list all the reference file paths
+    let mut tf_ref = tempfile::Builder::new()
+        .prefix("galah-input-reference-genomes")
+        .suffix(".txt")
+        .tempfile()
+        .expect("Failed to open temporary file to run skani");
+
+    for fasta in reference_genomes {
+        writeln!(tf_ref, "{fasta}")
+            .expect("Failed to write reference genome fasta paths to tempfile for skani");
+    }
+
+    // Create a tempdir to store the reference genome sketches
+    let ref_db = tempfile::TempDir::new()
+        .expect("Failed to create temporary directory for skani reference genomes");
+
+    info!("Running skani to sketch reference genomes ..");
+    let mut cmd_sketch = std::process::Command::new("skani");
+    cmd_sketch
+        .arg("sketch")
+        .arg("-t")
+        .arg(format!("{threads}"))
+        .arg("-l")
+        .arg(tf_ref.path().to_str().unwrap())
+        .arg("-o")
+        .arg(ref_db.path().join("galah-skani").to_str().unwrap())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    debug!("Running skani command: {:?}", &cmd_sketch);
+
+    let mut process_sketch = cmd_sketch
+        .spawn()
+        .unwrap_or_else(|_| panic!("Failed to spawn {}", "skani"));
+
+    // Wait for sketching to complete and check the result
+    process_sketch
+        .wait()
+        .expect("Failed to wait for skani sketch");
+
+    // Create a tempfile to list all the genome file paths
+    let mut tf = tempfile::Builder::new()
+        .prefix("galah-input-genomes")
+        .suffix(".txt")
+        .tempfile()
+        .expect("Failed to open temporary file to run skani");
+
+    for fasta in combined_genomes {
+        if reference_genomes.contains(fasta) {
+            continue;
+        }
+        writeln!(tf, "{fasta}").expect("Failed to write genome fasta paths to tempfile for skani");
+    }
+
+    info!("Running skani search to get distances ..");
+    let mut cmd = std::process::Command::new("skani");
+    cmd.arg("search")
+        .arg("-t")
+        .arg(format!("{threads}"))
+        .arg("--min-af")
+        .arg(format!("{}", min_aligned_threshold * 100.0))
+        .arg("--ql")
+        .arg(tf.path().to_str().unwrap())
+        .arg("-d")
+        .arg(ref_db.path().join("galah-skani").to_str().unwrap())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null());
+    debug!("Running skani command: {:?}", &cmd);
+
+    // Parse the distances
+    // Ref_file Query_file ANI Align_fraction_ref Align_fraction_query Ref_name Query_name
+    let mut process = cmd
+        .spawn()
+        .unwrap_or_else(|_| panic!("Failed to spawn {}", "skani"));
+    let stdout = process.stdout.as_mut().unwrap();
+    let stdout_reader = BufReader::new(stdout);
+
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(true)
+        .from_reader(stdout_reader);
+
+    let mut distances = SortedPairGenomeDistanceCache::new();
+
+    // Order is likely not conserved, so need to keep track
+    for record_res in rdr.records() {
+        match record_res {
+            Ok(record) => {
+                debug!("Found skani record {:?}", record);
+
+                // Get index of genomes within combined_genomes
+                let genome_id1 = combined_genomes
+                    .iter()
+                    .position(|&x| x == &record[0])
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to find genome fasta path in combined_genomes: {}",
+                            &record[0]
+                        )
+                    });
+                let genome_id2 = combined_genomes
+                    .iter()
+                    .position(|&x| x == &record[1])
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to find genome fasta path in combined_genomes: {}",
+                            &record[1]
+                        )
+                    });
+
+                let ani: f32 = record[2].parse().unwrap_or_else(|_| {
+                    panic!("Failed to convert skani ANI to float value: {}", &record[2])
+                });
+                trace!("Found ANI {}", ani);
+                if ani >= threshold {
+                    trace!("Accepting ANI since it passed threshold");
+                    distances.insert((genome_id1, genome_id2), Some(ani))
+                }
+            }
+            Err(e) => {
+                error!("Error parsing skani output: {}", e);
+                std::process::exit(1);
+            }
+        }
+    }
+    finish_command_safely(process, "skani")
+        .wait()
+        .expect("Unexpected wait failure outside bird_tool_utils for skani");
+    debug!("Found skani distances: {:#?}", distances);
+    info!("Finished skani dist to references.");
+
+    distances
+}
+
 pub struct SkaniClusterer {
     pub threshold: f32,
     pub min_aligned_threshold: f32,
@@ -300,7 +469,6 @@ pub fn calculate_skani(
 ) -> f32 {
     // --sparse only outputs non-zero entries in an edge-list output
     // Ref_file Query_file ANI Align_fraction_ref Align_fraction_query Ref_name Query_name
-    info!("Running skani to get distances ..");
     let mut cmd = std::process::Command::new("skani");
     cmd.arg("dist")
         .arg("--min-af")
