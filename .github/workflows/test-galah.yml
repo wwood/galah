@@ -51,7 +51,7 @@ jobs:
 
       - name: Run tests with Pixi
         run: |
-          pixi run -e dev galah -h
+          pixi run -e dev cargo run -- -h
           pixi run -e dev cargo test
 
   # Run after removing lock file so dependences are unlocked
@@ -84,5 +84,5 @@ jobs:
 
       - name: Run tests with Pixi
         run: |
-          pixi run -e dev galah -h
+          pixi run -e dev cargo run -- -h
           pixi run -e dev cargo test
