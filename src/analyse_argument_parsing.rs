@@ -2,7 +2,9 @@ use std::io::Write;
 
 use crate::analyse::GenomeOutput;
 use crate::barrnap::BarrnapAnalyser;
+use crate::checkm2::CheckM2Analyser;
 use crate::trnascan::TrnascanAnalyser;
+use crate::QualityFinder;
 use crate::RrnaFinder;
 use crate::TrnaFinder;
 use bird_tool_utils::clap_utils::*;
@@ -10,6 +12,33 @@ use bird_tool_utils::clap_utils::{default_roff, monospace_roff};
 use bird_tool_utils_man::prelude::{Author, Flag, Manual, Opt, Section};
 use clap::*;
 use std::collections::HashMap;
+
+pub enum QualityAnalyser {
+    CheckM2(crate::checkm2::CheckM2Analyser),
+}
+
+impl QualityFinder for QualityAnalyser {
+    fn prepare_comp_cont(
+        &mut self,
+        genome_paths: &[String],
+        threads: usize,
+        tmp_path: &std::path::Path,
+    ) {
+        match self {
+            QualityAnalyser::CheckM2(a) => a.prepare_comp_cont(genome_paths, threads, tmp_path),
+        }
+    }
+    fn find_comp_cont(&self, genome_path: &str) -> (f64, f64) {
+        match self {
+            QualityAnalyser::CheckM2(a) => a.find_comp_cont(genome_path),
+        }
+    }
+    fn method_name(&self) -> &str {
+        match self {
+            QualityAnalyser::CheckM2(a) => a.method_name(),
+        }
+    }
+}
 
 pub enum RrnaAnalyser {
     Barrnap(BarrnapAnalyser),
@@ -48,14 +77,18 @@ impl TrnaFinder for TrnaAnalyser {
 
 pub struct GalahAnalyser<'a> {
     pub genome_fasta_files: &'a [std::string::String],
+    pub threads: usize,
+    pub quality_analyser: QualityAnalyser,
     pub rrna_analyser: RrnaAnalyser,
     pub trna_analyser: TrnaAnalyser,
 }
 
 impl GalahAnalyser<'_> {
-    pub fn analyse(&self) -> std::collections::HashMap<String, GenomeOutput> {
+    pub fn analyse(&mut self) -> std::collections::HashMap<String, GenomeOutput> {
         crate::analyse::analyse(
             self.genome_fasta_files,
+            self.threads,
+            &mut self.quality_analyser,
             &self.rrna_analyser,
             &self.trna_analyser,
         )
@@ -63,17 +96,21 @@ impl GalahAnalyser<'_> {
 }
 
 pub struct GalahAnalyserCommandDefinition {
+    pub quality_method_argument: String,
     pub rrna_method_argument: String,
     pub trna_method_argument: String,
     pub output_mimag_summary_argument: String,
+    pub checkm2_db_path_argument: String,
 }
 
 lazy_static! {
     static ref ANALYSE_COMMAND_DEFINITION: GalahAnalyserCommandDefinition = {
         GalahAnalyserCommandDefinition {
+            quality_method_argument: "quality-method".to_string(),
             rrna_method_argument: "rrna-method".to_string(),
             trna_method_argument: "trna-method".to_string(),
             output_mimag_summary_argument: "output-mimag-summary".to_string(),
+            checkm2_db_path_argument: "checkm2-db-path".to_string(),
         }
     };
 }
@@ -96,9 +133,11 @@ lazy_static! {
 
   {} analyse --genome-fasta-directory input_genomes/
     --output-mimag-summary mimag_summary.tsv
+    --checkm2-db-path /path/to/checkm2_db
 
 {}
 
+  CHECKM2DB=/path/to/checkm2_db
   {} analyse --genome-fasta-list genomes.txt
     --output-mimag-summary mimag_summary.tsv
 
@@ -115,7 +154,8 @@ See {} analyse --full-help for further options and further detail.
         ansi_term::Colour::Green.paint("Analyse (determine MIMAG status of) genomes"),
         ansi_term::Colour::Purple.paint(
             "Example: Analyse the rRNA/tRNA content of a directory of .fna\n\
-            FASTA files and output a summary of gene counts and MIMAG status\n\
+            FASTA files, using CheckM2 database specified by argument,\n\
+            and output a summary of gene counts and MIMAG status\n\
             to mimag_summary.tsv:"
                 .to_string(),
         ),
@@ -125,7 +165,8 @@ See {} analyse --full-help for further options and further detail.
             .and_then(|s| s.into_string().ok())
             .expect("Failed to find running program basename"),
         ansi_term::Colour::Purple.paint(
-            "Example: Analyse a set of genomes with paths specified in genomes.txt, and\n\
+            "Example: Analyse a set of genomes with paths specified in genomes.txt,\n\
+            using CheckM2 database specified by environment variable, and\n\
             output the MIMAG summary to mimag_summary.tsv:"
         ),
         std::env::current_exe()
@@ -248,6 +289,20 @@ pub fn add_analyse_subcommand(app: clap::Command) -> clap::Command {
                 .value_parser(crate::TRNA_METHODS)
                 .default_value(crate::DEFAULT_TRNA_METHOD)
                 .help("Method for tRNA analysis"),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.quality_method_argument)
+                .long("quality-method")
+                .value_parser(crate::QUALITY_METHODS)
+                .default_value(crate::DEFAULT_QUALITY_METHOD)
+                .help("Method for quality analysis"),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.checkm2_db_path_argument)
+                .long("checkm2-db-path")
+                .value_name("CHECKM2DB")
+                .help("Path to CheckM2 database (required for checkm2 quality method) [default: from CHECKM2DB environment variable]")
+                .required(false),
         );
 
     analyse_subcommand =
@@ -329,7 +384,7 @@ pub fn run_analyse_subcommand(
 
     let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true).unwrap();
 
-    let galah = generate_galah_analyser(&genome_fasta_files, m, &ANALYSE_COMMAND_DEFINITION)
+    let mut galah = generate_galah_analyser(&genome_fasta_files, m, &ANALYSE_COMMAND_DEFINITION)
         .expect("Failed to parse galah analyse arguments correctly");
 
     // Open file handles here so errors are caught before CPU-heavy commands
@@ -347,6 +402,21 @@ fn generate_galah_analyser<'a>(
     m: &ArgMatches,
     command_definition: &GalahAnalyserCommandDefinition,
 ) -> Result<GalahAnalyser<'a>, String> {
+    let threads = *m.get_one::<u16>("threads").unwrap() as usize;
+    let checkm2_db_path = m
+        .get_one::<String>(&command_definition.checkm2_db_path_argument)
+        .map(|s| s.to_string())
+        .or_else(|| std::env::var("CHECKM2DB").ok())
+        .unwrap_or_default();
+
+    let quality_analyser = match m
+        .get_one::<String>(&command_definition.quality_method_argument)
+        .map(|s| s.as_str())
+    {
+        Some("checkm2") => QualityAnalyser::CheckM2(CheckM2Analyser::new(checkm2_db_path)),
+        _ => return Err("Invalid quality method specified".to_string()),
+    };
+
     let rrna_analyser = match m
         .get_one::<String>(&command_definition.rrna_method_argument)
         .map(|s| s.as_str())
@@ -365,6 +435,8 @@ fn generate_galah_analyser<'a>(
 
     Ok(GalahAnalyser {
         genome_fasta_files,
+        threads,
+        quality_analyser,
         rrna_analyser,
         trna_analyser,
     })
@@ -378,15 +450,17 @@ fn write_analyse_outputs(
     if let Some(mut f) = output_definitions.output_mimag_summary {
         writeln!(
             f,
-            "genome\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality",
+            "genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality",
         )
         .unwrap();
         for genome in genome_fasta_files {
             if let Some(output_data) = analysis.get(&*genome) {
                 writeln!(
                     f,
-                    "{genome}\t{r5s}\t{r16s}\t{r23s}\t{trnas}\t{mimag_quality}",
+                    "{genome}\t{completeness}\t{contamination}\t{r5s}\t{r16s}\t{r23s}\t{trnas}\t{mimag_quality}",
                     genome = genome,
+                    completeness = output_data.completeness,
+                    contamination = output_data.contamination,
                     r5s = output_data.r5s,
                     r16s = output_data.r16s,
                     r23s = output_data.r23s,

@@ -8,7 +8,35 @@ mod tests {
     use std::path::Path;
     use tempfile::tempdir;
 
-    fn setup_mock_bin(dir: &Path, rrna_5s: usize, rrna_16s: usize, rrna_23s: usize, trnas: usize) {
+    fn setup_mock_bin(
+        dir: &Path,
+        genome: String,
+        completeness: f64,
+        contamination: f64,
+        rrna_5s: usize,
+        rrna_16s: usize,
+        rrna_23s: usize,
+        trnas: usize,
+    ) {
+        // CheckM2 writes to quality_report.tsv within the directory specified by -o
+        let mut checkm2_script = String::from("#!/bin/bash\n");
+        checkm2_script.push_str("out=\"\"\n");
+        checkm2_script.push_str("while [[ $# -gt 0 ]]; do\n");
+        checkm2_script.push_str("  case $1 in\n");
+        checkm2_script.push_str("    -o) out=$2; shift 2;;\n");
+        checkm2_script.push_str("    *) shift;;\n");
+        checkm2_script.push_str("  esac\n");
+        checkm2_script.push_str("done\n");
+
+        checkm2_script.push_str("mkdir -p \"$out\"\n");
+
+        checkm2_script.push_str("echo -e 'Name\tCompleteness\tContamination\tCompleteness_Model_Used\tTranslation_Table_Used\tCoding_Density\tContig_N50\tAverage_Gene_Length\tGenome_Size\tGC_Content\tTotal_Coding_Sequences\tTotal_Contigs\tMax_Contig_Length\tAdditional_Notes' > \"$out/quality_report.tsv\"\n");
+        checkm2_script.push_str(&format!(
+            "echo -e '{genome}\t{completeness}\t{contamination}\tGradient Boost (General Model)\t11\t0.885\t5745\t235.3609865470852\t355151\t0.33\t446\t75\t24150\tNone' >> \"$out/quality_report.tsv\"\n"
+        ));
+        let checkm2 = dir.join("checkm2");
+        fs::write(&checkm2, checkm2_script).unwrap();
+
         // Barrnap outputs to stdout
         let mut barrnap_script = String::from("#!/bin/bash\n");
         if rrna_5s > 0 {
@@ -48,7 +76,7 @@ mod tests {
         let trnascan = dir.join("tRNAscan-SE");
         fs::write(&trnascan, trnascan_script).unwrap();
 
-        for script in [&barrnap, &trnascan] {
+        for script in [&checkm2, &barrnap, &trnascan] {
             let _ = std::process::Command::new("chmod")
                 .arg("+x")
                 .arg(script)
@@ -57,13 +85,18 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_analyse_real() {
+        let checkm2_db_path = std::env::var("CHECKM2DB")
+            .expect("CHECKM2DB environment variable must be set to run this test");
+        println!("Using CheckM2 database at {}", checkm2_db_path);
+
         Assert::main_binary()
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
-                "tests/data/set1/set1.1.fna",
-                "tests/data/set1/set1.2.fna",
+                "tests/data/set1/1mbp.fna",
+                "tests/data/set1/500kb.fna",
                 "tests/data/abisko4/73.20120800_S1D.21.fna",
                 "tests/data/abisko4/73.20110800_S2M.16.fna",
                 "--output-mimag-summary",
@@ -72,18 +105,27 @@ mod tests {
             .succeeds()
             .stdout()
             .is("\
-            genome\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/set1/set1.1.fna\t0\t0\t0\t0\tMedium quality\n\
-            tests/data/set1/set1.2.fna\t0\t0\t0\t0\tMedium quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t1\t1\t1\t19\tHigh quality\n\
-            tests/data/abisko4/73.20110800_S2M.16.fna\t1\t1\t1\t19\tHigh quality\n")
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/set1/1mbp.fna\t6.35\t0.67\t0\t0\t0\t0\tLow quality\n\
+            tests/data/set1/500kb.fna\t4.08\t0.02\t0\t0\t0\t0\tLow quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t82.17\t0\t1\t1\t1\t19\tMedium quality\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\t84.95\t0.03\t1\t1\t1\t19\tMedium quality\n")
             .unwrap();
     }
 
     #[test]
     fn test_analyse_mock() {
         let tmpdir = tempdir().unwrap();
-        setup_mock_bin(tmpdir.path(), 1, 1, 1, 20);
+        setup_mock_bin(
+            tmpdir.path(),
+            String::from("73.20120800_S1D.21"),
+            95.0,
+            2.0,
+            1,
+            1,
+            1,
+            20,
+        );
         let path = env::var("PATH").unwrap();
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
@@ -99,15 +141,24 @@ mod tests {
             .succeeds()
             .stdout()
             .is("\
-            genome\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t1\t1\t1\t20\tHigh quality\n")
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t2\t1\t1\t1\t20\tHigh quality\n")
             .unwrap();
     }
 
     #[test]
     fn test_analyse_mock_fake() {
         let tmpdir = tempdir().unwrap();
-        setup_mock_bin(tmpdir.path(), 1, 1, 1, 21);
+        setup_mock_bin(
+            tmpdir.path(),
+            String::from("73.20120800_S1D.21"),
+            95.0,
+            2.0,
+            1,
+            1,
+            1,
+            21,
+        );
         let path = env::var("PATH").unwrap();
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
@@ -123,15 +174,24 @@ mod tests {
             .succeeds()
             .stdout()
             .is("\
-            genome\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t1\t1\t1\t20\tHigh quality\n")
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t2\t1\t1\t1\t20\tHigh quality\n")
             .unwrap();
     }
 
     #[test]
     fn test_analyse_mock_lower() {
         let tmpdir = tempdir().unwrap();
-        setup_mock_bin(tmpdir.path(), 1, 0, 0, 15);
+        setup_mock_bin(
+            tmpdir.path(),
+            String::from("73.20120800_S1D.21"),
+            95.0,
+            2.0,
+            1,
+            0,
+            0,
+            15,
+        );
         let path = env::var("PATH").unwrap();
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
@@ -147,15 +207,24 @@ mod tests {
             .succeeds()
             .stdout()
             .is("\
-            genome\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t1\t0\t0\t15\tMedium quality\n")
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t2\t1\t0\t0\t15\tMedium quality\n")
             .unwrap();
     }
 
     #[test]
     fn test_analyse_mock_no_16s() {
         let tmpdir = tempdir().unwrap();
-        setup_mock_bin(tmpdir.path(), 1, 0, 1, 20);
+        setup_mock_bin(
+            tmpdir.path(),
+            String::from("73.20120800_S1D.21"),
+            95.0,
+            2.0,
+            1,
+            0,
+            1,
+            20,
+        );
         let path = env::var("PATH").unwrap();
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
@@ -171,15 +240,24 @@ mod tests {
             .succeeds()
             .stdout()
             .is("\
-            genome\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t1\t0\t1\t20\tMedium quality\n")
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t2\t1\t0\t1\t20\tMedium quality\n")
             .unwrap();
     }
 
     #[test]
     fn test_analyse_mock_insufficient_trnas() {
         let tmpdir = tempdir().unwrap();
-        setup_mock_bin(tmpdir.path(), 1, 1, 1, 16);
+        setup_mock_bin(
+            tmpdir.path(),
+            String::from("73.20120800_S1D.21"),
+            95.0,
+            2.0,
+            1,
+            1,
+            1,
+            16,
+        );
         let path = env::var("PATH").unwrap();
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
@@ -195,8 +273,140 @@ mod tests {
             .succeeds()
             .stdout()
             .is("\
-            genome\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t1\t1\t1\t16\tMedium quality\n")
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t2\t1\t1\t1\t16\tMedium quality\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_mock_insufficient_completeness() {
+        let tmpdir = tempdir().unwrap();
+        setup_mock_bin(
+            tmpdir.path(),
+            String::from("73.20120800_S1D.21"),
+            89.9,
+            2.0,
+            1,
+            1,
+            1,
+            20,
+        );
+        let path = env::var("PATH").unwrap();
+        let new_path = format!("{}:{}", tmpdir.path().display(), path);
+
+        Assert::main_binary()
+            .with_env(&[("PATH", new_path)])
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t89.9\t2\t1\t1\t1\t20\tMedium quality\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_mock_over_contamination() {
+        let tmpdir = tempdir().unwrap();
+        setup_mock_bin(
+            tmpdir.path(),
+            String::from("73.20120800_S1D.21"),
+            95.0,
+            5.1,
+            1,
+            1,
+            1,
+            20,
+        );
+        let path = env::var("PATH").unwrap();
+        let new_path = format!("{}:{}", tmpdir.path().display(), path);
+
+        Assert::main_binary()
+            .with_env(&[("PATH", new_path)])
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t5.1\t1\t1\t1\t20\tMedium quality\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_mock_low_completeness() {
+        let tmpdir = tempdir().unwrap();
+        setup_mock_bin(
+            tmpdir.path(),
+            String::from("73.20120800_S1D.21"),
+            49.0,
+            2.0,
+            1,
+            1,
+            1,
+            20,
+        );
+        let path = env::var("PATH").unwrap();
+        let new_path = format!("{}:{}", tmpdir.path().display(), path);
+
+        Assert::main_binary()
+            .with_env(&[("PATH", new_path)])
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t49\t2\t1\t1\t1\t20\tLow quality\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_mock_high_contamination() {
+        let tmpdir = tempdir().unwrap();
+        setup_mock_bin(
+            tmpdir.path(),
+            String::from("73.20120800_S1D.21"),
+            95.0,
+            11.0,
+            1,
+            1,
+            1,
+            20,
+        );
+        let path = env::var("PATH").unwrap();
+        let new_path = format!("{}:{}", tmpdir.path().display(), path);
+
+        Assert::main_binary()
+            .with_env(&[("PATH", new_path)])
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t11\t1\t1\t1\t20\tLow quality\n")
             .unwrap();
     }
 }

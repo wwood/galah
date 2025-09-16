@@ -11,7 +11,7 @@ impl RrnaFinder for BarrnapAnalyser {
     }
 
     fn method_name(&self) -> &str {
-        "barrnap"
+        "Barrnap"
     }
 }
 
@@ -51,13 +51,25 @@ pub fn run_barrnap(genome_path: &str, kingdom: &str, threads: usize, out_dir: &P
         ])
         .output()
         .expect("Failed to run barrnap");
+
+    if !output.status.success() {
+        info!(
+            "Barrnap run on {} failed with {}.\nstdout:\n{}\nstderr:\n{}",
+            genome_path,
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        panic!("Barrnap did not run successfully");
+    }
+
     fs::write(&gff_path, &output.stdout).expect("Failed to write barrnap output");
     gff_path
 }
 
 /// Parse barrnap GFF file and count 5S, 16S, 23S rRNAs
 pub fn parse_rrna_types(gff_path: &str) -> (usize, usize, usize) {
-    let content = std::fs::read_to_string(gff_path).unwrap_or_default();
+    let content = std::fs::read_to_string(gff_path).unwrap();
     let mut r5s = 0;
     let mut r16s = 0;
     let mut r23s = 0;
@@ -82,7 +94,7 @@ pub fn parse_rrna_types(gff_path: &str) -> (usize, usize, usize) {
 }
 
 pub fn parse_barrnap_hits(gff_path: &str) -> usize {
-    let content = std::fs::read_to_string(gff_path).unwrap_or_default();
+    let content = std::fs::read_to_string(gff_path).unwrap();
     content.lines().filter(|l| !l.starts_with('#')).count()
 }
 

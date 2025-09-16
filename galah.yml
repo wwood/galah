@@ -9,3 +9,4 @@ dependencies:
   - extern
   - barrnap >=0.9
   - trnascan-se >=2.0.12
+  - checkm2 >=1.1.0

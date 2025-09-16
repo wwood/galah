@@ -10,7 +10,7 @@ impl TrnaFinder for TrnascanAnalyser {
     }
 
     fn method_name(&self) -> &str {
-        "trnascan"
+        "tRNAscan-SE"
     }
 }
 
@@ -34,7 +34,7 @@ pub fn run_trnascan(genome_path: &str, mode: &str, out_dir: &Path) -> PathBuf {
         .to_string_lossy()
         .to_string();
     let out_path = out_dir.join(format!("{genome_name}.{mode}.trna.out"));
-    let _output = Command::new("tRNAscan-SE")
+    let output = Command::new("tRNAscan-SE")
         .args([
             mode,
             "-o",
@@ -45,6 +45,18 @@ pub fn run_trnascan(genome_path: &str, mode: &str, out_dir: &Path) -> PathBuf {
         ])
         .output()
         .expect("Failed to run tRNAscan-SE");
+
+    if !output.status.success() {
+        info!(
+            "tRNAscan-SE run on {} failed with {}.\nstdout:\n{}\nstderr:\n{}",
+            genome_path,
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        panic!("tRNAscan-SE did not run successfully");
+    }
+
     out_path
 }
 
@@ -56,7 +68,7 @@ pub fn count_unique_standard_trnas(out_path: &str) -> usize {
     ];
     use std::collections::HashSet;
     let mut unique_trnas = HashSet::new();
-    let content = std::fs::read_to_string(out_path).unwrap_or_default();
+    let content = std::fs::read_to_string(out_path).unwrap();
     for line in content.lines().skip(3) {
         let fields: Vec<&str> = line.split('\t').collect();
         if fields.len() < 6 {
@@ -71,7 +83,7 @@ pub fn count_unique_standard_trnas(out_path: &str) -> usize {
 }
 
 pub fn parse_trnascan_hits(out_path: &str) -> usize {
-    let content = std::fs::read_to_string(out_path).unwrap_or_default();
+    let content = std::fs::read_to_string(out_path).unwrap();
     content
         .lines()
         .skip(3)

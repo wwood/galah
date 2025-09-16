@@ -1,6 +1,7 @@
 pub mod analyse;
 pub mod analyse_argument_parsing;
 pub mod barrnap;
+pub mod checkm2;
 pub mod cluster_argument_parsing;
 pub mod cluster_validation;
 pub mod clusterer;
@@ -51,6 +52,17 @@ pub trait ClusterDistanceFinder {
     fn calculate_ani(&self, fasta1: &str, fasta2: &str) -> Option<f32>;
 }
 
+pub trait QualityFinder {
+    fn prepare_comp_cont(
+        &mut self,
+        genome_paths: &[String],
+        threads: usize,
+        tmp_path: &std::path::Path,
+    );
+    fn find_comp_cont(&self, genome_path: &str) -> (f64, f64);
+    fn method_name(&self) -> &str;
+}
+
 pub trait TrnaFinder {
     fn find_trnas(&self, genome_path: &str, tmp_path: &std::path::Path) -> usize;
     fn method_name(&self) -> &str;
@@ -70,6 +82,8 @@ pub const DEFAULT_PRECLUSTER_METHOD: &str = "skani";
 pub const PRECLUSTER_METHODS: [&str; 2] = ["skani", "finch"];
 pub const DEFAULT_CLUSTER_METHOD: &str = "skani";
 pub const CLUSTER_METHODS: [&str; 2] = ["skani", "fastani"];
+pub const DEFAULT_QUALITY_METHOD: &str = "checkm2";
+pub const QUALITY_METHODS: [&str; 1] = ["checkm2"];
 pub const DEFAULT_RRNA_METHOD: &str = "barrnap";
 pub const RRNA_METHODS: [&str; 1] = ["barrnap"];
 pub const DEFAULT_TRNA_METHOD: &str = "trnascan";
