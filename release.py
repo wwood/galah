@@ -14,6 +14,12 @@ def get_version(relpath):
         return line.split("'")[1]
 
 if __name__ == "__main__":
+    yes_no = input(
+        "Did you run the non-CI tests first, to make sure everything is OK (y/n)? \n\nCHECKM2DB=/work/microbiome/db/CheckM2_database/uniref100.KO.1.dmnd pixi run cargo test -- --ignored\n\n"
+    )
+    if yes_no != "y":
+        raise Exception("Please run the non-CI tests first")
+
     print("running release.sh")
     extern.run("./release.sh")
 
