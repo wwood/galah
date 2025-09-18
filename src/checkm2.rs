@@ -1,4 +1,5 @@
 use crate::QualityFinder;
+use checkm::GenomeQuality;
 use std::collections::HashMap;
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::symlink;
@@ -89,29 +90,51 @@ fn get_comp_cont(
 
     // Parse the quality_report.tsv to get genome_names, completeness, and contamination
     // Then populate the comp_cont_cache using genome_paths
-    // Name    Completeness    Contamination   Completeness_Model_Used Translation_Table_Used  Coding_Density  Contig_N50      Average_Gene_Length     Genome_Size     GC_Content      Total_Coding_Sequences  Total_Contigs   Max_Contig_Length Additional_Notes
-    // binchicken_co412.1081   68.37   2.91    Gradient Boost (General Model)  11      0.885   5745    235.3609865470852       355151  0.33    446     75      24150   None
     let quality_report_path = checkm2_path.join("quality_report.tsv");
     assert!(
         quality_report_path.is_file(),
         "CheckM2 did not produce quality_report.tsv at expected location: {:?}",
         quality_report_path
     );
-    let quality_report = std::fs::read_to_string(quality_report_path)
-        .expect("Failed to read CheckM2 quality report");
 
-    for line in quality_report.lines().skip(1) {
-        debug!("CheckM2 report line: {}", line);
-        let fields: Vec<&str> = line.split('\t').collect();
-        let genome_name = fields[0].to_string();
-        let genome_path = genome_paths
+    let checkm2_result = checkm::CheckM2QualityReport::read_file_path(
+        quality_report_path
+            .to_str()
+            .expect("Invalid UTF-8 in quality_report_path"),
+    )
+    .expect("Failed to parse CheckM2 quality report");
+
+    for genome_path in genome_paths {
+        let genome_stem = Path::new(genome_path)
+            .file_stem()
+            .unwrap()
+            .to_string_lossy();
+        if let Ok(q) = checkm2_result.retrieve_via_fasta_path(genome_path) {
+            comp_cont_cache.insert(
+                genome_path.clone(),
+                (
+                    q.completeness() as f64 * 100.0,
+                    q.contamination() as f64 * 100.0,
+                ),
+            );
+        } else if let Some((_, q)) = checkm2_result
+            .genome_to_quality
             .iter()
-            .find(|g| Path::new(g).file_stem().unwrap().to_string_lossy() == genome_name)
-            .expect("Failed to find genome path")
-            .to_string();
-        let completeness = fields[1].parse().unwrap();
-        let contamination = fields[2].parse().unwrap();
-        comp_cont_cache.insert(genome_path, (completeness, contamination));
+            .find(|(k, _)| **k == genome_stem)
+        {
+            comp_cont_cache.insert(
+                genome_path.clone(),
+                (
+                    q.completeness() as f64 * 100.0,
+                    q.contamination() as f64 * 100.0,
+                ),
+            );
+        } else {
+            panic!(
+                "No CheckM2 quality found for genome {} (stem {})",
+                genome_path, genome_stem
+            );
+        }
     }
     comp_cont_cache
 }

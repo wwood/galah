@@ -81,16 +81,24 @@ pub struct GalahAnalyser<'a> {
     pub quality_analyser: QualityAnalyser,
     pub rrna_analyser: RrnaAnalyser,
     pub trna_analyser: TrnaAnalyser,
+    pub checkm2_quality_report: Option<String>,
+    pub checkm_tab_table: Option<String>,
+    pub barrnap_gff_list: Option<String>,
+    pub trnascan_out_list: Option<String>,
 }
 
 impl GalahAnalyser<'_> {
-    pub fn analyse(&mut self) -> std::collections::HashMap<String, GenomeOutput> {
+    pub fn analyse(&mut self) -> Result<std::collections::HashMap<String, GenomeOutput>, String> {
         crate::analyse::analyse(
             self.genome_fasta_files,
             self.threads,
             &mut self.quality_analyser,
             &self.rrna_analyser,
             &self.trna_analyser,
+            &self.checkm2_quality_report,
+            &self.checkm_tab_table,
+            &self.barrnap_gff_list,
+            &self.trnascan_out_list,
         )
     }
 }
@@ -101,6 +109,10 @@ pub struct GalahAnalyserCommandDefinition {
     pub trna_method_argument: String,
     pub output_mimag_summary_argument: String,
     pub checkm2_db_path_argument: String,
+    pub checkm2_quality_report_argument: String,
+    pub checkm_tab_table_argument: String,
+    pub barrnap_gff_list_argument: String,
+    pub trnascan_out_list_argument: String,
 }
 
 lazy_static! {
@@ -111,6 +123,10 @@ lazy_static! {
             trna_method_argument: "trna-method".to_string(),
             output_mimag_summary_argument: "output-mimag-summary".to_string(),
             checkm2_db_path_argument: "checkm2-db-path".to_string(),
+            checkm2_quality_report_argument: "checkm2-quality-report".to_string(),
+            checkm_tab_table_argument: "checkm-tab-table".to_string(),
+            barrnap_gff_list_argument: "barrnap-gff-list".to_string(),
+            trnascan_out_list_argument: "trnascan-out-list".to_string(),
         }
     };
 }
@@ -139,6 +155,14 @@ lazy_static! {
 
   CHECKM2DB=/path/to/checkm2_db
   {} analyse --genome-fasta-list genomes.txt
+    --output-mimag-summary mimag_summary.tsv
+
+{}
+
+  {} analyse --genome-fasta-list genomes.txt
+    --checkm2-quality-report quality_report.tsv
+    --barrnap-gff-list barrnap_gff_list.tsv
+    --trnascan-out-list trnascan_out_list.tsv
     --output-mimag-summary mimag_summary.tsv
 
 See {} analyse --full-help for further options and further detail.
@@ -174,6 +198,16 @@ See {} analyse --full-help for further options and further detail.
             .and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
             .and_then(|s| s.into_string().ok())
             .expect("Failed to find running program basename"),
+        ansi_term::Colour::Purple.paint(
+            "Example: Analyse a set of genomes with paths specified in genomes.txt,\n\
+            using precomputed CheckM2, Barrnap, and tRNASCAN-SE results, and\n\
+            output the MIMAG summary to mimag_summary.tsv:"
+        ),
+        std::env::current_exe()
+            .ok()
+            .and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
+            .and_then(|s| s.into_string().ok())
+            .expect("Failed to find running program basename"),
         std::env::current_exe()
             .ok()
             .and_then(|pb| pb.file_name().map(|s| s.to_os_string()))
@@ -197,6 +231,12 @@ pub fn analyse_full_help(program_basename: &str, program_version: &str) -> Manua
             "Genome input",
         )),
     );
+
+    // quality
+    manual = manual.custom(add_analyse_quality_parameters_to_section(
+        Section::new("Quality parameters"),
+        &ANALYSE_COMMAND_DEFINITION,
+    ));
 
     // rna
     manual = manual.custom(add_analyse_rna_parameters_to_section(
@@ -303,12 +343,80 @@ pub fn add_analyse_subcommand(app: clap::Command) -> clap::Command {
                 .value_name("CHECKM2DB")
                 .help("Path to CheckM2 database (required for checkm2 quality method) [default: from CHECKM2DB environment variable]")
                 .required(false),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.checkm2_quality_report_argument)
+                .long("checkm2-quality-report")
+                .value_name("FILE")
+                .help("Path to CheckM2 quality_report.tsv file. Prevents quality method being run")
+                .required(false),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.checkm_tab_table_argument)
+                .long("checkm-tab-table")
+                .value_name("FILE")
+                .help("Path to CheckM tab table file. Prevents quality method being run")
+                .required(false),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.barrnap_gff_list_argument)
+                .long("barrnap-gff-list")
+                .value_name("FILE")
+                .help("Two-column TSV file mapping genome paths (as given in input) to Barrnap GFF paths (no headers). Prevents rRNA method being run")
+                .required(false),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.trnascan_out_list_argument)
+                .long("trnascan-out-list")
+                .value_name("FILE")
+                .help("Two-column TSV file mapping genome paths (as given in input) to tRNAscan-SE output paths (no headers). Prevents tRNA method being run")
+                .required(false),
         );
 
     analyse_subcommand =
         bird_tool_utils::clap_utils::add_genome_specification_arguments(analyse_subcommand);
 
     app.subcommand(analyse_subcommand)
+}
+
+pub fn add_analyse_quality_parameters_to_section(
+    section: Section,
+    definition: &GalahAnalyserCommandDefinition,
+) -> Section {
+    section
+        .option(
+            Opt::new("NAME")
+                .long(&format!("--{}", definition.quality_method_argument))
+                .help(&format!(
+                    "method for finding genome quality. '{}' for CheckM2. {}",
+                    monospace_roff("checkm2"),
+                    default_roff(crate::DEFAULT_QUALITY_METHOD)
+                )),
+        )
+        .option(
+            Opt::new("PATH")
+                .long(&format!("--{}", definition.checkm2_db_path_argument))
+                .help(
+                    "Path to CheckM2 database (required for CheckM2 quality method). \
+                If not given, will use CHECKM2DB environment variable if set.",
+                ),
+        )
+        .option(
+            Opt::new("PATH")
+                .long(&format!("--{}", definition.checkm2_quality_report_argument))
+                .help(
+                    "Path to pre-generated CheckM2 quality_report.tsv file. \
+                If given, will use this file instead of running quality method.",
+                ),
+        )
+        .option(
+            Opt::new("PATH")
+                .long(&format!("--{}", definition.checkm_tab_table_argument))
+                .help(
+                    "Path to pre-generated CheckM tab table file. \
+                If given, will use this file instead of running quality method.",
+                ),
+        )
 }
 
 pub fn add_analyse_rna_parameters_to_section(
@@ -334,6 +442,18 @@ pub fn add_analyse_rna_parameters_to_section(
                     default_roff(crate::DEFAULT_TRNA_METHOD)
                 )),
         )
+        .option(
+            Opt::new("PATH")
+                .long(&format!("--{}", definition.barrnap_gff_list_argument))
+                .help("Path to two-column TSV file mapping genome paths (as given in input) to Barrnap GFF paths (no headers). \
+                If given, will use these files instead of running rRNA method."),
+        )
+        .option(
+            Opt::new("PATH")
+                .long(&format!("--{}", definition.trnascan_out_list_argument))
+                .help("Path to two-column TSV file mapping genome paths (as given in input) to tRNAscan-SE output paths (no headers). \
+                If given, will use these files instead of running tRNA method."),
+        )
 }
 
 pub fn add_analyse_output_parameters_to_section(
@@ -343,7 +463,7 @@ pub fn add_analyse_output_parameters_to_section(
     section.option(
         Opt::new("PATH")
             .long(&format!("--{}", definition.output_mimag_summary_argument))
-            .help("Output a file summarising the MIMAG status for each genome."),
+            .help("Output a tsv file summarising the MIMAG status for each genome."),
     )
 }
 
@@ -391,7 +511,7 @@ pub fn run_analyse_subcommand(
     let output_definitions = setup_analyse_outputs(m, &ANALYSE_COMMAND_DEFINITION);
 
     info!("Analysing {} genomes ..", genome_fasta_files.len());
-    let analysis = galah.analyse();
+    let analysis = galah.analyse().expect("Failed to analyse genomes");
 
     write_analyse_outputs(output_definitions, &analysis, genome_fasta_files);
     info!("Finished printing genome analysis");
@@ -433,12 +553,30 @@ fn generate_galah_analyser<'a>(
         _ => return Err("Invalid tRNA method specified".to_string()),
     };
 
+    // Extract file input arguments
+    let checkm2_quality_report = m
+        .get_one::<String>(&command_definition.checkm2_quality_report_argument)
+        .map(|s| s.to_string());
+    let checkm_tab_table = m
+        .get_one::<String>(&command_definition.checkm_tab_table_argument)
+        .map(|s| s.to_string());
+    let barrnap_gff_list = m
+        .get_one::<String>(&command_definition.barrnap_gff_list_argument)
+        .map(|s| s.to_string());
+    let trnascan_out_list = m
+        .get_one::<String>(&command_definition.trnascan_out_list_argument)
+        .map(|s| s.to_string());
+
     Ok(GalahAnalyser {
         genome_fasta_files,
         threads,
         quality_analyser,
         rrna_analyser,
         trna_analyser,
+        checkm2_quality_report,
+        checkm_tab_table,
+        barrnap_gff_list,
+        trnascan_out_list,
     })
 }
 
@@ -457,7 +595,7 @@ fn write_analyse_outputs(
             if let Some(output_data) = analysis.get(&*genome) {
                 writeln!(
                     f,
-                    "{genome}\t{completeness}\t{contamination}\t{r5s}\t{r16s}\t{r23s}\t{trnas}\t{mimag_quality}",
+                    "{genome}\t{completeness:.2}\t{contamination:.2}\t{r5s}\t{r16s}\t{r23s}\t{trnas}\t{mimag_quality}",
                     genome = genome,
                     completeness = output_data.completeness,
                     contamination = output_data.contamination,

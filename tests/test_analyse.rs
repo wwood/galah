@@ -108,7 +108,7 @@ mod tests {
             genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
             tests/data/set1/1mbp.fna\t6.35\t0.67\t0\t0\t0\t0\tLow quality\n\
             tests/data/set1/500kb.fna\t4.08\t0.02\t0\t0\t0\t0\tLow quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t82.17\t0\t1\t1\t1\t19\tMedium quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t82.17\t0.00\t1\t1\t1\t19\tMedium quality\n\
             tests/data/abisko4/73.20110800_S2M.16.fna\t84.95\t0.03\t1\t1\t1\t19\tMedium quality\n")
             .unwrap();
     }
@@ -142,7 +142,7 @@ mod tests {
             .stdout()
             .is("\
             genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t2\t1\t1\t1\t20\tHigh quality\n")
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95.00\t2.00\t1\t1\t1\t20\tHigh quality\n")
             .unwrap();
     }
 
@@ -175,7 +175,7 @@ mod tests {
             .stdout()
             .is("\
             genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t2\t1\t1\t1\t20\tHigh quality\n")
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95.00\t2.00\t1\t1\t1\t20\tHigh quality\n")
             .unwrap();
     }
 
@@ -208,7 +208,7 @@ mod tests {
             .stdout()
             .is("\
             genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t2\t1\t0\t0\t15\tMedium quality\n")
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95.00\t2.00\t1\t0\t0\t15\tMedium quality\n")
             .unwrap();
     }
 
@@ -241,7 +241,7 @@ mod tests {
             .stdout()
             .is("\
             genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t2\t1\t0\t1\t20\tMedium quality\n")
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95.00\t2.00\t1\t0\t1\t20\tMedium quality\n")
             .unwrap();
     }
 
@@ -274,7 +274,7 @@ mod tests {
             .stdout()
             .is("\
             genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t2\t1\t1\t1\t16\tMedium quality\n")
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95.00\t2.00\t1\t1\t1\t16\tMedium quality\n")
             .unwrap();
     }
 
@@ -307,7 +307,7 @@ mod tests {
             .stdout()
             .is("\
             genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t89.9\t2\t1\t1\t1\t20\tMedium quality\n")
+            tests/data/abisko4/73.20120800_S1D.21.fna\t89.90\t2.00\t1\t1\t1\t20\tMedium quality\n")
             .unwrap();
     }
 
@@ -340,7 +340,7 @@ mod tests {
             .stdout()
             .is("\
             genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t5.1\t1\t1\t1\t20\tMedium quality\n")
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95.00\t5.10\t1\t1\t1\t20\tMedium quality\n")
             .unwrap();
     }
 
@@ -373,7 +373,7 @@ mod tests {
             .stdout()
             .is("\
             genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t49\t2\t1\t1\t1\t20\tLow quality\n")
+            tests/data/abisko4/73.20120800_S1D.21.fna\t49.00\t2.00\t1\t1\t1\t20\tLow quality\n")
             .unwrap();
     }
 
@@ -406,7 +406,67 @@ mod tests {
             .stdout()
             .is("\
             genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\t95\t11\t1\t1\t1\t20\tLow quality\n")
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95.00\t11.00\t1\t1\t1\t20\tLow quality\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_with_checkm2_quality_report() {
+        Assert::main_binary()
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files", 
+                "tests/data/set1/1mbp.fna",
+                "tests/data/set1/500kb.fna",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--checkm2-quality-report",
+                "tests/data/analyse_file_inputs/checkm2_quality_report.tsv",
+                "--barrnap-gff-list",
+                "tests/data/analyse_file_inputs/barrnap_gff_list.tsv",
+                "--trnascan-out-list", 
+                "tests/data/analyse_file_inputs/trnascan_out_list.tsv",
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/set1/1mbp.fna\t95.50\t1.20\t1\t1\t1\t19\tHigh quality\n\
+            tests/data/set1/500kb.fna\t68.37\t2.91\t0\t1\t1\t10\tMedium quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95.50\t1.20\t0\t0\t1\t1\tMedium quality\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\t95.37\t2.91\t0\t0\t0\t0\tMedium quality\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_with_checkm_tab_table() {
+        Assert::main_binary()
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna", 
+                "tests/data/set1/500kb.fna",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--checkm-tab-table",
+                "tests/data/analyse_file_inputs/checkm_tab_table.tsv",
+                "--barrnap-gff-list",
+                "tests/data/analyse_file_inputs/barrnap_gff_list.tsv",
+                "--trnascan-out-list",
+                "tests/data/analyse_file_inputs/trnascan_out_list.tsv", 
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/set1/1mbp.fna\t95.50\t1.20\t1\t1\t1\t19\tHigh quality\n\
+            tests/data/set1/500kb.fna\t58.37\t12.91\t0\t1\t1\t10\tLow quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t48.37\t1.20\t0\t0\t1\t1\tLow quality\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\t38.37\t2.91\t0\t0\t0\t0\tLow quality\n")
             .unwrap();
     }
 }

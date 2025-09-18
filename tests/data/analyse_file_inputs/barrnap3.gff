@@ -1,0 +1,2 @@
+##gff-version 3
+genome3	barrnap	rRNA	500	650	.	+	.	ID=rrna002;Name=23S_rRNA;product=23S ribosomal RNA

@@ -1,0 +1,4 @@
+tests/data/set1/1mbp.fna	tests/data/analyse_file_inputs/trnascan1.out
+tests/data/set1/500kb.fna	tests/data/analyse_file_inputs/trnascan2.out
+tests/data/abisko4/73.20120800_S1D.21.fna	tests/data/analyse_file_inputs/trnascan3.out
+tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/analyse_file_inputs/trnascan4.out
