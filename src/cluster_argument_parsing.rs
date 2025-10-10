@@ -852,7 +852,7 @@ pub fn filter_genomes_through_checkm<'a>(
     match clap_matches.contains_id("checkm-tab-table")
         || clap_matches.contains_id("genome-info")
         || clap_matches.contains_id("checkm2-quality-report")
-        || clap_matches.contains_id("run-checkm2")
+        || (clap_matches.contains_id("run-checkm2") && clap_matches.get_flag("run-checkm2"))
     {
         false => {
             warn!("Since CheckM input has not been provided and CheckM2 has been disabled, genomes are not being ordered by quality. Instead the order of their input is being used");
@@ -897,7 +897,9 @@ pub fn filter_genomes_through_checkm<'a>(
                     )
                     .expect("Error parsing genomeInfo file"),
                 }
-            } else if clap_matches.contains_id("run-checkm2") {
+            } else if clap_matches.contains_id("run-checkm2")
+                && clap_matches.get_flag("run-checkm2")
+            {
                 // Run CheckM2 as in analyse
                 let db_path = clap_matches.get_one::<String>("checkm2-db-path")
                     .map(|s| s.to_string())
