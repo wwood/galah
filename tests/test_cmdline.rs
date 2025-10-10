@@ -3,6 +3,10 @@ extern crate assert_cli;
 #[cfg(test)]
 mod tests {
     use assert_cli::Assert;
+    use std::env;
+    use std::fs;
+    use std::path::Path;
+    use tempfile::tempdir;
 
     #[test]
     fn test_completeness_4contamination_quality_score() {
@@ -985,5 +989,99 @@ mod tests {
                 .is("\
                 tests/data/abisko4/73.20110600_S2D.10.fna	tests/data/abisko4/73.20110600_S2D.10.fna\n")
                 .unwrap();
+    }
+
+    #[test]
+    #[ignore]
+    fn test_cluster_real_checkm2() {
+        let checkm2_db_path = std::env::var("CHECKM2DB")
+            .expect("CHECKM2DB environment variable must be set to run this test");
+        println!("Using CheckM2 database at {}", checkm2_db_path);
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--quality-formula",
+                "completeness-4contamination",
+                "--run-checkm2",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "tests/data/set1/500kb.fna",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--precluster-method",
+                "finch",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            tests/data/abisko4/73.20110800_S2M.16.fna\ttests/data/abisko4/73.20110800_S2M.16.fna\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\ttests/data/abisko4/73.20120800_S1D.21.fna\n\
+            tests/data/set1/500kb.fna\ttests/data/set1/500kb.fna\n\
+            tests/data/set1/500kb.fna\ttests/data/set1/1mbp.fna\n")
+            .unwrap();
+    }
+
+    fn setup_mock_bin(dir: &Path, genomes: &[(String, f64, f64)]) {
+        // CheckM2 writes to quality_report.tsv within the directory specified by -o
+        let mut checkm2_script = String::from("#!/bin/bash\n");
+        checkm2_script.push_str("out=\"\"\n");
+        checkm2_script.push_str("while [[ $# -gt 0 ]]; do\n");
+        checkm2_script.push_str("  case $1 in\n");
+        checkm2_script.push_str("    -o) out=$2; shift 2;;\n");
+        checkm2_script.push_str("    *) shift;;\n");
+        checkm2_script.push_str("  esac\n");
+        checkm2_script.push_str("done\n");
+        checkm2_script.push_str("mkdir -p \"$out\"\n");
+        checkm2_script.push_str("echo -e 'Name\tCompleteness\tContamination\tCompleteness_Model_Used\tTranslation_Table_Used\tCoding_Density\tContig_N50\tAverage_Gene_Length\tGenome_Size\tGC_Content\tTotal_Coding_Sequences\tTotal_Contigs\tMax_Contig_Length\tAdditional_Notes' > \"$out/quality_report.tsv\"\n");
+        for (genome, completeness, contamination) in genomes {
+            checkm2_script.push_str(&format!(
+                "echo -e '{genome}\t{completeness}\t{contamination}\tGradient Boost (General Model)\t11\t0.885\t5745\t235.3609865470852\t355151\t0.33\t446\t75\t24150\tNone' >> \"$out/quality_report.tsv\"\n"
+            ));
+        }
+        let checkm2 = dir.join("checkm2");
+        fs::write(&checkm2, checkm2_script).unwrap();
+        let _ = std::process::Command::new("chmod")
+            .arg("+x")
+            .arg(&checkm2)
+            .status();
+    }
+
+    #[test]
+    fn test_cluster_mock_checkm2() {
+        let tmpdir = tempdir().unwrap();
+        setup_mock_bin(
+            tmpdir.path(),
+            &[
+                (String::from("500kb"), 90.0, 5.0),
+                (String::from("1mbp"), 95.0, 2.0),
+            ],
+        );
+        let path = env::var("PATH").unwrap();
+        let new_path = format!("{}:{}", tmpdir.path().display(), path);
+
+        // Provide genomes in reverse order to their quality
+        Assert::main_binary()
+            .with_env(&[("PATH", new_path)])
+            .with_args(&[
+                "cluster",
+                "--quality-formula",
+                "completeness-4contamination",
+                "--run-checkm2",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm2-db-path",
+                "/tmp/mockdb",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            tests/data/set1/1mbp.fna\ttests/data/set1/1mbp.fna\n\
+            tests/data/set1/1mbp.fna\ttests/data/set1/500kb.fna\n")
+            .unwrap();
     }
 }

@@ -11,6 +11,7 @@ use crate::skani::SkaniClusterer;
 use crate::skani::SkaniPreclusterer;
 use crate::ClusterDistanceFinder;
 use crate::PreclusterDistanceFinder;
+use crate::QualityFinder;
 use crate::SortedPairGenomeDistanceCache;
 use bird_tool_utils::clap_utils::*;
 use bird_tool_utils::clap_utils::{default_roff, monospace_roff};
@@ -117,6 +118,8 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_ani_argument: String,
     pub dereplication_prethreshold_ani_argument: String,
     pub dereplication_quality_formula_argument: String,
+    pub dereplication_run_checkm2_argument: String,
+    pub dereplication_checkm2_db_path_argument: String,
     pub dereplication_precluster_method_argument: String,
     pub dereplication_cluster_method_argument: String,
     pub dereplication_aligned_fraction_argument: String,
@@ -140,6 +143,8 @@ lazy_static! {
             dereplication_ani_argument: "ani".to_string(),
             dereplication_prethreshold_ani_argument: "precluster-ani".to_string(),
             dereplication_quality_formula_argument: "quality-formula".to_string(),
+            dereplication_run_checkm2_argument: "run-checkm2".to_string(),
+            dereplication_checkm2_db_path_argument: "checkm2-db-path".to_string(),
             dereplication_precluster_method_argument: "precluster-method".to_string(),
             dereplication_cluster_method_argument: "cluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
@@ -283,6 +288,15 @@ pub fn add_dereplication_filtering_parameters_to_section(section: Section) -> Se
         .option(Opt::new("FLOAT").long("--max-contamination").help(
             "Ignore genomes with more contamination than \
         this percentage. [default: not set]",
+        ))
+        .flag(Flag::new().long("--run-checkm2").help(
+            "Run CheckM2 to generate quality scoring used for clustering. Requires \
+                --checkm2-db-path or CHECKM2DB env variable to be set.",
+        ))
+        .option(
+            Opt::new("DB_PATH").long("--checkm2-db-path").help(
+                "Path to CheckM2 database (required for running CheckM2) \
+                [default: from CHECKM2DB environment variable]",
         ))
 }
 
@@ -838,9 +852,10 @@ pub fn filter_genomes_through_checkm<'a>(
     match clap_matches.contains_id("checkm-tab-table")
         || clap_matches.contains_id("genome-info")
         || clap_matches.contains_id("checkm2-quality-report")
+        || clap_matches.contains_id("run-checkm2")
     {
         false => {
-            warn!("Since CheckM input is missing, genomes are not being ordered by quality. Instead the order of their input is being used");
+            warn!("Since CheckM input has not been provided and CheckM2 has been disabled, genomes are not being ordered by quality. Instead the order of their input is being used");
             Ok(genome_fasta_files.iter().map(|s| &**s).collect())
         }
         true => {
@@ -881,6 +896,27 @@ pub fn filter_genomes_through_checkm<'a>(
                         clap_matches.get_one::<String>("genome-info").unwrap(),
                     )
                     .expect("Error parsing genomeInfo file"),
+                }
+            } else if clap_matches.contains_id("run-checkm2") {
+                // Run CheckM2 as in analyse
+                let db_path = clap_matches.get_one::<String>("checkm2-db-path")
+                    .map(|s| s.to_string())
+                    .or_else(|| std::env::var("CHECKM2DB").ok())
+                    .expect("CheckM2 database path must be provided via --checkm2-db-path or CHECKM2DB env var");
+                use crate::checkm2::CheckM2Analyser;
+                let tmpdir = tempfile::tempdir().expect("Failed to create tempdir for CheckM2");
+                let tmp_path = tmpdir.path();
+                let mut analyser = CheckM2Analyser::new(db_path);
+                analyser.prepare_comp_cont(genome_fasta_files, 1, tmp_path);
+                CheckMResultEnum::CheckM2Result {
+                    result: {
+                        let quality_report_path =
+                            tmp_path.join("checkm2").join("quality_report.tsv");
+                        checkm::CheckM2QualityReport::read_file_path(
+                            quality_report_path.to_str().unwrap(),
+                        )
+                        .unwrap()
+                    },
                 }
             } else {
                 panic!("Programming error");
@@ -1568,6 +1604,13 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
                 "Parks2020_reduced",
                 "dRep"])
             .default_value(crate::DEFAULT_QUALITY_FORMULA))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_run_checkm2_argument)
+            .long("run-checkm2")
+            .help("Run CheckM2 for genome quality scoring during clustering")
+            .action(clap::ArgAction::SetTrue))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_checkm2_db_path_argument)
+            .long("checkm2-db-path")
+            .help("Path to CheckM2 database. If not specified, will use $CHECKM2_DB_PATH environment variable if set."))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_prethreshold_ani_argument)
             .long("precluster-ani")
             .value_parser(clap::value_parser!(f32))
