@@ -36,7 +36,7 @@ pub fn run_trnascan(genome_path: &str, mode: &str, out_dir: &Path) -> PathBuf {
     let out_path = out_dir.join(format!("{genome_name}.{mode}.trna.out"));
     let output = Command::new("tRNAscan-SE")
         .args([
-            mode,
+            &format!("-{mode}"),
             "-o",
             out_path.to_str().unwrap(),
             genome_path,

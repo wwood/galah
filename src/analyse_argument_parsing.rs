@@ -88,7 +88,10 @@ pub struct GalahAnalyser<'a> {
 }
 
 impl GalahAnalyser<'_> {
-    pub fn analyse(&mut self) -> Result<std::collections::HashMap<String, GenomeOutput>, String> {
+    pub fn analyse(
+        &mut self,
+        output_quality_report_path: &Option<String>,
+    ) -> Result<std::collections::HashMap<String, GenomeOutput>, String> {
         crate::analyse::analyse(
             self.genome_fasta_files,
             self.threads,
@@ -96,6 +99,7 @@ impl GalahAnalyser<'_> {
             &self.rrna_analyser,
             &self.trna_analyser,
             &self.checkm2_quality_report,
+            output_quality_report_path,
             &self.checkm_tab_table,
             &self.barrnap_gff_list,
             &self.trnascan_out_list,
@@ -108,6 +112,7 @@ pub struct GalahAnalyserCommandDefinition {
     pub rrna_method_argument: String,
     pub trna_method_argument: String,
     pub output_mimag_summary_argument: String,
+    pub output_quality_report_argument: String,
     pub checkm2_db_path_argument: String,
     pub checkm2_quality_report_argument: String,
     pub checkm_tab_table_argument: String,
@@ -116,12 +121,13 @@ pub struct GalahAnalyserCommandDefinition {
 }
 
 lazy_static! {
-    static ref ANALYSE_COMMAND_DEFINITION: GalahAnalyserCommandDefinition = {
+    pub static ref ANALYSE_COMMAND_DEFINITION: GalahAnalyserCommandDefinition = {
         GalahAnalyserCommandDefinition {
             quality_method_argument: "quality-method".to_string(),
             rrna_method_argument: "rrna-method".to_string(),
             trna_method_argument: "trna-method".to_string(),
             output_mimag_summary_argument: "output-mimag-summary".to_string(),
+            output_quality_report_argument: "output-quality-report".to_string(),
             checkm2_db_path_argument: "checkm2-db-path".to_string(),
             checkm2_quality_report_argument: "checkm2-quality-report".to_string(),
             checkm_tab_table_argument: "checkm-tab-table".to_string(),
@@ -314,7 +320,21 @@ pub fn add_analyse_subcommand(app: clap::Command) -> clap::Command {
             Arg::new(&*ANALYSE_COMMAND_DEFINITION.output_mimag_summary_argument)
                 .long("output-mimag-summary")
                 .value_name("SUMMARY")
-                .help("Path to output MIMAG summary file"),
+                .help("Path to output MIMAG summary file")
+            .required_unless_present_any([
+                "output-quality-report",
+                "full-help",
+                "full-help-roff",]),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.output_quality_report_argument)
+                .long("output-quality-report")
+                .value_name("REPORT")
+                .help("Path to output CheckM2-format quality report")
+            .required_unless_present_any([
+                "output-mimag-summary",
+                "full-help",
+                "full-help-roff",]),
         )
         .arg(
             Arg::new(&*ANALYSE_COMMAND_DEFINITION.rrna_method_argument)
@@ -460,15 +480,22 @@ pub fn add_analyse_output_parameters_to_section(
     section: Section,
     definition: &GalahAnalyserCommandDefinition,
 ) -> Section {
-    section.option(
-        Opt::new("PATH")
-            .long(&format!("--{}", definition.output_mimag_summary_argument))
-            .help("Output a tsv file summarising the MIMAG status for each genome."),
-    )
+    section
+        .option(
+            Opt::new("PATH")
+                .long(&format!("--{}", definition.output_mimag_summary_argument))
+                .help("Output a tsv file summarising the MIMAG status for each genome."),
+        )
+        .option(
+            Opt::new("PATH")
+                .long(&format!("--{}", definition.output_quality_report_argument))
+                .help("Output a CheckM2-format quality report TSV file."),
+        )
 }
 
 pub struct AnalyseOutput {
     pub output_mimag_summary: Option<std::fs::File>,
+    pub output_quality_report_path: Option<String>,
 }
 
 pub fn setup_analyse_outputs(
@@ -479,8 +506,13 @@ pub fn setup_analyse_outputs(
         .get_one::<String>(&command_definition.output_mimag_summary_argument)
         .map(|o| std::fs::File::create(o).expect("Failed to open output MIMAG summary file"));
 
+    let output_quality_report_path = m
+        .get_one::<String>(&command_definition.output_quality_report_argument)
+        .map(|s| s.to_string());
+
     AnalyseOutput {
         output_mimag_summary,
+        output_quality_report_path,
     }
 }
 
@@ -511,9 +543,11 @@ pub fn run_analyse_subcommand(
     let output_definitions = setup_analyse_outputs(m, &ANALYSE_COMMAND_DEFINITION);
 
     info!("Analysing {} genomes ..", genome_fasta_files.len());
-    let analysis = galah.analyse().expect("Failed to analyse genomes");
+    let analysis = galah
+        .analyse(&output_definitions.output_quality_report_path)
+        .expect("Failed to analyse genomes");
 
-    write_analyse_outputs(output_definitions, &analysis, genome_fasta_files);
+    write_analyse_outputs(output_definitions, &analysis, &genome_fasta_files);
     info!("Finished printing genome analysis");
 }
 
@@ -580,10 +614,10 @@ fn generate_galah_analyser<'a>(
     })
 }
 
-fn write_analyse_outputs(
+pub fn write_analyse_outputs(
     output_definitions: AnalyseOutput,
     analysis: &HashMap<String, GenomeOutput>,
-    genome_fasta_files: Vec<String>,
+    genome_fasta_files: &Vec<String>,
 ) {
     if let Some(mut f) = output_definitions.output_mimag_summary {
         writeln!(
@@ -592,7 +626,7 @@ fn write_analyse_outputs(
         )
         .unwrap();
         for genome in genome_fasta_files {
-            if let Some(output_data) = analysis.get(&*genome) {
+            if let Some(output_data) = analysis.get(&**genome) {
                 writeln!(
                     f,
                     "{genome}\t{completeness:.2}\t{contamination:.2}\t{r5s}\t{r16s}\t{r23s}\t{trnas}\t{mimag_quality}",

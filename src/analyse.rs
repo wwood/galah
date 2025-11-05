@@ -25,6 +25,7 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
     rrna_finder: &R,
     trna_finder: &T,
     checkm2_quality_report: &Option<String>,
+    output_quality_report_path: &Option<String>,
     checkm_tab_table: &Option<String>,
     barrnap_gff_list: &Option<String>,
     trnascan_out_list: &Option<String>,
@@ -119,6 +120,27 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
         cache
     } else {
         quality_finder.prepare_comp_cont(genomes, threads, tmp_path);
+
+        // If requested, copy the CheckM2 quality report out of the temporary directory now
+        if let Some(dest) = output_quality_report_path {
+            let src = tmp_path.join("checkm2").join("quality_report.tsv");
+            if let Some(parent) = std::path::Path::new(dest).parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent).map_err(|e| {
+                        format!("Failed to create parent directory for quality report output: {e}")
+                    })?;
+                }
+            }
+            std::fs::copy(&src, dest).map_err(|e| {
+                format!(
+                    "Failed to copy CheckM2 quality report from {} to {}: {}",
+                    src.display(),
+                    dest,
+                    e
+                )
+            })?;
+        }
+
         genomes
             .iter()
             .map(|g| (g.clone(), quality_finder.find_comp_cont(g)))
@@ -219,7 +241,7 @@ fn parse_barrnap_gff_list(
     Ok(rrna_cache)
 }
 
-/// Parse two-column TSV mapping genome names to tRNAscan-SE output files  
+/// Parse two-column TSV mapping genome names to tRNAscan-SE output files
 fn parse_trnascan_out_list(list_path: &str) -> Result<HashMap<String, usize>, String> {
     let mut trna_cache = HashMap::new();
     let content = std::fs::read_to_string(list_path)

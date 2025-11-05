@@ -10,6 +10,8 @@ pub mod fastani;
 pub mod finch;
 pub mod genome_info_file;
 pub mod genome_stats;
+pub mod process;
+pub mod process_argument_parsing;
 pub mod skani;
 pub mod sorted_pair_genome_distance_cache;
 pub mod trnascan;

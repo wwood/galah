@@ -109,7 +109,7 @@ mod tests {
             tests/data/set1/1mbp.fna\t6.35\t0.67\t0\t0\t0\t0\tLow quality\n\
             tests/data/set1/500kb.fna\t4.08\t0.02\t0\t0\t0\t0\tLow quality\n\
             tests/data/abisko4/73.20120800_S1D.21.fna\t82.17\t0.00\t1\t1\t1\t19\tMedium quality\n\
-            tests/data/abisko4/73.20110800_S2M.16.fna\t84.95\t0.03\t1\t1\t1\t19\tMedium quality\n")
+            tests/data/abisko4/73.20110800_S2M.16.fna\t84.95\t0.03\t1\t1\t1\t20\tMedium quality\n")
             .unwrap();
     }
 
@@ -415,7 +415,7 @@ mod tests {
         Assert::main_binary()
             .with_args(&[
                 "analyse",
-                "--genome-fasta-files", 
+                "--genome-fasta-files",
                 "tests/data/set1/1mbp.fna",
                 "tests/data/set1/500kb.fna",
                 "tests/data/abisko4/73.20120800_S1D.21.fna",
@@ -424,7 +424,7 @@ mod tests {
                 "tests/data/analyse_file_inputs/checkm2_quality_report.tsv",
                 "--barrnap-gff-list",
                 "tests/data/analyse_file_inputs/barrnap_gff_list.tsv",
-                "--trnascan-out-list", 
+                "--trnascan-out-list",
                 "tests/data/analyse_file_inputs/trnascan_out_list.tsv",
                 "--output-mimag-summary",
                 "/dev/stdout",
@@ -446,7 +446,7 @@ mod tests {
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
-                "tests/data/set1/1mbp.fna", 
+                "tests/data/set1/1mbp.fna",
                 "tests/data/set1/500kb.fna",
                 "tests/data/abisko4/73.20120800_S1D.21.fna",
                 "tests/data/abisko4/73.20110800_S2M.16.fna",
@@ -455,7 +455,7 @@ mod tests {
                 "--barrnap-gff-list",
                 "tests/data/analyse_file_inputs/barrnap_gff_list.tsv",
                 "--trnascan-out-list",
-                "tests/data/analyse_file_inputs/trnascan_out_list.tsv", 
+                "tests/data/analyse_file_inputs/trnascan_out_list.tsv",
                 "--output-mimag-summary",
                 "/dev/stdout",
             ])
@@ -468,5 +468,48 @@ mod tests {
             tests/data/abisko4/73.20120800_S1D.21.fna\t48.37\t1.20\t0\t0\t1\t1\tLow quality\n\
             tests/data/abisko4/73.20110800_S2M.16.fna\t38.37\t2.91\t0\t0\t0\t0\tLow quality\n")
             .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_mock_with_quality_report_output() {
+        let tmpdir = tempdir().unwrap();
+        setup_mock_bin(
+            tmpdir.path(),
+            String::from("73.20120800_S1D.21"),
+            95.0,
+            2.0,
+            1,
+            1,
+            1,
+            20,
+        );
+        let path = env::var("PATH").unwrap();
+        let new_path = format!("{}:{}", tmpdir.path().display(), path);
+
+        let output_dir = tempdir().unwrap();
+        let quality_report_path = output_dir.path().join("quality_report.tsv");
+
+        Assert::main_binary()
+            .with_env(&[("PATH", new_path)])
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "--output-quality-report",
+                quality_report_path.to_str().unwrap(),
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95.00\t2.00\t1\t1\t1\t20\tHigh quality\n")
+            .unwrap();
+
+        // Check that the quality report was written in CheckM2 format
+        let quality_report_contents = std::fs::read_to_string(&quality_report_path).unwrap();
+        assert!(quality_report_contents.contains("Name\tCompleteness\tContamination"));
+        assert!(quality_report_contents.contains("73.20120800_S1D.21\t95\t2\t"));
     }
 }

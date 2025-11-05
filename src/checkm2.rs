@@ -12,6 +12,7 @@ pub struct CheckM2Analyser {
     // Cache for completeness and contamination results
     pub comp_cont_cache: HashMap<String, (f64, f64)>,
     pub database_path: String,
+    pub quality_report_source_path: Option<std::path::PathBuf>,
 }
 
 impl CheckM2Analyser {
@@ -19,13 +20,28 @@ impl CheckM2Analyser {
         Self {
             comp_cont_cache: HashMap::new(),
             database_path,
+            quality_report_source_path: None,
+        }
+    }
+
+    pub fn copy_quality_report(&self, dest_path: &str) -> Result<(), String> {
+        if let Some(src_path) = &self.quality_report_source_path {
+            std::fs::copy(src_path, dest_path).map_err(|e| {
+                format!("Failed to copy quality report from {src_path:?} to {dest_path}: {e}")
+            })?;
+            Ok(())
+        } else {
+            Err("No quality report available to copy (CheckM2 may not have been run)".to_string())
         }
     }
 }
 
 impl QualityFinder for CheckM2Analyser {
     fn prepare_comp_cont(&mut self, genome_paths: &[String], threads: usize, tmp_path: &Path) {
-        self.comp_cont_cache = get_comp_cont(genome_paths, threads, tmp_path, &self.database_path);
+        let (cache, quality_report_path) =
+            get_comp_cont(genome_paths, threads, tmp_path, &self.database_path);
+        self.comp_cont_cache = cache;
+        self.quality_report_source_path = Some(quality_report_path);
     }
 
     fn find_comp_cont(&self, genome_path: &str) -> (f64, f64) {
@@ -45,7 +61,7 @@ fn get_comp_cont(
     threads: usize,
     tmp_path: &Path,
     database_path: &str,
-) -> HashMap<String, (f64, f64)> {
+) -> (HashMap<String, (f64, f64)>, std::path::PathBuf) {
     let mut comp_cont_cache = HashMap::new();
     let checkm2_path = tmp_path.join("checkm2");
 
@@ -136,5 +152,5 @@ fn get_comp_cont(
             );
         }
     }
-    comp_cont_cache
+    (comp_cont_cache, quality_report_path)
 }

@@ -182,13 +182,13 @@ lazy_static! {
 
 {}
 
-  {} cluster --genome-fasta-directory input_genomes/ 
+  {} cluster --genome-fasta-directory input_genomes/
     --output-representative-fasta-directory output_directory/
 
 {}
 
   {} cluster --ani 95 --precluster-ani 90 --precluster-method finch
-    --genome-fasta-list genomes.txt 
+    --genome-fasta-list genomes.txt
     --output-cluster-definition clusters.tsv
 
 {}
@@ -199,7 +199,7 @@ lazy_static! {
 
 {}
 
-  {} cluster --cluster-contigs --small-contigs --genome-fasta-files contigs.fasta 
+  {} cluster --cluster-contigs --small-contigs --genome-fasta-files contigs.fasta
     --output-cluster-definition contig_clusters.tsv
 
 See {} cluster --full-help for further options and further detail.
@@ -308,7 +308,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
         .option(
             Opt::new("FLOAT")
                 .long(&format!("--{}", definition.dereplication_ani_argument))
-                .help(&format!("Overall ANI level to dereplicate at with the primary clusterer. {}", 
+                .help(&format!("Overall ANI level to dereplicate at with the primary clusterer. {}",
                     &default_roff(crate::DEFAULT_ANI))),
         )
         .option(
@@ -579,9 +579,11 @@ pub fn run_cluster_subcommand(
     }
 
     let contig_names_owned = if cluster_contigs {
-        if m.contains_id("output-representative-fasta-directory")
-            || m.contains_id("output-representative-fasta-directory-copy")
-        {
+        if m.contains_id(
+            &GALAH_COMMAND_DEFINITION.dereplication_output_representative_fasta_directory,
+        ) || m.contains_id(
+            &GALAH_COMMAND_DEFINITION.dereplication_output_representative_fasta_directory_copy,
+        ) {
             panic!("Cannot specify --cluster-contigs with --output-representative-fasta-directory or --output-representative-fasta-directory-copy");
         }
 
@@ -674,6 +676,7 @@ pub fn run_cluster_subcommand(
         m,
         &GALAH_COMMAND_DEFINITION,
         ref_genomes_for_clusterer.as_deref(),
+        None,
     )
     .expect("Failed to parse galah clustering arguments correctly");
 
@@ -844,6 +847,7 @@ pub fn filter_genomes_through_checkm<'a>(
     genome_fasta_files: &'a Vec<String>,
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
+    injected_quality_report: Option<String>,
 ) -> std::result::Result<Vec<&'a str>, String> {
     if clap_matches.get_flag(&argument_definition.dereplication_cluster_contigs_argument) {
         return Ok(genome_fasta_files.iter().map(|s| &**s).collect());
@@ -852,7 +856,9 @@ pub fn filter_genomes_through_checkm<'a>(
     match clap_matches.contains_id("checkm-tab-table")
         || clap_matches.contains_id("genome-info")
         || clap_matches.contains_id("checkm2-quality-report")
-        || (clap_matches.contains_id("run-checkm2") && clap_matches.get_flag("run-checkm2"))
+        || injected_quality_report.is_some()
+        || (clap_matches.contains_id(&argument_definition.dereplication_run_checkm2_argument)
+            && clap_matches.get_flag(&argument_definition.dereplication_run_checkm2_argument))
     {
         false => {
             warn!("Since CheckM input has not been provided and CheckM2 has been disabled, genomes are not being ordered by quality. Instead the order of their input is being used");
@@ -897,11 +903,20 @@ pub fn filter_genomes_through_checkm<'a>(
                     )
                     .expect("Error parsing genomeInfo file"),
                 }
-            } else if clap_matches.contains_id("run-checkm2")
-                && clap_matches.get_flag("run-checkm2")
+            } else if injected_quality_report.is_some() {
+                info!("Reading injected CheckM2 Quality report ..");
+                CheckMResultEnum::CheckM2Result {
+                    result: checkm::CheckM2QualityReport::read_file_path(
+                        injected_quality_report.as_deref().unwrap(),
+                    )
+                    .unwrap(),
+                }
+            } else if clap_matches
+                .contains_id(&argument_definition.dereplication_run_checkm2_argument)
+                && clap_matches.get_flag(&argument_definition.dereplication_run_checkm2_argument)
             {
                 // Run CheckM2 as in analyse
-                let db_path = clap_matches.get_one::<String>("checkm2-db-path")
+                let db_path = clap_matches.get_one::<String>(&argument_definition.dereplication_checkm2_db_path_argument)
                     .map(|s| s.to_string())
                     .or_else(|| std::env::var("CHECKM2DB").ok())
                     .expect("CheckM2 database path must be provided via --checkm2-db-path or CHECKM2DB env var");
@@ -1190,6 +1205,7 @@ pub fn generate_galah_clusterer<'a>(
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
     reference_genomes: Option<&[&str]>,
+    injected_quality_report: Option<String>,
 ) -> std::result::Result<GalahClusterer<'a>, String> {
     crate::external_command_checker::check_for_fastani();
 
@@ -1204,7 +1220,12 @@ pub fn generate_galah_clusterer<'a>(
                 .as_str()
     };
 
-    match filter_genomes_through_checkm(genome_fasta_paths, clap_matches, argument_definition) {
+    match filter_genomes_through_checkm(
+        genome_fasta_paths,
+        clap_matches,
+        argument_definition,
+        injected_quality_report,
+    ) {
         Err(e) => std::result::Result::Err(e),
 
         Ok(v2) => {
