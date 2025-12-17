@@ -630,6 +630,37 @@ mod tests {
     // }
 
     #[test]
+    fn test_clustering_low_memory() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "tests/data/set1/500kb.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "--low-memory",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "90",
+                "--ani",
+                "95",
+                "--output-cluster-definition",
+                "/dev/stdout"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/set1/1mbp.fna	tests/data/set1/1mbp.fna\n\
+                tests/data/set1/1mbp.fna	tests/data/set1/500kb.fna\n\
+                tests/data/abisko4/73.20120600_S2D.19.fna	tests/data/abisko4/73.20120600_S2D.19.fna\n\
+                tests/data/abisko4/73.20120600_S2D.19.fna	tests/data/abisko4/73.20120800_S1X.13.fna\n")
+                .unwrap();
+    }
+
+    #[test]
     fn test_reference_genomes_argument() {
         Assert::main_binary()
             .with_args(&[

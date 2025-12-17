@@ -6,16 +6,21 @@ pub struct FinchPreclusterer {
     pub min_ani: f32,
     pub num_kmers: usize,
     pub kmer_length: u8,
+    pub low_memory: bool,
 }
 
 impl PreclusterDistanceFinder for FinchPreclusterer {
     fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache {
-        distances(
-            genome_fasta_paths,
-            self.min_ani,
-            self.num_kmers,
-            self.kmer_length,
-        )
+        if self.low_memory {
+            panic!("Low-memory clustering currently only supported with skani preclusterer");
+        } else {
+            distances(
+                genome_fasta_paths,
+                self.min_ani,
+                self.num_kmers,
+                self.kmer_length,
+            )
+        }
     }
 
     fn distances_contigs(

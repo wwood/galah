@@ -26,6 +26,7 @@ lazy_static! {
             dereplication_small_contigs_argument: "small-contigs".to_string(),
             dereplication_large_contigs_argument: "large-contigs".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
+            dereplication_low_memory_argument: "low-memory".to_string(),
             dereplication_reference_genomes_argument: "reference-genomes".to_string(),
             dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
             dereplication_output_cluster_definition_file: "output-cluster-definition"
@@ -203,15 +204,23 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue)
             .requires(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_small_contigs_argument))
+        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
+            .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
+            .help("Reduce memory by sketching all genomes and searching instead of triangle")
+            .action(clap::ArgAction::SetTrue)
+            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
+            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .long("reference-genomes")
             .help("Reference genomes to cluster against. These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
             .value_delimiter(' ')
             .num_args(1..)
+            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
             .long("reference-genomes-list")
             .help("File containing paths to reference genomes (one per line). These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
+            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument))
         .arg(Arg::new("threads")
             .short('t')
@@ -385,6 +394,7 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         dereplication_large_contigs_argument: "large-contigs".to_string(),
         dereplication_fraglen_argument: "fragment-length".to_string(),
         dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
+        dereplication_low_memory_argument: "low-memory".to_string(),
         dereplication_reference_genomes_argument: "reference-genomes".to_string(),
         dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
         dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),

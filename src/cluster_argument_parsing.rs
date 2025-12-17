@@ -128,6 +128,7 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_large_contigs_argument: String,
     pub dereplication_fraglen_argument: String,
     pub dereplication_cluster_contigs_argument: String,
+    pub dereplication_low_memory_argument: String,
     pub dereplication_reference_genomes_argument: String,
     pub dereplication_reference_genomes_list_argument: String,
     // pub dereplication_ani_method_argument: String,
@@ -153,6 +154,7 @@ lazy_static! {
             dereplication_large_contigs_argument: "large-contigs".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
             dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
+            dereplication_low_memory_argument: "low-memory".to_string(),
             dereplication_reference_genomes_argument: "reference-genomes".to_string(),
             dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
             // dereplication_ani_method_argument: "ani-method".to_string(),
@@ -429,6 +431,14 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 ))
                 .help("Do not use small-genomes settings in skani when clustering contigs. \
                 Recommended for contigs >= 20kb. Mutually exclusive with --small-contigs."),
+        )
+        .flag(
+            Flag::new()
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_low_memory_argument
+                ))
+                .help("Reduce memory use by sketching to file and searching it instead."),
         )
         .option(
             Opt::new("PATH ...")
@@ -1279,6 +1289,8 @@ pub fn generate_galah_clusterer<'a>(
                         }),
                         num_kmers: 1000,
                         kmer_length: 21,
+                        low_memory: clap_matches
+                            .get_flag(&argument_definition.dereplication_low_memory_argument),
                     }),
                     "skani" => Preclusterer::Skani(SkaniPreclusterer {
                         threshold: {
@@ -1350,6 +1362,8 @@ pub fn generate_galah_clusterer<'a>(
                         }),
                         small_genomes,
                         threads,
+                        low_memory: clap_matches
+                            .get_flag(&argument_definition.dereplication_low_memory_argument),
                     }),
                     _ => panic!("Programming error"),
                 },
@@ -1663,15 +1677,23 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue)
             .requires(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_small_contigs_argument))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_low_memory_argument)
+            .long(&*GALAH_COMMAND_DEFINITION.dereplication_low_memory_argument)
+            .help("Reduce memory by sketching all genomes and searching instead of triangle")
+            .action(clap::ArgAction::SetTrue)
+            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
+            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .long("reference-genomes")
             .help("Reference genomes to cluster against. These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
             .value_delimiter(' ')
             .num_args(1..)
+            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_low_memory_argument)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
             .long("reference-genomes-list")
             .help("File containing paths to reference genomes (one per line). These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
+            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_low_memory_argument)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument))
         .arg(Arg::new("threads")
             .short('t')
