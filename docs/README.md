@@ -19,6 +19,11 @@ method. That is, it clusters microbial genomes together based on their average
 nucleotide identity (ANI), and chooses a single member of each cluster as the
 representative.
 
+Galah also determines MIMAG quality scores for genomes based on their
+completeness, contamination and the presence of rRNA and tRNA genes.
+
+## Clustering
+
 Galah uses a greedy clustering approach to speed up genome dereplication,
 relative to e.g. [dRep](https://drep.readthedocs.io/), particularly when there
 are many closely related genomes (i.e. >95% ANI). Generated cluster
