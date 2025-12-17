@@ -23,6 +23,7 @@ checkm2 = ">=1.1.0"
 
 [feature.dev.dependencies]
 extern = "*"
+pandoc = "*"
 
 # Define environments
 [environments]

@@ -8,7 +8,7 @@
 
 # Galah
 
-[<img src="docs/_include/galah_logo.png" alt="Galah logo" width="600"/>](galah_logo.png)
+[<img src="docs/_include/galah_logo.png" alt="Galah logo" width="600"/>](https://github.com/wwood/galah/blob/main/docs/_include/galah_logo.png)
 
 Galah - Scalable dereplication and MIMAG calculation for metagenome assembled genomes 
 

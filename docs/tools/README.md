@@ -5,22 +5,14 @@ title: tools
 Tools
 ========
 
-## Bin Chicken coassemble
+## Galah cluster
 
-[coassemble](/tools/coassemble) is the primary command used to cluster samples using unbinned single-copy marker genes and assemble/recover as suggested.
+[cluster](/tools/cluster) is the primary command used to dereplicate genomes or contigs into clusters based on average nucleotide identity (ANI), choosing a single representative genome from each cluster.
 
-## Bin Chicken update
+## Galah analyse
 
-[update](/tools/update) allows you to apply further processing to a previous Bin Chicken run (e.g. actually running assembly/recovery, generating unmapped reads files, and/or downloading SRA reads).
+[analyse](/tools/analyse) is used to determine MIMAG quality scores for genomes based on their completeness, contamination and the presence of rRNA and tRNA genes.
 
-## Bin Chicken iterate
+## Galah process
 
-[iterate](/tools/iterate) enables an iterative workflow, where new coassemblies are suggested, searching for novelty based on old and newly recovered bins.
-
-## Bin Chicken evaluate
-
-[evaluate](/tools/evaluate) is used to evaluate the targeting success of a Bin Chicken run.
-
-## Bin Chicken build
-
-[build](/setup) generates all dependency conda environments and sets environment variables. Ideal for first-time use.
+[process](/tools/process) is used to run both the analyse and cluster commands in sequence.

@@ -21,7 +21,7 @@ if __name__ == "__main__":
         raise Exception("Please run the non-CI tests first")
 
     print("running release.sh")
-    extern.run("./release.sh")
+    extern.run("admin/release.sh")
 
     version = get_version('Cargo.toml')
     print("version is {}".format(version))
@@ -41,6 +41,9 @@ if __name__ == "__main__":
             citations_lines.append(line)
     with open("CITATION.cff", "w") as f:
         f.writelines(citations_lines)
+
+    print("building docs")
+    extern.run("pixi run -e dev python3 admin/build_docs.py --version {}".format(version))
 
     print("Checking if repo is clean ..")
     extern.run('if [[ $(git diff --shortstat 2> /dev/null | tail -n1) != "" ]]; then exit 1; fi')
