@@ -1,0 +1,13 @@
+---
+title: "Galah"
+base_path: /galah
+logo: galah_logo.png
+colors:
+  main: "#bc7dab"
+navigation:
+  - path: docs/installation.md
+  - path: docs/tools
+    children:
+    - path: docs/tools/cluster.md
+    - path: docs/tools/analyse.md
+    - path: docs/tools/process.md
