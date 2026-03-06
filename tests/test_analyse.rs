@@ -130,7 +130,13 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", new_path)])
+            .with_env(&[(
+                "PATH",
+                new_path
+            ),(
+                "CHECKM2DB",
+                String::from("/tmp/mockdb")
+            )])
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
@@ -148,6 +154,7 @@ mod tests {
 
     #[test]
     fn test_analyse_mock_fake() {
+        // Add extra non-standard tRNAs to check that they are not counted
         let tmpdir = tempdir().unwrap();
         setup_mock_bin(
             tmpdir.path(),
@@ -163,7 +170,13 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", new_path)])
+            .with_env(&[(
+                "PATH",
+                new_path
+            ),(
+                "CHECKM2DB",
+                String::from("/tmp/mockdb")
+            )])
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
@@ -196,7 +209,13 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", new_path)])
+            .with_env(&[(
+                "PATH",
+                new_path
+            ),(
+                "CHECKM2DB",
+                String::from("/tmp/mockdb")
+            )])
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
@@ -229,7 +248,13 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", new_path)])
+            .with_env(&[(
+                "PATH",
+                new_path
+            ),(
+                "CHECKM2DB",
+                String::from("/tmp/mockdb")
+            )])
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
@@ -262,7 +287,13 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", new_path)])
+            .with_env(&[(
+                "PATH",
+                new_path
+            ),(
+                "CHECKM2DB",
+                String::from("/tmp/mockdb")
+            )])
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
@@ -295,7 +326,13 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", new_path)])
+            .with_env(&[(
+                "PATH",
+                new_path
+            ),(
+                "CHECKM2DB",
+                String::from("/tmp/mockdb")
+            )])
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
@@ -328,7 +365,13 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", new_path)])
+            .with_env(&[(
+                "PATH",
+                new_path
+            ),(
+                "CHECKM2DB",
+                String::from("/tmp/mockdb")
+            )])
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
@@ -361,7 +404,13 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", new_path)])
+            .with_env(&[(
+                "PATH",
+                new_path
+            ),(
+                "CHECKM2DB",
+                String::from("/tmp/mockdb")
+            )])
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
@@ -394,7 +443,13 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", new_path)])
+            .with_env(&[(
+                "PATH",
+                new_path
+            ),(
+                "CHECKM2DB",
+                String::from("/tmp/mockdb")
+            )])
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",
@@ -490,7 +545,7 @@ mod tests {
         let quality_report_path = output_dir.path().join("quality_report.tsv");
 
         Assert::main_binary()
-            .with_env(&[("PATH", new_path)])
+            .with_env(&[("PATH", new_path), ("CHECKM2DB", String::from("/tmp/mockdb"))])
             .with_args(&[
                 "analyse",
                 "--genome-fasta-files",

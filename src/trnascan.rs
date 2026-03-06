@@ -81,30 +81,3 @@ pub fn count_unique_standard_trnas(out_path: &str) -> usize {
     }
     unique_trnas.len()
 }
-
-pub fn parse_trnascan_hits(out_path: &str) -> usize {
-    let content = std::fs::read_to_string(out_path).unwrap();
-    content
-        .lines()
-        .skip(3)
-        .filter(|l| !l.trim().is_empty())
-        .count()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs::{self, File};
-    use std::io::Write;
-
-    #[test]
-    fn test_parse_trnascan_hits() {
-        let trna_content = "Header1\nHeader2\nHeader3\nchr1\t1\t1\t100\tType1\tCodon1\t\t\t10.0\tNote1\nchr1\t2\t101\t200\tType2\tCodon2\t\t\t20.0\tNote2\n";
-        let path = "test_trna.out";
-        let mut file = File::create(path).unwrap();
-        file.write_all(trna_content.as_bytes()).unwrap();
-        let hits = parse_trnascan_hits(path);
-        assert_eq!(hits, 2);
-        fs::remove_file(path).unwrap();
-    }
-}

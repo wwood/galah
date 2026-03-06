@@ -30,3 +30,8 @@ pandoc = "*"
 default = ["main","common"]  # Environment with x86_64-specific tools
 osx = ["common"]  # Environment with common tools only
 dev = ["dev","main","common"]
+
+[activation.env]
+# Prevents packages from being loaded from the user site-packages directory
+# Caused conflict when numpy==2 was loaded by CheckM2
+PYTHONNOUSERSITE = "1"

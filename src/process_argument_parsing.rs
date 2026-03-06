@@ -173,7 +173,7 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.checkm2_db_path_argument)
             .long("checkm2-db-path")
-            .help("Path to CheckM2 database. If not specified, will use $CHECKM2_DB_PATH environment variable if set."))
+            .help("Path to CheckM2 database. If not specified, will use $CHECKM2DB environment variable if set."))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_prethreshold_ani_argument)
             .long("precluster-ani")
             .value_parser(clap::value_parser!(f32))

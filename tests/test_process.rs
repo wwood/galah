@@ -175,7 +175,10 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", &new_path)])
+            .with_env(&[
+                ("PATH", new_path),
+                ("CHECKM2DB", String::from("/tmp/mockdb")),
+            ])
             .with_args(&[
                 "process",
                 "--genome-fasta-files",
@@ -232,7 +235,10 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", &new_path)])
+            .with_env(&[
+                ("PATH", new_path),
+                ("CHECKM2DB", String::from("/tmp/mockdb")),
+            ])
             .with_args(&[
                 "process",
                 "--genome-fasta-files",
@@ -289,7 +295,10 @@ mod tests {
         let new_path = format!("{}:{}", tmpdir.path().display(), path);
 
         Assert::main_binary()
-            .with_env(&[("PATH", &new_path)])
+            .with_env(&[
+                ("PATH", new_path),
+                ("CHECKM2DB", String::from("/tmp/mockdb")),
+            ])
             .with_args(&[
                 "process",
                 "--genome-fasta-files",

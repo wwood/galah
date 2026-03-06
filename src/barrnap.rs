@@ -92,26 +92,3 @@ pub fn parse_rrna_types(gff_path: &str) -> (usize, usize, usize) {
     }
     (r5s, r16s, r23s)
 }
-
-pub fn parse_barrnap_hits(gff_path: &str) -> usize {
-    let content = std::fs::read_to_string(gff_path).unwrap();
-    content.lines().filter(|l| !l.starts_with('#')).count()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs::{self, File};
-    use std::io::Write;
-
-    #[test]
-    fn test_parse_barrnap_hits() {
-        let gff_content = "##gff-version 3\nchr1\tbarrnap\trRNA\t1\t100\t.\t+\t.\tID=rrna1\nchr1\tbarrnap\trRNA\t200\t300\t.\t-\t.\tID=rrna2\n";
-        let path = "test_barrnap.gff";
-        let mut file = File::create(path).unwrap();
-        file.write_all(gff_content.as_bytes()).unwrap();
-        let hits = parse_barrnap_hits(path);
-        assert_eq!(hits, 2);
-        fs::remove_file(path).unwrap();
-    }
-}

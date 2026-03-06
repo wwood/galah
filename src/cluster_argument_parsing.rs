@@ -920,11 +920,15 @@ pub fn filter_genomes_through_checkm<'a>(
                     .map(|s| s.to_string())
                     .or_else(|| std::env::var("CHECKM2DB").ok())
                     .expect("CheckM2 database path must be provided via --checkm2-db-path or CHECKM2DB env var");
+                let threads = *clap_matches
+                    .get_one::<u16>("threads")
+                    .expect("Failed to parse --threads argument")
+                    as usize;
                 use crate::checkm2::CheckM2Analyser;
                 let tmpdir = tempfile::tempdir().expect("Failed to create tempdir for CheckM2");
                 let tmp_path = tmpdir.path();
                 let mut analyser = CheckM2Analyser::new(db_path);
-                analyser.prepare_comp_cont(genome_fasta_files, 1, tmp_path);
+                analyser.prepare_comp_cont(genome_fasta_files, threads, tmp_path);
                 CheckMResultEnum::CheckM2Result {
                     result: {
                         let quality_report_path =
@@ -1633,7 +1637,7 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_checkm2_db_path_argument)
             .long("checkm2-db-path")
-            .help("Path to CheckM2 database. If not specified, will use $CHECKM2_DB_PATH environment variable if set."))
+            .help("Path to CheckM2 database. If not specified, will use $CHECKM2DB environment variable if set."))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_prethreshold_ani_argument)
             .long("precluster-ani")
             .value_parser(clap::value_parser!(f32))

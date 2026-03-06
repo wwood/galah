@@ -557,11 +557,25 @@ fn generate_galah_analyser<'a>(
     command_definition: &GalahAnalyserCommandDefinition,
 ) -> Result<GalahAnalyser<'a>, String> {
     let threads = *m.get_one::<u16>("threads").unwrap() as usize;
-    let checkm2_db_path = m
-        .get_one::<String>(&command_definition.checkm2_db_path_argument)
-        .map(|s| s.to_string())
-        .or_else(|| std::env::var("CHECKM2DB").ok())
-        .unwrap_or_default();
+
+    // Quality analyser (CheckM2) input directly or with DB path from arg or env
+    let checkm2_quality_report = m
+        .get_one::<String>(&command_definition.checkm2_quality_report_argument)
+        .map(|s| s.to_string());
+    let checkm_tab_table = m
+        .get_one::<String>(&command_definition.checkm_tab_table_argument)
+        .map(|s| s.to_string());
+
+    let checkm2_db_path = if checkm2_quality_report.is_none() && checkm_tab_table.is_none() {
+        m.get_one::<String>(&command_definition.checkm2_db_path_argument)
+            .map(|s| s.to_string())
+            .or_else(|| std::env::var("CHECKM2DB").ok())
+            .expect(
+                "CheckM2 database path must be provided via --checkm2-db-path or CHECKM2DB env var",
+            )
+    } else {
+        String::new()
+    };
 
     let quality_analyser = match m
         .get_one::<String>(&command_definition.quality_method_argument)
@@ -588,12 +602,6 @@ fn generate_galah_analyser<'a>(
     };
 
     // Extract file input arguments
-    let checkm2_quality_report = m
-        .get_one::<String>(&command_definition.checkm2_quality_report_argument)
-        .map(|s| s.to_string());
-    let checkm_tab_table = m
-        .get_one::<String>(&command_definition.checkm_tab_table_argument)
-        .map(|s| s.to_string());
     let barrnap_gff_list = m
         .get_one::<String>(&command_definition.barrnap_gff_list_argument)
         .map(|s| s.to_string());
@@ -641,7 +649,7 @@ pub fn write_analyse_outputs(
                 )
                 .unwrap();
             } else {
-                writeln!(f, "{genome}\t0\t0\t0\t0\tMedium quality").unwrap();
+                writeln!(f, "{genome}\t0.0\t0.0\t0\t0\t0\t0\tMedium quality").unwrap();
             }
         }
     }

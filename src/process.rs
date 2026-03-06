@@ -14,12 +14,25 @@ pub fn process_command(
     cluster_def: &cluster_argument_parsing::GalahClustererCommandDefinition,
     output_quality_report_path: Option<String>,
 ) -> ProcessResult {
-    // Quality analyser (CheckM2) with DB path from arg or env
-    let checkm2_db_path = cluster_args
-        .get_one::<String>("checkm2-db-path")
-        .map(|s| s.to_string())
-        .or_else(|| std::env::var("CHECKM2DB").ok())
-        .unwrap_or_default();
+    // Quality analyser (CheckM2) input directly or with DB path from arg or env
+    let checkm2_quality_report = cluster_args
+        .get_one::<String>("checkm2-quality-report")
+        .map(|s| s.to_string());
+    let checkm_tab_table = cluster_args
+        .get_one::<String>("checkm-tab-table")
+        .map(|s| s.to_string());
+
+    let checkm2_db_path = if checkm2_quality_report.is_none() && checkm_tab_table.is_none() {
+        cluster_args
+            .get_one::<String>("checkm2-db-path")
+            .map(|s| s.to_string())
+            .or_else(|| std::env::var("CHECKM2DB").ok())
+            .expect(
+                "CheckM2 database path must be provided via --checkm2-db-path or CHECKM2DB env var",
+            )
+    } else {
+        String::new()
+    };
     let mut quality_finder = crate::analyse_argument_parsing::QualityAnalyser::CheckM2(
         CheckM2Analyser::new(checkm2_db_path),
     );
@@ -29,12 +42,6 @@ pub fn process_command(
     let trna_finder = crate::analyse_argument_parsing::TrnaAnalyser::Trnascan(TrnascanAnalyser);
 
     // Input overrides for analyse (allow pre-generated files)
-    let checkm2_quality_report = cluster_args
-        .get_one::<String>("checkm2-quality-report")
-        .map(|s| s.to_string());
-    let checkm_tab_table = cluster_args
-        .get_one::<String>("checkm-tab-table")
-        .map(|s| s.to_string());
     let barrnap_gff_list = cluster_args
         .get_one::<String>("barrnap-gff-list")
         .map(|s| s.to_string());
