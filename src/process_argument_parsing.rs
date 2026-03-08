@@ -1,6 +1,5 @@
 use crate::analyse_argument_parsing::{
     setup_analyse_outputs, write_analyse_outputs, GalahAnalyserCommandDefinition,
-    ANALYSE_COMMAND_DEFINITION,
 };
 use crate::cluster_argument_parsing::{
     setup_galah_outputs, write_galah_outputs, GalahClustererCommandDefinition, GalahOutput,
@@ -478,7 +477,7 @@ pub fn run_process_subcommand(
     info!("Processing {} genomes ..", genome_fasta_files.len());
 
     // Open file handles here so errors are caught before CPU-heavy commands
-    let analyse_output_definitions = setup_analyse_outputs(m, &ANALYSE_COMMAND_DEFINITION);
+    let analyse_output_definitions = setup_analyse_outputs(m, &PROCESS_ANALYSE_COMMAND_DEFINITION);
 
     let output_definitions: GalahOutput =
         setup_galah_outputs(m, &PROCESS_CLUSTER_COMMAND_DEFINITION);
