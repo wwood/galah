@@ -553,12 +553,7 @@ pub fn run_cluster_subcommand(
     let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true)
         .unwrap()
         .into_iter()
-        .map(|s| {
-            s.split_whitespace()
-                .next()
-                .unwrap_or("")
-                .to_string()
-        })
+        .map(|s| s.split('\t').next().unwrap_or("").to_string())
         .collect();
 
     let cluster_contigs =
@@ -606,7 +601,7 @@ pub fn run_cluster_subcommand(
                 let seq = seq1.expect("invalid record");
                 let seq_id = {
                     let raw = String::from_utf8_lossy(seq.id());
-                    raw.split_whitespace().next().unwrap_or("").to_string()
+                    raw.split('\t').next().unwrap_or("").to_string()
                 };
                 if contig_names2.contains(&seq_id) {
                     panic!(
@@ -641,7 +636,7 @@ pub fn run_cluster_subcommand(
             content
                 .lines()
                 .filter(|line| !line.trim().is_empty())
-                .map(|s| s.split_whitespace().next().unwrap_or("").to_string())
+                .map(|s| s.split('\t').next().unwrap_or("").to_string())
                 .collect::<Vec<String>>(),
         )
     } else {
