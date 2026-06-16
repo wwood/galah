@@ -550,7 +550,11 @@ pub fn run_cluster_subcommand(
         .build_global()
         .expect("Programming error: rayon initialised multiple times");
 
-    let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true).unwrap();
+    let genome_fasta_files: Vec<String> = parse_list_of_genome_fasta_files(m, true)
+        .unwrap()
+        .into_iter()
+        .map(|s| s.split('\t').next().unwrap_or("").to_string())
+        .collect();
 
     let cluster_contigs =
         m.get_flag(&GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument);
@@ -595,7 +599,10 @@ pub fn run_cluster_subcommand(
                     genome_fasta_path));
             while let Some(seq1) = reader.next() {
                 let seq = seq1.expect("invalid record");
-                let seq_id = String::from_utf8_lossy(seq.id()).into_owned();
+                let seq_id = {
+                    let raw = String::from_utf8_lossy(seq.id());
+                    raw.split('\t').next().unwrap_or("").to_string()
+                };
                 if contig_names2.contains(&seq_id) {
                     panic!(
                         "Duplicate contig name found in file '{}': {}",
@@ -629,7 +636,7 @@ pub fn run_cluster_subcommand(
             content
                 .lines()
                 .filter(|line| !line.trim().is_empty())
-                .map(|s| s.to_string())
+                .map(|s| s.split('\t').next().unwrap_or("").to_string())
                 .collect::<Vec<String>>(),
         )
     } else {

@@ -217,6 +217,49 @@ mod tests {
     }
 
     #[test]
+    fn test_headers_with_tab_characters() {
+        // 73.20120800_S1D.21	p__Euryarchaeota (UID49)	95	228	153	10	218	0	0	0	0	95.21	0.00	0.00
+        // 73.20110800_S2M.16	p__Euryarchaeota (UID49)	95	228	153	8	219	1	0	0	0	95.92	0.65	0.00
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko_tabs/73.20120800_S1D.21.fna",
+                "tests/data/abisko_tabs/73.20110800_S2M.16.fna",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm-tab-table",
+                "tests/data/abisko_tabs/abisko4.csv"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/abisko_tabs/73.20110800_S2M.16.fna	tests/data/abisko_tabs/73.20110800_S2M.16.fna\n\
+                tests/data/abisko_tabs/73.20110800_S2M.16.fna	tests/data/abisko_tabs/73.20120800_S1D.21.fna\n")
+                .unwrap();
+    }
+
+    #[test]
+    fn test_genome_input_file_with_tab_characters() {
+        // 73.20120800_S1D.21	p__Euryarchaeota (UID49)	95	228	153	10	218	0	0	0	0	95.21	0.00	0.00
+        // 73.20110800_S2M.16	p__Euryarchaeota (UID49)	95	228	153	8	219	1	0	0	0	95.92	0.65	0.00
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-list",
+                "tests/data/abisko4/genome_list_with_tabs.tsv",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm-tab-table",
+                "tests/data/abisko_tabs/abisko4.csv"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20110800_S2M.16.fna\n\
+                tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/abisko4/73.20120800_S1D.21.fna\n")
+                .unwrap();
+    }
+
+    #[test]
     fn test_min_aligned_fraction() {
         Assert::main_binary()
             .with_args(&[
