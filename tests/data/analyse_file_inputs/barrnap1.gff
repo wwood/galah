@@ -1,0 +1,4 @@
+##gff-version 3
+genome1	barrnap	rRNA	100	251	.	+	.	ID=rrna001;Name=16S_rRNA;product=16S ribosomal RNA
+genome1	barrnap	rRNA	500	650	.	+	.	ID=rrna002;Name=23S_rRNA;product=23S ribosomal RNA
+genome1	barrnap	rRNA	700	820	.	+	.	ID=rrna003;Name=5S_rRNA;product=5S ribosomal RNA

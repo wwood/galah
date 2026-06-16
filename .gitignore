@@ -6,3 +6,6 @@ dist
 # pixi environments
 .pixi
 *.egg-info
+
+/example
+site/

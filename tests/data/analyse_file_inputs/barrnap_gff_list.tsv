@@ -1,0 +1,4 @@
+tests/data/set1/1mbp.fna	tests/data/analyse_file_inputs/barrnap1.gff
+tests/data/set1/500kb.fna	tests/data/analyse_file_inputs/barrnap2.gff
+tests/data/abisko4/73.20120800_S1D.21.fna	tests/data/analyse_file_inputs/barrnap3.gff
+tests/data/abisko4/73.20110800_S2M.16.fna	tests/data/analyse_file_inputs/barrnap4.gff

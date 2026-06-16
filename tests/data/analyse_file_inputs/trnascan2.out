@@ -1,0 +1,13 @@
+Sequence                      		tRNA 	Bounds	tRNA	Anti	Intron Bounds	Inf	      
+Name                          	tRNA #	Begin	End  	Type	Codon	Begin	End	Score	Note
+--------                      	------	-----	------	----	-----	-----	----	------	------
+genome2.1	1	80	156	Phe	GAA	0	0	58.6	
+genome2.2	2	225	313	Thr	TGT	0	0	77.8	
+genome2.3	3	320	392	Leu	TAA	0	0	82.3	
+genome2.4	4	512	585	Val	TAC	0	0	72.1	
+genome2.5	5	600	673	Ser	TGA	0	0	69.4	
+genome2.6	6	705	777	Pro	TGG	0	0	80.5	
+genome2.7	7	820	892	Ala	TGC	0	0	75.2	
+genome2.8	8	950	1022	Gly	TCC	0	0	71.8	
+genome2.9	9	1100	1172	Asp	GTC	0	0	78.9	
+genome2.10	10	1250	1322	Glu	TTC	0	0	83.1	

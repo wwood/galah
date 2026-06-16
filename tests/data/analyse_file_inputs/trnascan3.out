@@ -1,0 +1,4 @@
+Sequence                      		tRNA 	Bounds	tRNA	Anti	Intron Bounds	Inf	      
+Name                          	tRNA #	Begin	End  	Type	Codon	Begin	End	Score	Note
+--------                      	------	-----	------	----	-----	-----	----	------	------
+genome3.1	1	80	156	Phe	GAA	0	0	58.6	

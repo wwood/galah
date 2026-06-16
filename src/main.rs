@@ -46,6 +46,20 @@ fn main() {
                 fraglen,
             );
         }
+        Some("analyse") => {
+            galah::analyse_argument_parsing::run_analyse_subcommand(
+                &matches,
+                "galah",
+                crate_version!(),
+            );
+        }
+        Some("process") => {
+            galah::process_argument_parsing::run_process_subcommand(
+                &matches,
+                "galah",
+                crate_version!(),
+            );
+        }
         _ => panic!("Programming error"),
     }
 }
@@ -114,5 +128,7 @@ fn build_cli() -> Command {
     //             .takes_value(true)))
 
     app = galah::cluster_argument_parsing::add_cluster_subcommand(app);
+    app = galah::analyse_argument_parsing::add_analyse_subcommand(app);
+    app = galah::process_argument_parsing::add_process_subcommand(app);
     app
 }
