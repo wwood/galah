@@ -13,6 +13,8 @@ galah cluster --ani 95 --precluster-ani 90 --precluster-method finch --genome-fa
 # Example: cluster a set of genomes and then their representatives against a set of reference genomes (reduces memory usage against clustering all together)
 galah cluster --genome-fasta-directory input_genomes/ --output-representative-list genome_reps.txt
 galah cluster --genome-fasta-list genome_reps.txt --reference-genomes-list reference_genomes.txt --output-cluster-definition clusters.tsv
+# Example: cluster a large set of genomes using low-memory mode
+galah cluster --low-memory --genome-fasta-directory input_genomes/ --output-representative-fasta-directory output_directory/
 ```
 
 ### Precluster ANI

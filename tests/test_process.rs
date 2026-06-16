@@ -217,6 +217,67 @@ mod tests {
     }
 
     #[test]
+    fn test_process_mock_low_memory() {
+        let tmpdir = tempdir().unwrap();
+        let output_mimag = tmpdir.path().join("mimag_summary.tsv");
+        let output_quality = tmpdir.path().join("quality_report.tsv");
+
+        setup_mock_bin(
+            tmpdir.path(),
+            &[
+                (String::from("73.20120800_S1D.21"), 95.0, 2.0, 1, 1, 1, 20),
+                (String::from("73.20110800_S2M.16"), 90.0, 5.0, 1, 1, 1, 20),
+                (String::from("1mbp"), 85.0, 3.0, 1, 1, 1, 15),
+                (String::from("500kb"), 80.0, 4.0, 0, 1, 0, 10),
+            ],
+        );
+        let path = env::var("PATH").unwrap();
+        let new_path = format!("{}:{}", tmpdir.path().display(), path);
+
+        Assert::main_binary()
+            .with_env(&[
+                ("PATH", new_path),
+                ("CHECKM2DB", String::from("/tmp/mockdb")),
+            ])
+            .with_args(&[
+                "process",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "tests/data/set1/500kb.fna",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--low-memory",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--output-mimag-summary",
+                output_mimag.to_str().unwrap(),
+                "--output-quality-report",
+                output_quality.to_str().unwrap(),
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            tests/data/abisko4/73.20120800_S1D.21.fna\ttests/data/abisko4/73.20120800_S1D.21.fna\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\ttests/data/abisko4/73.20110800_S2M.16.fna\n\
+            tests/data/set1/1mbp.fna\ttests/data/set1/1mbp.fna\n\
+            tests/data/set1/1mbp.fna\ttests/data/set1/500kb.fna\n")
+            .unwrap();
+
+        // Verify analyse outputs were created properly
+        assert!(output_mimag.exists());
+        let content = fs::read_to_string(&output_mimag).unwrap();
+        let expected = "\
+            genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality\n\
+            tests/data/set1/1mbp.fna\t85.00\t3.00\t1\t1\t1\t15\tMedium quality\n\
+            tests/data/set1/500kb.fna\t80.00\t4.00\t0\t1\t0\t10\tMedium quality\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\t95.00\t2.00\t1\t1\t1\t20\tHigh quality\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\t90.00\t5.00\t1\t1\t1\t20\tMedium quality\n";
+        assert_eq!(content, expected);
+
+        assert!(output_quality.exists());
+    }
+
+    #[test]
     fn test_process_mock_invert() {
         let tmpdir = tempdir().unwrap();
         let output_mimag = tmpdir.path().join("mimag_summary.tsv");

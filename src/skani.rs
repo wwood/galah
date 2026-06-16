@@ -14,17 +14,28 @@ pub struct SkaniPreclusterer {
     pub min_aligned_threshold: f32,
     pub small_genomes: bool,
     pub threads: u16,
+    pub low_memory: bool,
 }
 
 impl PreclusterDistanceFinder for SkaniPreclusterer {
     fn distances(&self, genome_fasta_paths: &[&str]) -> SortedPairGenomeDistanceCache {
-        precluster_skani(
-            genome_fasta_paths,
-            self.threshold,
-            self.min_aligned_threshold,
-            self.small_genomes,
-            self.threads,
-        )
+        if self.low_memory {
+            precluster_skani_lowmem(
+                genome_fasta_paths,
+                self.threshold,
+                self.min_aligned_threshold,
+                self.small_genomes,
+                self.threads,
+            )
+        } else {
+            precluster_skani(
+                genome_fasta_paths,
+                self.threshold,
+                self.min_aligned_threshold,
+                self.small_genomes,
+                self.threads,
+            )
+        }
     }
 
     fn distances_contigs(
@@ -205,6 +216,158 @@ fn precluster_skani(
         .expect("Unexpected wait failure outside bird_tool_utils for skani");
     debug!("Found skani distances: {:#?}", distances);
     info!("Finished skani triangle.");
+
+    distances
+}
+
+/// Create preclusters using skani in low-memory mode by sketching all genomes
+/// then searching all genomes against the sketch database.
+fn precluster_skani_lowmem(
+    genome_fasta_paths: &[&str],
+    threshold: f32,
+    min_aligned_threshold: f32,
+    small_genomes: bool,
+    threads: u16,
+) -> SortedPairGenomeDistanceCache {
+    if threshold < 85.0 {
+        panic!(
+            "Error: skani produces inaccurate results with ANI less than 85%. Provided: {}",
+            threshold
+        );
+    }
+
+    if small_genomes {
+        panic!("Error: skani does not support small genomes with low-memory preclustering");
+    }
+
+    // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output
+    let sanitized: Vec<tempfile::NamedTempFile> = genome_fasta_paths
+        .iter()
+        .map(|p| sanitize_fasta_headers(p))
+        .collect();
+
+    // Create a tempfile to list all the sanitized fasta file paths
+    let mut tf = tempfile::Builder::new()
+        .prefix("galah-input-genomes")
+        .suffix(".txt")
+        .tempfile()
+        .expect("Failed to open temporary file to run skani");
+
+    for sf in &sanitized {
+        writeln!(tf, "{}", sf.path().to_str().unwrap())
+            .expect("Failed to write sanitized genome fasta paths to tempfile for skani");
+    }
+
+    // Create a tempdir to store all genome sketches
+    let db_dir =
+        tempfile::TempDir::new().expect("Failed to create temporary directory for skani sketches");
+
+    info!("Running skani to sketch genomes for low-memory mode ..");
+    let mut cmd_sketch = std::process::Command::new("skani");
+    cmd_sketch
+        .arg("sketch")
+        .arg("-t")
+        .arg(format!("{threads}"))
+        .arg("-l")
+        .arg(tf.path().to_str().unwrap())
+        .arg("-o")
+        .arg(db_dir.path().join("galah-skani").to_str().unwrap())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    debug!("Running skani command: {:?}", &cmd_sketch);
+
+    let mut process_sketch = cmd_sketch
+        .spawn()
+        .unwrap_or_else(|_| panic!("Failed to spawn {}", "skani"));
+
+    // Wait for sketching to complete and check the result
+    process_sketch
+        .wait()
+        .expect("Failed to wait for skani sketch");
+
+    info!("Running skani search to get distances ..");
+    let mut cmd = std::process::Command::new("skani");
+    cmd.arg("search")
+        .arg("-t")
+        .arg(format!("{threads}"))
+        .arg("--min-af")
+        .arg(format!("{}", min_aligned_threshold * 100.0))
+        .arg("--ql")
+        .arg(tf.path().to_str().unwrap())
+        .arg("-d")
+        .arg(db_dir.path().join("galah-skani").to_str().unwrap())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null());
+    debug!("Running skani command: {:?}", &cmd);
+
+    // Parse the distances
+    // Ref_file Query_file ANI Align_fraction_ref Align_fraction_query Ref_name Query_name
+    let mut process = cmd
+        .spawn()
+        .unwrap_or_else(|_| panic!("Failed to spawn {}", "skani"));
+    let stdout = process.stdout.as_mut().unwrap();
+    let stdout_reader = BufReader::new(stdout);
+
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(true)
+        .from_reader(stdout_reader);
+
+    let mut distances = SortedPairGenomeDistanceCache::new();
+
+    // Order is likely not conserved, so need to keep track
+    // Map sanitized tempfile paths back to original genome_fasta_paths indices.
+    for record_res in rdr.records() {
+        match record_res {
+            Ok(record) => {
+                debug!("Found skani record {:?}", record);
+
+                if &record[0] == &record[1] {
+                    // Ignore self matches
+                    continue;
+                }
+
+                // Match sanitized path back to original index
+                let genome_id1 = sanitized
+                    .iter()
+                    .position(|sf| sf.path().to_str().unwrap() == &record[0])
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to find sanitized genome path in sanitized list: {}",
+                            &record[0]
+                        )
+                    });
+                let genome_id2 = sanitized
+                    .iter()
+                    .position(|sf| sf.path().to_str().unwrap() == &record[1])
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "Failed to find sanitized genome path in sanitized list: {}",
+                            &record[1]
+                        )
+                    });
+
+                let ani: f32 = record[2].parse().unwrap_or_else(|_| {
+                    panic!("Failed to convert skani ANI to float value: {}", &record[2])
+                });
+                trace!("Found ANI {}", ani);
+                if ani >= threshold {
+                    trace!("Accepting ANI since it passed threshold");
+                    distances.insert((genome_id1, genome_id2), Some(ani))
+                }
+            }
+            Err(e) => {
+                error!("Error parsing skani output: {}", e);
+                std::process::exit(1);
+            }
+        }
+    }
+
+    finish_command_safely(process, "skani")
+        .wait()
+        .expect("Unexpected wait failure outside bird_tool_utils for skani");
+    debug!("Found skani distances (low-memory): {:#?}", distances);
+    info!("Finished skani low-memory search.");
 
     distances
 }
