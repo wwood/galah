@@ -3,10 +3,10 @@ name: Build manual pages and deploy documentation
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - 'docs/**'
-      - 'doctave.yml'
+      - 'doctave.yaml'
       - '.github/workflows/deploy-docs.yml'
 
 jobs:
