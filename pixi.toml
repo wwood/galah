@@ -31,6 +31,14 @@ default = ["main","common"]  # Environment with x86_64-specific tools
 osx = ["common"]  # Environment with common tools only
 dev = ["dev","main","common"]
 
+[tasks.release-base]
+cmd = "python3 admin/release.py"
+
+[tasks.release]
+depends-on = [
+    { task = "release-base", environment = "dev" },
+]
+
 [activation.env]
 # Prevents packages from being loaded from the user site-packages directory
 # Caused conflict when numpy==2 was loaded by CheckM2

@@ -41,3 +41,8 @@ concurrent-queue = "2"
 assert_cli = "0.6.*"
 # Run things before commit but not push
 cargo-husky = { version="1", default-features = false, features=["precommit-hook", "run-cargo-fmt"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
