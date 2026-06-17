@@ -1,18 +1,7 @@
-<!-- NOTE: This intro should manually be kept in sync between the repo README and the docs README -->
+Galah
+=====
 
-[![Current Build](https://github.com/wwood/galah/actions/workflows/test-galah.yml/badge.svg)](https://github.com/wwood/galah/actions)
-[![Conda version](https://img.shields.io/conda/v/bioconda/galah)](https://anaconda.org/bioconda/galah)
-[![Conda downloads](https://img.shields.io/conda/d/bioconda/galah)](https://anaconda.org/bioconda/galah)
-[![Crates.io version](https://img.shields.io/crates/v/galah)](https://crates.io/crates/galah)
-[![Crates.io downloads](https://img.shields.io/crates/d/galah)](https://crates.io/crates/galah)
-
-# Galah
-
-[<img src="docs/_include/galah_logo.png" alt="Galah logo" width="600"/>](https://github.com/wwood/galah/blob/main/docs/_include/galah_logo.png)
-
-Galah - Scalable dereplication and MIMAG calculation for metagenome assembled genomes 
-
-Documentation can be found at [https://wwood.github.io/galah/](https://wwood.github.io/galah/).
+Galah is a scalable dereplication and MIMAG calculation tool for metagenome assembled genomes.
 
 Galah aims to be a more scalable metagenome assembled genome (MAG) dereplication
 method. That is, it clusters microbial genomes together based on their average
@@ -90,13 +79,15 @@ galah process --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna \
 If you have any questions or need help, please [open an issue](https://github.com/wwood/galah/issues).
 
 ## License
+
 Galah is developed by the [Woodcroft lab](https://research.qut.edu.au/cmr/team/ben-woodcroft/) at the [Centre for Microbiome Research](https://research.qut.edu.au/cmr), School of Biomedical Sciences, QUT, with contributions from [Samuel Aroney](https://github.com/AroneyS), [Antônio Camargo](https://github.com/apcamargo), and [Rhys Newell](https://github.com/rhysnewell). It is licensed under [GPL3 or later](https://gnu.org/licenses/gpl.html).
 
 The source code is available at [https://github.com/wwood/galah](https://github.com/wwood/galah).
 
 ## Citation
-<!-- NOTE: Citations should manually be kept in sync between the repo README and the docs README -->
+
+<!-- NOTE: Citation should manually be kept in sync between the repo README and the docs README -->
 
 Aroney, S.T.N., Camargo, A.P., Tyson, G.W. and Woodcroft B.J.
 Galah: More scalable dereplication for metagenome assembled genomes.
-Zenodo (2024). https://doi.org/10.5281/zenodo.13637856
+Zenodo (2024). [https://doi.org/10.5281/zenodo.13637856](https://doi.org/10.5281/zenodo.13637856)
