@@ -77,7 +77,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
 /// lines with spaces. Returns the tempfile (kept alive by the caller).
 /// skani uses TSV output, so tabs in sequence headers corrupt its output format.
 /// Uses needletail to handle both plain and gzip-compressed FASTA files transparently.
-fn sanitize_fasta_headers(fasta_path: &str) -> tempfile::NamedTempFile {
+fn sanitize_fasta_headers(fasta_path: &str) -> tempfile::TempPath {
     let mut tf = tempfile::Builder::new()
         .prefix("galah-sanitized-fasta")
         .suffix(".fna")
@@ -99,7 +99,11 @@ fn sanitize_fasta_headers(fasta_path: &str) -> tempfile::NamedTempFile {
         writeln!(tf).expect("Failed to write newline to sanitized fasta tempfile");
     }
 
-    tf
+    // Close the file handle (but keep the file on disk) to avoid exhausting
+    // the OS file descriptor limit when sanitizing tens of thousands of genomes.
+    tf.flush()
+        .expect("Failed to flush sanitized fasta tempfile");
+    tf.into_temp_path()
 }
 
 fn precluster_skani(
@@ -117,7 +121,7 @@ fn precluster_skani(
     }
 
     // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output
-    let sanitized: Vec<tempfile::NamedTempFile> = genome_fasta_paths
+    let sanitized: Vec<tempfile::TempPath> = genome_fasta_paths
         .iter()
         .map(|p| sanitize_fasta_headers(p))
         .collect();
@@ -130,7 +134,7 @@ fn precluster_skani(
         .expect("Failed to open temporary file to run skani");
 
     for sf in &sanitized {
-        writeln!(tf, "{}", sf.path().to_str().unwrap())
+        writeln!(tf, "{}", sf.to_str().unwrap())
             .expect("Failed to write sanitized genome fasta paths to tempfile for skani");
     }
 
@@ -179,7 +183,7 @@ fn precluster_skani(
                 // Match sanitized path back to original index
                 let genome_id1 = sanitized
                     .iter()
-                    .position(|sf| sf.path().to_str().unwrap() == &record[0])
+                    .position(|sf| sf.to_str().unwrap() == &record[0])
                     .unwrap_or_else(|| {
                         panic!(
                             "Failed to find sanitized genome path in sanitized list: {}",
@@ -188,7 +192,7 @@ fn precluster_skani(
                     });
                 let genome_id2 = sanitized
                     .iter()
-                    .position(|sf| sf.path().to_str().unwrap() == &record[1])
+                    .position(|sf| sf.to_str().unwrap() == &record[1])
                     .unwrap_or_else(|| {
                         panic!(
                             "Failed to find sanitized genome path in sanitized list: {}",
@@ -241,7 +245,7 @@ fn precluster_skani_lowmem(
     }
 
     // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output
-    let sanitized: Vec<tempfile::NamedTempFile> = genome_fasta_paths
+    let sanitized: Vec<tempfile::TempPath> = genome_fasta_paths
         .iter()
         .map(|p| sanitize_fasta_headers(p))
         .collect();
@@ -254,7 +258,7 @@ fn precluster_skani_lowmem(
         .expect("Failed to open temporary file to run skani");
 
     for sf in &sanitized {
-        writeln!(tf, "{}", sf.path().to_str().unwrap())
+        writeln!(tf, "{}", sf.to_str().unwrap())
             .expect("Failed to write sanitized genome fasta paths to tempfile for skani");
     }
 
@@ -330,7 +334,7 @@ fn precluster_skani_lowmem(
                 // Match sanitized path back to original index
                 let genome_id1 = sanitized
                     .iter()
-                    .position(|sf| sf.path().to_str().unwrap() == &record[0])
+                    .position(|sf| sf.to_str().unwrap() == &record[0])
                     .unwrap_or_else(|| {
                         panic!(
                             "Failed to find sanitized genome path in sanitized list: {}",
@@ -339,7 +343,7 @@ fn precluster_skani_lowmem(
                     });
                 let genome_id2 = sanitized
                     .iter()
-                    .position(|sf| sf.path().to_str().unwrap() == &record[1])
+                    .position(|sf| sf.to_str().unwrap() == &record[1])
                     .unwrap_or_else(|| {
                         panic!(
                             "Failed to find sanitized genome path in sanitized list: {}",
@@ -388,7 +392,7 @@ fn precluster_skani_contigs(
     }
 
     // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output
-    let sanitized: Vec<tempfile::NamedTempFile> = genome_fasta_paths
+    let sanitized: Vec<tempfile::TempPath> = genome_fasta_paths
         .iter()
         .map(|p| sanitize_fasta_headers(p))
         .collect();
@@ -401,7 +405,7 @@ fn precluster_skani_contigs(
         .expect("Failed to open temporary file to run skani");
 
     for sf in &sanitized {
-        writeln!(tf, "{}", sf.path().to_str().unwrap())
+        writeln!(tf, "{}", sf.to_str().unwrap())
             .expect("Failed to write sanitized genome fasta paths to tempfile for skani");
     }
 
@@ -515,7 +519,7 @@ fn precluster_skani_with_references(
     }
 
     // Sanitize reference FASTA headers to remove tabs, which corrupt skani's TSV output
-    let sanitized_refs: Vec<tempfile::NamedTempFile> = reference_genomes
+    let sanitized_refs: Vec<tempfile::TempPath> = reference_genomes
         .iter()
         .map(|p| sanitize_fasta_headers(p))
         .collect();
@@ -528,7 +532,7 @@ fn precluster_skani_with_references(
         .expect("Failed to open temporary file to run skani");
 
     for sf in &sanitized_refs {
-        writeln!(tf_ref, "{}", sf.path().to_str().unwrap())
+        writeln!(tf_ref, "{}", sf.to_str().unwrap())
             .expect("Failed to write sanitized reference genome fasta paths to tempfile for skani");
     }
 
@@ -560,7 +564,7 @@ fn precluster_skani_with_references(
         .expect("Failed to wait for skani sketch");
 
     // Sanitize non-reference combined genome FASTA headers
-    let sanitized_combined: Vec<(&&str, tempfile::NamedTempFile)> = combined_genomes
+    let sanitized_combined: Vec<(&&str, tempfile::TempPath)> = combined_genomes
         .iter()
         .filter(|fasta| !reference_genomes.contains(fasta))
         .map(|p| (p, sanitize_fasta_headers(p)))
@@ -574,7 +578,7 @@ fn precluster_skani_with_references(
         .expect("Failed to open temporary file to run skani");
 
     for (_, sf) in &sanitized_combined {
-        writeln!(tf, "{}", sf.path().to_str().unwrap())
+        writeln!(tf, "{}", sf.to_str().unwrap())
             .expect("Failed to write sanitized genome fasta paths to tempfile for skani");
     }
 
@@ -618,7 +622,7 @@ fn precluster_skani_with_references(
                 // record[0] is a reference (sanitized), record[1] is a query (sanitized)
                 let genome_id1 = sanitized_refs
                     .iter()
-                    .position(|sf| sf.path().to_str().unwrap() == &record[0])
+                    .position(|sf| sf.to_str().unwrap() == &record[0])
                     .map(|i| {
                         combined_genomes
                             .iter()
@@ -639,7 +643,7 @@ fn precluster_skani_with_references(
 
                 let genome_id2 = sanitized_combined
                     .iter()
-                    .position(|(_, sf)| sf.path().to_str().unwrap() == &record[1])
+                    .position(|(_, sf)| sf.to_str().unwrap() == &record[1])
                     .map(|i| {
                         combined_genomes
                             .iter()
@@ -733,9 +737,9 @@ pub fn calculate_skani(
     }
 
     cmd.arg("-q")
-        .arg(sf1.path())
+        .arg(&sf1)
         .arg("-r")
-        .arg(sf2.path())
+        .arg(&sf2)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
     debug!("Running skani command: {:?}", &cmd);
