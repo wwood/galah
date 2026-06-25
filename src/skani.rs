@@ -326,7 +326,7 @@ fn precluster_skani_lowmem(
             Ok(record) => {
                 debug!("Found skani record {:?}", record);
 
-                if &record[0] == &record[1] {
+                if record[0] == record[1] {
                     // Ignore self matches
                     continue;
                 }
