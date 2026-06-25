@@ -17,11 +17,16 @@ galah cluster --ani 95 --precluster-ani 90 --precluster-method finch --genome-fa
 # Example: cluster a set of genomes and then their representatives against a set of reference genomes (reduces memory usage against clustering all together)
 galah cluster --genome-fasta-directory input_genomes/ --output-representative-list genome_reps.txt
 galah cluster --genome-fasta-list genome_reps.txt --reference-genomes-list reference_genomes.txt --output-cluster-definition clusters.tsv
+# Example: cluster a large set of genomes using low-memory mode
+galah cluster --low-memory --genome-fasta-directory input_genomes/ --output-representative-fasta-directory output_directory/
 ```
 
 ### Precluster ANI
 
-Similar to dRep, Galah operates in two stages. In the first, a fast
+Currently, by default, Galah only uses skani ANI calculation, since
+skani is both fast and accurate.
+
+Previously, similar to dRep, Galah would operate in two stages. In the first, a fast
 pre-clustering distance ([finch](https://github.com/onecodex/finch-rs)
 or [skani](https://github.com/bluenote-1577/skani)) is
 calculated between each pair of genomes. Genome pairs are only considered as
@@ -192,6 +197,12 @@ and the final ANI is set at 99%.
   Do not use small-genomes settings in skani when clustering contigs.
     Recommended for contigs \>= 20kb. Mutually exclusive with
     \--small-contigs.
+
+<!-- -->
+
+**\--low-memory**
+
+  Reduce memory use by sketching to file and searching it instead.
 
 <!-- -->
 

@@ -5,6 +5,11 @@ title: Galah process
 
 Runs both analyse and cluster in sequence.
 
+Determines the MIMAG quality score based on completeness, contamination, rRNA, and tRNA presence.
+Completeness and contamination are estimated using CheckM2 by default, unless CheckM1/2 quality reports are provided.
+
+Cluster genomes into ANI-based groups for downstream analysis.
+
 ```bash
 # Example: process genomes to produce cluster definition and MIMAG summary
 CHECKM2DB=CheckM2_database/uniref100.KO.1.dmnd galah process \
@@ -233,6 +238,12 @@ CHECKM2DB=CheckM2_database/uniref100.KO.1.dmnd galah process \
   Do not use small-genomes settings in skani when clustering contigs.
     Recommended for contigs \>= 20kb. Mutually exclusive with
     \--small-contigs.
+
+<!-- -->
+
+**\--low-memory**
+
+  Reduce memory use by sketching to file and searching it instead.
 
 <!-- -->
 
