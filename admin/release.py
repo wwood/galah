@@ -53,5 +53,5 @@ if __name__ == "__main__":
     extern.run('if [[ $(git diff --shortstat 2> /dev/null | tail -n1) != "" ]]; then exit 1; fi')
 
     extern.run(f"git tag v{version}")
-    print(f"\nRelease prepared. Now run:\n\n  git push && git push --tags\n\nCI will build binaries, create the GitHub Release, and publish to crates.io.")
-    print("Note: ensure CARGO_REGISTRY_TOKEN is set as a GitHub Actions secret for crates.io publishing.")
+    print(f"\nRelease prepared. Now run:\n\n  git push && git push --tags\n\nCI will build binaries and create the GitHub Release.")
+    print("Run: `cargo publish` to crates.io.")

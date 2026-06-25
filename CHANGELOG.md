@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.1] - 2026-06-26
+
+### Fixed
+- Re-release for packaging
+
 ## [0.5.0] - 2026-06-26
 
 ### Added
