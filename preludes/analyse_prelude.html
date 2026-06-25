@@ -1,0 +1,155 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>analyse_prelude</title>
+    <meta name="description" content="Documentation for Galah">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Sans+Pro:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" type="text/css" href="/galah/assets/normalize.css?v=1782428444"
+        media="screen" />
+    <link rel="stylesheet" type="text/css" href="/galah/assets/doctave-style.css?v=1782428444"
+        media="screen" />
+    <link rel="stylesheet" type="text/css" href="/galah/assets/katex.css?v=1782428444" media="screen" />
+    <link rel="stylesheet" type="text/css" href="/galah/assets/prism-ghcolors.css?v=1782428444"
+        media="screen" />
+
+    <script>
+        var DOCTAVE_TIMESTAMP = "1782428444";
+        var BASE_PATH = "/galah/";
+        var color = localStorage.getItem('doctave-color')
+
+        if (color === 'dark') {
+            document.getElementsByTagName('html')[0].classList.remove('light');
+            document.getElementsByTagName('html')[0].classList.add('dark');
+        } else {
+            document.getElementsByTagName('html')[0].classList.remove('dark');
+            document.getElementsByTagName('html')[0].classList.add('light');
+        }
+    </script>
+
+    
+</head>
+
+<body>
+    <label for='menu-toggle-switch' class='menu-toggle-button'>
+        ☰
+    </label>
+    <input type="checkbox" id="menu-toggle-switch" value='0' />
+    <div class='page'>
+        <div class='header'>
+            <div class='logo'>
+                
+                <a href="/galah/">
+                    <img src="/galah/galah_logo.png" alt='Galah logo'></img>
+                </a>
+                
+                <h2 class='project-name'>
+                    <a href="/galah/">
+                        Galah
+                    </a>
+                </h2>
+            </div>
+            <div class='search'>
+                <form id='search-form'>
+    <input type='text' id='search-box' autocomplete="off" placeholder="Search..."></input>
+    <span class='search-icon'>S</span>
+    <ul id='search-results'></ul>
+</form>
+
+            </div>
+            <div class='header-dummy-right'>
+            </div>
+        </div>
+        <div class='container'>
+            <div class='sidebar-left'>
+                <nav class='site-nav'>
+    <ul>
+        
+            <li><a href="/galah/installation">installation</a></li>
+            
+        
+            <li><a href="/galah/tools">tools</a></li>
+            
+                <ul>
+    
+        <li><a href="/galah/tools/process">Galah process</a></li>
+        
+    
+        <li><a href="/galah/tools/cluster">Galah cluster</a></li>
+        
+    
+        <li><a href="/galah/tools/analyse">Galah analyse</a></li>
+        
+    
+</ul>
+
+            
+        
+    </ul>
+    <span id='light-dark-mode-switch'>
+        <svg xmlns="http://www.w3.org/2000/svg" id="dark-mode-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+        </svg>
+
+        <svg xmlns="http://www.w3.org/2000/svg" id="light-mode-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />
+        </svg>
+    </span>
+</nav>
+
+            </div>
+            <div class='doctave-content'>
+                <p>Determines the MIMAG quality score based on completeness, contamination, rRNA, and tRNA presence.
+Completeness and contamination are estimated using CheckM2 by default, unless CheckM1/2 quality reports are provided.</p>
+<pre><code class="language-bash"># Example: determine MIMAG quality scores
+CHECKM2DB=CheckM2_database/uniref100.KO.1.dmnd galah analyse --genome-fasta-files genome1.fna genome2.fna --output-mimag-summary mimag.tsv
+# Example: determine MIMAG quality scores for a directory of genomes using CheckM2 database specified by argument
+galah analyse --genome-fasta-directory input_genomes/ --checkm2-db-path /path/to/checkm2_db.dmnd --output-mimag-summary mimag_summary.tsv
+# Example: determine MIMAG quality scores using precomputed CheckM2, Barrnap, and tRNASCAN-SE results
+galah analyse --genome-fasta-list genomes.txt --output-mimag-summary mimag_summary.tsv \
+    --checkm2-quality-report quality_report.tsv --barrnap-gff-list barrnap_gff_list.tsv --trnascan-out-list trnascan_out_list.tsv
+</code></pre>
+
+            </div>
+            <div class='sidebar-right'>
+                <div class='page-nav' id='page-nav'>
+                    <p class='page-nav-header'>On this page</p>
+                    <ul>
+                        
+                    </ul>
+                </div>
+            </div>
+            <div class='wave-container'>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320">
+                    <path fill-opacity="0.35"
+                        d="M0,192L60,213.3C120,235,240,277,360,277.3C480,277,600,235,720,192C840,149,960,107,1080,122.7C1200,139,1320,213,1380,250.7L1440,288L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z">
+                    </path>
+                    <path fill-opacity="0.5"
+                        d="M0,160L60,181.3C120,203,240,245,360,229.3C480,213,600,139,720,138.7C840,139,960,213,1080,229.3C1200,245,1320,203,1380,181.3L1440,160L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z">
+                    </path>
+                    <path fill-opacity="0.2"
+                        d="M0,224L60,197.3C120,171,240,117,360,117.3C480,117,600,171,720,186.7C840,203,960,181,1080,186.7C1200,192,1320,224,1380,240L1440,256L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z">
+                    </path>
+                </svg>
+                <p>Powered by <a href='https://cli.doctave.com' target='_blank'>Doctave</a></p>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript" src="/galah/assets/katex.js?v=1782428444"></script>
+    <script type="text/javascript" src="/galah/assets/mermaid.js?v=1782428444"></script>
+    <script type="text/javascript" src="/galah/assets/elasticlunr.js?v=1782428444"></script>
+    <script type="text/javascript" src="/galah/assets/prism.js?v=1782428444"></script>
+    <script type="text/javascript" src="/galah/assets/doctave-app.js?v=1782428444"></script>
+
+    
+</body>
+
+</html>
