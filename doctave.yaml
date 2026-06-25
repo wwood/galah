@@ -8,6 +8,6 @@ navigation:
   - path: docs/installation.md
   - path: docs/tools
     children:
+    - path: docs/tools/process.md
     - path: docs/tools/cluster.md
     - path: docs/tools/analyse.md
-    - path: docs/tools/process.md
