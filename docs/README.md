@@ -1,15 +1,11 @@
 Galah
 =====
 
-Galah is a scalable dereplication and MIMAG calculation tool for metagenome assembled genomes.
+Galah - Scalable dereplication and MIMAG calculation for metagenome assembled genomes.
 
-Galah aims to be a more scalable metagenome assembled genome (MAG) dereplication
-method. That is, it clusters microbial genomes together based on their average
-nucleotide identity (ANI), and chooses a single member of each cluster as the
-representative.
-
-Galah also determines MIMAG quality scores for genomes based on their
-completeness, contamination and the presence of rRNA and tRNA genes.
+Galah aims to be a scalable metagenome assembled genome (MAG) dereplication and quality assessment method.
+Dereplication clusters genomes together based on their average nucleotide identity (ANI), and chooses a single member of each cluster as the representative.
+Quality assessment results in a MIMAG quality score for each genome, based on its completeness, contamination and the presence of rRNA and tRNA genes.
 
 ## Clustering
 
@@ -44,7 +40,19 @@ if no genomes of higher quality are >95% ANI. In the second step, each
 non-representative genome is assigned to the representative genome with which it
 has the highest ANI.
 
+## MIMAG calculation
+
+Galah determines the MIMAG quality score based on completeness, contamination, rRNA, and tRNA presence.
+Completeness and contamination are estimated using CheckM2 by default, unless CheckM1/2 quality reports are provided.
+
 ## Example usage
+
+For clustering and determining MIMAG quality scores:
+
+```bash
+galah process --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna \
+  --output-cluster-definition clusters.tsv --output-mimag-summary mimag.tsv
+```
 
 For clustering a set of genomes at 95% ANI:
 
@@ -65,13 +73,6 @@ For determining MIMAG quality scores for a set of genomes with CheckM2:
 ```bash
 galah analyse --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna \
   --output-mimag-summary mimag.tsv
-```
-
-For clustering and determining MIMAG quality scores:
-
-```bash
-galah process --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna \
-  --output-cluster-definition clusters.tsv --output-mimag-summary mimag.tsv
 ```
 
 ## Help

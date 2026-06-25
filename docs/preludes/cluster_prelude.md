@@ -19,7 +19,10 @@ galah cluster --low-memory --genome-fasta-directory input_genomes/ --output-repr
 
 ### Precluster ANI
 
-Similar to dRep, Galah operates in two stages. In the first, a fast
+Currently, by default, Galah only uses skani ANI calculation, since
+skani is both fast and accurate.
+
+Previously, similar to dRep, Galah would operate in two stages. In the first, a fast
 pre-clustering distance ([finch](https://github.com/onecodex/finch-rs)
 or [skani](https://github.com/bluenote-1577/skani)) is
 calculated between each pair of genomes. Genome pairs are only considered as

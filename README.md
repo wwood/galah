@@ -10,52 +10,30 @@
 
 [<img src="docs/_include/galah_logo.png" alt="Galah logo" width="600"/>](https://github.com/wwood/galah/blob/main/docs/_include/galah_logo.png)
 
-Galah - Scalable dereplication and MIMAG calculation for metagenome assembled genomes 
+Galah - Scalable dereplication and MIMAG calculation for metagenome assembled genomes.
 
 Documentation can be found at [https://wwood.github.io/galah/](https://wwood.github.io/galah/).
 
-Galah aims to be a more scalable metagenome assembled genome (MAG) dereplication
-method. That is, it clusters microbial genomes together based on their average
-nucleotide identity (ANI), and chooses a single member of each cluster as the
-representative.
+Galah aims to be a scalable metagenome assembled genome (MAG) dereplication and quality assessment method.
+Dereplication clusters genomes together based on their average nucleotide identity (ANI), and chooses a single member of each cluster as the representative.
+Quality assessment results in a MIMAG quality score for each genome, based on its completeness, contamination and the presence of rRNA and tRNA genes.
 
-Galah also determines MIMAG quality scores for genomes based on their
-completeness, contamination and the presence of rRNA and tRNA genes.
+## Quick install
 
-## Clustering
-
-Galah uses a greedy clustering approach to speed up genome dereplication,
-relative to e.g. [dRep](https://drep.readthedocs.io/), particularly when there
-are many closely related genomes (i.e. >95% ANI). Generated cluster
-representatives have 2 properties. If the ANI threshold was set to 95%, then:
-
-1. Each representative is <95% ANI to each other representative.
-2. All members are >=95% ANI to the representative.
-
-If `--run-checkm2` was specified, or [CheckM2](https://github.com/chklovski/CheckM2) /
-[CheckM](https://ecogenomics.github.io/CheckM/) genome qualities were provided,
-then the clusters have an additional property:
-
-3. Each representative genome has a better quality score than other members of
-   the cluster. Each genome is assigned a quality score based on the formula
-   `completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000`,
-   which is reduced from a quality formula described in
-   Parks et. al. 2020 https://doi.org/10.1038/s41587-020-0501-8.
-   Other quality score formula are available via `--quality-formula`.
-
-If instead CheckM1/2 qualities are not available, then the following holds instead:
-
-3. Each representative genome was specified to Galah before other members of the
-   cluster.
-
-The overall greedy clustering approach was largely inspired by the work of
-Donovan Parks, as described in [Parks et. al. 2020](https://doi.org/10.1038/s41587-020-0501-8).
-It operates in 3 steps. In the first step, genomes are assigned as representative
-if no genomes of higher quality are >95% ANI. In the second step, each
-non-representative genome is assigned to the representative genome with which it
-has the highest ANI.
+```bash
+# Install latest release via conda.
+conda create -n galah -c bioconda -c conda-forge galah
+```
 
 ## Example usage
+
+For clustering and determining MIMAG quality scores:
+
+```bash
+galah process --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna \
+  --output-cluster-definition clusters.tsv \
+  --output-mimag-summary mimag.tsv
+```
 
 For clustering a set of genomes at 95% ANI:
 
@@ -71,18 +49,11 @@ galah cluster --cluster-contigs --small-genomes --genome-fasta-files /path/to/co
   --output-cluster-definition clusters.tsv
 ```
 
-For determining MIMAG quality scores for a set of genomes with CheckM2:
+For determining MIMAG quality scores for a set of genomes with CheckM2, Barrnap, and tRNAscan-SE:
 
 ```bash
 galah analyse --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna \
   --output-mimag-summary mimag.tsv
-```
-
-For clustering and determining MIMAG quality scores:
-
-```bash
-galah process --genome-fasta-files /path/to/genome1.fna /path/to/genome2.fna \
-  --output-cluster-definition clusters.tsv --output-mimag-summary mimag.tsv
 ```
 
 ## Help

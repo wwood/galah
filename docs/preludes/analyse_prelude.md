@@ -2,8 +2,6 @@
 Determines the MIMAG quality score based on completeness, contamination, rRNA, and tRNA presence.
 Completeness and contamination are estimated using CheckM2 by default, unless CheckM1/2 quality reports are provided.
 
-on CheckM2 completeness/contamination, For determining MIMAG quality scores for a set of genomes with CheckM2:
-
 ```bash
 # Example: determine MIMAG quality scores
 CHECKM2DB=CheckM2_database/uniref100.KO.1.dmnd galah analyse --genome-fasta-files genome1.fna genome2.fna --output-mimag-summary mimag.tsv
