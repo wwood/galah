@@ -1093,6 +1093,36 @@ mod tests {
     }
 
     #[test]
+    fn test_reference_genomes_globdb_bug() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/set1/500kb.fna",
+                "tests/data/globdb_mags/SPECIV4_00061.fa.gz",
+                "--reference-genomes",
+                "tests/data/set1/1mbp.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/globdb_mags/GCF_964248265.fa.gz",
+                "--min-aligned-fraction",
+                "50",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+                .stdout()
+                .is("\
+                tests/data/set1/1mbp.fna	tests/data/set1/1mbp.fna\n\
+                tests/data/set1/1mbp.fna	tests/data/set1/500kb.fna\n\
+                tests/data/abisko4/73.20120600_S2D.19.fna	tests/data/abisko4/73.20120600_S2D.19.fna\n\
+                tests/data/abisko4/73.20120600_S2D.19.fna	tests/data/abisko4/73.20120800_S1X.13.fna\n\
+                tests/data/globdb_mags/GCF_964248265.fa.gz	tests/data/globdb_mags/GCF_964248265.fa.gz\n\
+                tests/data/globdb_mags/GCF_964248265.fa.gz	tests/data/globdb_mags/SPECIV4_00061.fa.gz")
+            .unwrap();
+    }
+
+    #[test]
     #[ignore]
     fn test_cluster_real_checkm2() {
         let checkm2_db_path = std::env::var("CHECKM2DB")
