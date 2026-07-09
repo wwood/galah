@@ -30,7 +30,7 @@ tempfile = "3.*"
 finch = "0.6.*"
 disjoint = { version = "0.8.*" }
 # We must disable default features because otherwise there are linking issues e.g. with cargo outdated https://github.com/onecodex/finch-rs/issues/75
-needletail = "0.5"
+needletail = "0.7"
 bird_tool_utils-man = "0.4.0"
 lazy_static = "1.4.0"
 ansi_term = "0.12"
