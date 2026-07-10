@@ -13,23 +13,34 @@ pub fn process_command(
     cluster_args: &clap::ArgMatches,
     cluster_def: &cluster_argument_parsing::GalahClustererCommandDefinition,
     output_quality_report_path: Option<String>,
+    process_analyse_def: &crate::process_argument_parsing::ProcessAnalyseCommandDefinition,
 ) -> ProcessResult {
+    // Domain choice
+    let domain_choice_str = cluster_args
+        .get_one::<String>(&process_analyse_def.domain_choice_argument)
+        .map(|s| s.as_str())
+        .unwrap_or(crate::DEFAULT_DOMAIN_CHOICE);
+    let domain_choice = domain_choice_str
+        .parse::<crate::DomainChoice>()
+        .unwrap_or(crate::DomainChoice::Isiteuk);
+
     // Quality analyser (CheckM2) input directly or with DB path from arg or env
     let checkm2_quality_report = cluster_args
-        .get_one::<String>("checkm2-quality-report")
+        .get_one::<String>(&process_analyse_def.checkm2_quality_report_argument)
         .map(|s| s.to_string());
     let checkm_tab_table = cluster_args
-        .get_one::<String>("checkm-tab-table")
+        .get_one::<String>(&process_analyse_def.checkm_tab_table_argument)
         .map(|s| s.to_string());
 
-    let checkm2_db_path = if checkm2_quality_report.is_none() && checkm_tab_table.is_none() {
+    let checkm2_db_path = if checkm2_quality_report.is_none()
+        && checkm_tab_table.is_none()
+        && !matches!(domain_choice, crate::DomainChoice::Eukaryota)
+    {
         cluster_args
-            .get_one::<String>("checkm2-db-path")
+            .get_one::<String>(&process_analyse_def.checkm2_db_path_argument)
             .map(|s| s.to_string())
             .or_else(|| std::env::var("CHECKM2DB").ok())
-            .expect(
-                "CheckM2 database path must be provided via --checkm2-db-path or CHECKM2DB env var",
-            )
+            .unwrap_or_default()
     } else {
         String::new()
     };
@@ -43,10 +54,36 @@ pub fn process_command(
 
     // Input overrides for analyse (allow pre-generated files)
     let barrnap_gff_list = cluster_args
-        .get_one::<String>("barrnap-gff-list")
+        .get_one::<String>(&process_analyse_def.barrnap_gff_list_argument)
         .map(|s| s.to_string());
     let trnascan_out_list = cluster_args
-        .get_one::<String>("trnascan-out-list")
+        .get_one::<String>(&process_analyse_def.trnascan_out_list_argument)
+        .map(|s| s.to_string());
+
+    // Domain / eukaryote args
+    let isiteuk_output = cluster_args
+        .get_one::<String>(&process_analyse_def.isiteuk_output_argument)
+        .map(|s| s.to_string());
+    let isiteuk_metapackage = cluster_args
+        .get_one::<String>(&process_analyse_def.isiteuk_metapackage_argument)
+        .map(|s| s.to_string());
+    let bacteria_domain_cutoff = cluster_args
+        .get_one::<f64>(&process_analyse_def.isiteuk_bacteria_cutoff_argument)
+        .copied()
+        .unwrap_or(crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF);
+    let archaea_domain_cutoff = cluster_args
+        .get_one::<f64>(&process_analyse_def.isiteuk_archaea_cutoff_argument)
+        .copied()
+        .unwrap_or(crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF);
+    let eukaryota_domain_cutoff = cluster_args
+        .get_one::<f64>(&process_analyse_def.isiteuk_eukaryota_cutoff_argument)
+        .copied()
+        .unwrap_or(crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF);
+    let eukcc_db_path = cluster_args
+        .get_one::<String>(&process_analyse_def.eukcc_db_path_argument)
+        .map(|s| s.to_string());
+    let eukcc_quality_report = cluster_args
+        .get_one::<String>(&process_analyse_def.eukcc_quality_report_argument)
         .map(|s| s.to_string());
 
     // Run analyse
@@ -61,6 +98,14 @@ pub fn process_command(
         &checkm_tab_table,
         &barrnap_gff_list,
         &trnascan_out_list,
+        &domain_choice,
+        &isiteuk_output,
+        isiteuk_metapackage,
+        eukcc_db_path,
+        &eukcc_quality_report,
+        bacteria_domain_cutoff,
+        archaea_domain_cutoff,
+        eukaryota_domain_cutoff,
     )?;
 
     // Set up clustering context similar to cluster subcommand

@@ -5,11 +5,14 @@ pub mod checkm2;
 pub mod cluster_argument_parsing;
 pub mod cluster_validation;
 pub mod clusterer;
+pub mod eukcc;
 pub mod external_command_checker;
 pub mod fastani;
 pub mod finch;
 pub mod genome_info_file;
 pub mod genome_stats;
+pub mod isiteuk;
+pub mod pixi_env;
 pub mod process;
 pub mod process_argument_parsing;
 pub mod skani;
@@ -71,8 +74,103 @@ pub trait TrnaFinder {
 }
 
 pub trait RrnaFinder {
-    fn find_rrnas(&self, genome_path: &str, tmp_path: &std::path::Path) -> (usize, usize, usize);
+    /// Returns (r5s, r16s, r23s, r18s, r28s, r58s)
+    fn find_rrnas(
+        &self,
+        genome_path: &str,
+        tmp_path: &std::path::Path,
+    ) -> (usize, usize, usize, usize, usize, usize);
     fn method_name(&self) -> &str;
+}
+
+/// Biological domain of a genome as determined by marker gene analysis.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Domain {
+    Bacteria,
+    Archaea,
+    Eukaryota,
+}
+
+impl Domain {
+    /// Parse from isiteuk output column value (e.g. "d__Bacteria").
+    pub fn from_isiteuk_str(s: &str) -> Option<Domain> {
+        match s {
+            "d__Bacteria" => Some(Domain::Bacteria),
+            "d__Archaea" => Some(Domain::Archaea),
+            "d__Eukaryota" => Some(Domain::Eukaryota),
+            _ => None,
+        }
+    }
+
+    pub fn display_name(&self) -> &str {
+        match self {
+            Domain::Bacteria => "Bacteria",
+            Domain::Archaea => "Archaea",
+            Domain::Eukaryota => "Eukaryota",
+        }
+    }
+
+    pub fn barrnap_kingdom(&self) -> &str {
+        match self {
+            Domain::Bacteria => "bac",
+            Domain::Archaea => "arc",
+            Domain::Eukaryota => "fun", // barrnap 1.10+ uses "fun" for eukaryotes; "euk" is not supported
+        }
+    }
+
+    pub fn trnascan_mode(&self) -> &str {
+        match self {
+            Domain::Bacteria => "B",
+            Domain::Archaea => "A",
+            Domain::Eukaryota => "E",
+        }
+    }
+
+    pub fn is_prokaryote(&self) -> bool {
+        matches!(self, Domain::Bacteria | Domain::Archaea)
+    }
+}
+
+/// How to determine the domain of each genome.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DomainChoice {
+    /// Run isiteuk to classify each genome (default).
+    Isiteuk,
+    /// Treat all genomes as Bacteria.
+    Bacteria,
+    /// Treat all genomes as Archaea.
+    Archaea,
+    /// Treat all genomes as Eukaryota.
+    Eukaryota,
+    /// Run all domain tools for every genome and take the best result.
+    All,
+}
+
+impl std::str::FromStr for DomainChoice {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "isiteuk" => Ok(DomainChoice::Isiteuk),
+            "bac" => Ok(DomainChoice::Bacteria),
+            "arc" => Ok(DomainChoice::Archaea),
+            "euk" => Ok(DomainChoice::Eukaryota),
+            "all" => Ok(DomainChoice::All),
+            _ => Err(format!("Unknown domain choice: {s}")),
+        }
+    }
+}
+
+impl DomainChoice {
+    /// Returns fixed domain list, or None when domains must be determined at runtime.
+    pub fn fixed_domains(&self) -> Option<Vec<Domain>> {
+        match self {
+            DomainChoice::Bacteria => Some(vec![Domain::Bacteria]),
+            DomainChoice::Archaea => Some(vec![Domain::Archaea]),
+            DomainChoice::Eukaryota => Some(vec![Domain::Eukaryota]),
+            DomainChoice::All => Some(vec![Domain::Bacteria, Domain::Archaea, Domain::Eukaryota]),
+            DomainChoice::Isiteuk => None,
+        }
+    }
 }
 
 pub const DEFAULT_ALIGNED_FRACTION: &str = "15";
@@ -90,6 +188,11 @@ pub const DEFAULT_RRNA_METHOD: &str = "barrnap";
 pub const RRNA_METHODS: [&str; 1] = ["barrnap"];
 pub const DEFAULT_TRNA_METHOD: &str = "trnascan";
 pub const TRNA_METHODS: [&str; 1] = ["trnascan"];
+pub const DEFAULT_DOMAIN_CHOICE: &str = "isiteuk";
+pub const DOMAIN_CHOICES: [&str; 5] = ["isiteuk", "bac", "arc", "euk", "all"];
+pub const DEFAULT_ISITEUK_BACTERIA_CUTOFF: f64 = 10.0;
+pub const DEFAULT_ISITEUK_ARCHAEA_CUTOFF: f64 = 10.0;
+pub const DEFAULT_ISITEUK_EUKARYOTA_CUTOFF: f64 = 14.0;
 
 pub const AUTHOR: &str =
     "Ben J. Woodcroft, Centre for Microbiome Research, Queensland University of Technology";

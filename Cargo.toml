@@ -37,6 +37,7 @@ ansi_term = "0.12"
 # skani = "0.1.1"
 # skani = { path = "../skani" }
 concurrent-queue = "2"
+flate2 = "1"
 
 [dev-dependencies]
 assert_cli = "0.6.*"

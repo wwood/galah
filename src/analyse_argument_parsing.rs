@@ -45,7 +45,11 @@ pub enum RrnaAnalyser {
 }
 
 impl RrnaFinder for RrnaAnalyser {
-    fn find_rrnas(&self, genome_path: &str, tmp_path: &std::path::Path) -> (usize, usize, usize) {
+    fn find_rrnas(
+        &self,
+        genome_path: &str,
+        tmp_path: &std::path::Path,
+    ) -> (usize, usize, usize, usize, usize, usize) {
         match self {
             RrnaAnalyser::Barrnap(r) => r.find_rrnas(genome_path, tmp_path),
         }
@@ -85,6 +89,14 @@ pub struct GalahAnalyser<'a> {
     pub checkm_tab_table: Option<String>,
     pub barrnap_gff_list: Option<String>,
     pub trnascan_out_list: Option<String>,
+    pub domain_choice: crate::DomainChoice,
+    pub isiteuk_output: Option<String>,
+    pub isiteuk_metapackage: Option<String>,
+    pub bacteria_domain_cutoff: f64,
+    pub archaea_domain_cutoff: f64,
+    pub eukaryota_domain_cutoff: f64,
+    pub eukcc_db_path: Option<String>,
+    pub eukcc_quality_report: Option<String>,
 }
 
 impl GalahAnalyser<'_> {
@@ -103,6 +115,14 @@ impl GalahAnalyser<'_> {
             &self.checkm_tab_table,
             &self.barrnap_gff_list,
             &self.trnascan_out_list,
+            &self.domain_choice,
+            &self.isiteuk_output,
+            self.isiteuk_metapackage.clone(),
+            self.eukcc_db_path.clone(),
+            &self.eukcc_quality_report,
+            self.bacteria_domain_cutoff,
+            self.archaea_domain_cutoff,
+            self.eukaryota_domain_cutoff,
         )
     }
 }
@@ -118,6 +138,14 @@ pub struct GalahAnalyserCommandDefinition {
     pub checkm_tab_table_argument: String,
     pub barrnap_gff_list_argument: String,
     pub trnascan_out_list_argument: String,
+    pub domain_choice_argument: String,
+    pub isiteuk_output_argument: String,
+    pub isiteuk_metapackage_argument: String,
+    pub isiteuk_bacteria_cutoff_argument: String,
+    pub isiteuk_archaea_cutoff_argument: String,
+    pub isiteuk_eukaryota_cutoff_argument: String,
+    pub eukcc_db_path_argument: String,
+    pub eukcc_quality_report_argument: String,
 }
 
 lazy_static! {
@@ -133,6 +161,14 @@ lazy_static! {
             checkm_tab_table_argument: "checkm-tab-table".to_string(),
             barrnap_gff_list_argument: "barrnap-gff-list".to_string(),
             trnascan_out_list_argument: "trnascan-out-list".to_string(),
+            domain_choice_argument: "domain-choice".to_string(),
+            isiteuk_output_argument: "isiteuk-output".to_string(),
+            isiteuk_metapackage_argument: "isiteuk-metapackage".to_string(),
+            isiteuk_bacteria_cutoff_argument: "isiteuk-bacteria-cutoff".to_string(),
+            isiteuk_archaea_cutoff_argument: "isiteuk-archaea-cutoff".to_string(),
+            isiteuk_eukaryota_cutoff_argument: "isiteuk-eukaryota-cutoff".to_string(),
+            eukcc_db_path_argument: "eukcc-db-path".to_string(),
+            eukcc_quality_report_argument: "eukcc-quality-report".to_string(),
         }
     };
 }
@@ -237,6 +273,12 @@ pub fn analyse_full_help(program_basename: &str, program_version: &str) -> Manua
             "Genome input",
         )),
     );
+
+    // domain
+    manual = manual.custom(add_analyse_domain_parameters_to_section(
+        Section::new("Domain parameters"),
+        &ANALYSE_COMMAND_DEFINITION,
+    ));
 
     // quality
     manual = manual.custom(add_analyse_quality_parameters_to_section(
@@ -391,12 +433,157 @@ pub fn add_analyse_subcommand(app: clap::Command) -> clap::Command {
                 .value_name("FILE")
                 .help("Two-column TSV file mapping genome paths (as given in input) to tRNAscan-SE output paths (no headers). Prevents tRNA method being run")
                 .required(false),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.domain_choice_argument)
+                .long("domain-choice")
+                .value_name("CHOICE")
+                .value_parser(crate::DOMAIN_CHOICES)
+                .default_value(crate::DEFAULT_DOMAIN_CHOICE)
+                .help("Method for determining genome domain. 'isiteuk' runs isiteuk first; 'bac', 'arc', 'euk' fix domain for all genomes; 'all' runs tools for all domains"),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.isiteuk_output_argument)
+                .long("isiteuk-output")
+                .value_name("FILE")
+                .help("Pre-computed isiteuk output TSV. Prevents isiteuk being run when --domain-choice isiteuk")
+                .required(false),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.isiteuk_metapackage_argument)
+                .long("isiteuk-metapackage")
+                .value_name("PATH")
+                .help("Path to isiteuk metapackage. If not specified, uses ISITEUK_METAPACKAGE_PATH environment variable")
+                .required(false),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.isiteuk_bacteria_cutoff_argument)
+                .long("isiteuk-bacteria-cutoff")
+                .value_name("FLOAT")
+                .help("Minimum isiteuk num_in_target_domain for Bacteria domain assignment")
+                .default_value("10")
+                .value_parser(clap::value_parser!(f64)),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.isiteuk_archaea_cutoff_argument)
+                .long("isiteuk-archaea-cutoff")
+                .value_name("FLOAT")
+                .help("Minimum isiteuk num_in_target_domain for Archaea domain assignment")
+                .default_value("10")
+                .value_parser(clap::value_parser!(f64)),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.isiteuk_eukaryota_cutoff_argument)
+                .long("isiteuk-eukaryota-cutoff")
+                .value_name("FLOAT")
+                .help("Minimum isiteuk num_in_target_domain for Eukaryota domain assignment")
+                .default_value("14")
+                .value_parser(clap::value_parser!(f64)),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.eukcc_db_path_argument)
+                .long("eukcc-db-path")
+                .value_name("PATH")
+                .help("Path to EukCC database. If not specified, uses EUKCC2_DB environment variable")
+                .required(false),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.eukcc_quality_report_argument)
+                .long("eukcc-quality-report")
+                .value_name("FILE")
+                .help("Pre-computed merged EukCC TSV (with 'fasta', 'completeness', 'contamination' columns). Prevents EukCC being run for eukaryotic genomes")
+                .required(false),
         );
 
     analyse_subcommand =
         bird_tool_utils::clap_utils::add_genome_specification_arguments(analyse_subcommand);
 
     app.subcommand(analyse_subcommand)
+}
+
+pub fn add_analyse_domain_parameters_to_section(
+    section: Section,
+    definition: &GalahAnalyserCommandDefinition,
+) -> Section {
+    section
+        .option(
+            Opt::new("CHOICE")
+                .long(&format!("--{}", definition.domain_choice_argument))
+                .help(&format!(
+                    "Method for determining genome domain. \
+                    '{}' runs isiteuk to classify each genome (default). \
+                    '{}', '{}', '{}' fix all genomes to that domain. \
+                    '{}' runs tools for all three domains. {}",
+                    monospace_roff("isiteuk"),
+                    monospace_roff("bac"),
+                    monospace_roff("arc"),
+                    monospace_roff("euk"),
+                    monospace_roff("all"),
+                    default_roff(crate::DEFAULT_DOMAIN_CHOICE)
+                )),
+        )
+        .option(
+            Opt::new("FILE")
+                .long(&format!("--{}", definition.isiteuk_output_argument))
+                .help(
+                    "Pre-computed isiteuk output TSV. If given, skips running isiteuk \
+                    when --domain-choice isiteuk.",
+                ),
+        )
+        .option(
+            Opt::new("PATH")
+                .long(&format!("--{}", definition.isiteuk_metapackage_argument))
+                .help(
+                    "Path to isiteuk metapackage. If not given, uses \
+                    ISITEUK_METAPACKAGE_PATH environment variable.",
+                ),
+        )
+        .option(
+            Opt::new("FLOAT")
+                .long(&format!(
+                    "--{}",
+                    definition.isiteuk_bacteria_cutoff_argument
+                ))
+                .help(&format!(
+                    "Minimum isiteuk num_in_target_domain for Bacteria domain assignment. {}",
+                    default_roff("10")
+                )),
+        )
+        .option(
+            Opt::new("FLOAT")
+                .long(&format!("--{}", definition.isiteuk_archaea_cutoff_argument))
+                .help(&format!(
+                    "Minimum isiteuk num_in_target_domain for Archaea domain assignment. {}",
+                    default_roff("10")
+                )),
+        )
+        .option(
+            Opt::new("FLOAT")
+                .long(&format!(
+                    "--{}",
+                    definition.isiteuk_eukaryota_cutoff_argument
+                ))
+                .help(&format!(
+                    "Minimum isiteuk num_in_target_domain for Eukaryota domain assignment. {}",
+                    default_roff("14")
+                )),
+        )
+        .option(
+            Opt::new("PATH")
+                .long(&format!("--{}", definition.eukcc_db_path_argument))
+                .help(
+                    "Path to EukCC database (required for eukaryotic quality assessment). \
+                    If not given, uses EUKCC2_DB environment variable.",
+                ),
+        )
+        .option(
+            Opt::new("FILE")
+                .long(&format!("--{}", definition.eukcc_quality_report_argument))
+                .help(
+                    "Pre-computed merged EukCC TSV with fasta/completeness/contamination columns. \
+                    If given, skips running EukCC for eukaryotic genomes.",
+                ),
+        )
 }
 
 pub fn add_analyse_quality_parameters_to_section(
@@ -551,12 +738,20 @@ pub fn run_analyse_subcommand(
     info!("Finished printing genome analysis");
 }
 
-fn generate_galah_analyser<'a>(
+pub fn generate_galah_analyser<'a>(
     genome_fasta_files: &'a [String],
     m: &ArgMatches,
     command_definition: &GalahAnalyserCommandDefinition,
 ) -> Result<GalahAnalyser<'a>, String> {
     let threads = *m.get_one::<u16>("threads").unwrap() as usize;
+
+    let domain_choice_str = m
+        .get_one::<String>(&command_definition.domain_choice_argument)
+        .map(|s| s.as_str())
+        .unwrap_or(crate::DEFAULT_DOMAIN_CHOICE);
+    let domain_choice = domain_choice_str
+        .parse::<crate::DomainChoice>()
+        .unwrap_or(crate::DomainChoice::Isiteuk);
 
     // Quality analyser (CheckM2) input directly or with DB path from arg or env
     let checkm2_quality_report = m
@@ -566,16 +761,16 @@ fn generate_galah_analyser<'a>(
         .get_one::<String>(&command_definition.checkm_tab_table_argument)
         .map(|s| s.to_string());
 
-    let checkm2_db_path = if checkm2_quality_report.is_none() && checkm_tab_table.is_none() {
-        m.get_one::<String>(&command_definition.checkm2_db_path_argument)
-            .map(|s| s.to_string())
-            .or_else(|| std::env::var("CHECKM2DB").ok())
-            .expect(
-                "CheckM2 database path must be provided via --checkm2-db-path or CHECKM2DB env var",
-            )
-    } else {
-        String::new()
-    };
+    let needs_prok_quality = checkm2_quality_report.is_none() && checkm_tab_table.is_none();
+    let checkm2_db_path =
+        if needs_prok_quality && !matches!(domain_choice, crate::DomainChoice::Eukaryota) {
+            m.get_one::<String>(&command_definition.checkm2_db_path_argument)
+                .map(|s| s.to_string())
+                .or_else(|| std::env::var("CHECKM2DB").ok())
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
 
     let quality_analyser = match m
         .get_one::<String>(&command_definition.quality_method_argument)
@@ -601,12 +796,36 @@ fn generate_galah_analyser<'a>(
         _ => return Err("Invalid tRNA method specified".to_string()),
     };
 
-    // Extract file input arguments
     let barrnap_gff_list = m
         .get_one::<String>(&command_definition.barrnap_gff_list_argument)
         .map(|s| s.to_string());
     let trnascan_out_list = m
         .get_one::<String>(&command_definition.trnascan_out_list_argument)
+        .map(|s| s.to_string());
+
+    let isiteuk_output = m
+        .get_one::<String>(&command_definition.isiteuk_output_argument)
+        .map(|s| s.to_string());
+    let isiteuk_metapackage = m
+        .get_one::<String>(&command_definition.isiteuk_metapackage_argument)
+        .map(|s| s.to_string());
+    let bacteria_domain_cutoff = m
+        .get_one::<f64>(&command_definition.isiteuk_bacteria_cutoff_argument)
+        .copied()
+        .unwrap_or(crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF);
+    let archaea_domain_cutoff = m
+        .get_one::<f64>(&command_definition.isiteuk_archaea_cutoff_argument)
+        .copied()
+        .unwrap_or(crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF);
+    let eukaryota_domain_cutoff = m
+        .get_one::<f64>(&command_definition.isiteuk_eukaryota_cutoff_argument)
+        .copied()
+        .unwrap_or(crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF);
+    let eukcc_db_path = m
+        .get_one::<String>(&command_definition.eukcc_db_path_argument)
+        .map(|s| s.to_string());
+    let eukcc_quality_report = m
+        .get_one::<String>(&command_definition.eukcc_quality_report_argument)
         .map(|s| s.to_string());
 
     Ok(GalahAnalyser {
@@ -619,6 +838,14 @@ fn generate_galah_analyser<'a>(
         checkm_tab_table,
         barrnap_gff_list,
         trnascan_out_list,
+        domain_choice,
+        isiteuk_output,
+        isiteuk_metapackage,
+        bacteria_domain_cutoff,
+        archaea_domain_cutoff,
+        eukaryota_domain_cutoff,
+        eukcc_db_path,
+        eukcc_quality_report,
     })
 }
 
@@ -630,26 +857,34 @@ pub fn write_analyse_outputs(
     if let Some(mut f) = output_definitions.output_mimag_summary {
         writeln!(
             f,
-            "genome\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\ttRNAs\tMIMAG_quality",
+            "genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality",
         )
         .unwrap();
         for genome in genome_fasta_files {
-            if let Some(output_data) = analysis.get(&**genome) {
+            if let Some(d) = analysis.get(&**genome) {
                 writeln!(
                     f,
-                    "{genome}\t{completeness:.2}\t{contamination:.2}\t{r5s}\t{r16s}\t{r23s}\t{trnas}\t{mimag_quality}",
+                    "{genome}\t{domain}\t{comp:.2}\t{cont:.2}\t{r5s}\t{r16s}\t{r23s}\t{r18s}\t{r28s}\t{r58s}\t{trnas}\t{mimag}",
                     genome = genome,
-                    completeness = output_data.completeness,
-                    contamination = output_data.contamination,
-                    r5s = output_data.r5s,
-                    r16s = output_data.r16s,
-                    r23s = output_data.r23s,
-                    trnas = output_data.trnas,
-                    mimag_quality = output_data.mimag_quality
+                    domain = d.domain,
+                    comp = d.completeness,
+                    cont = d.contamination,
+                    r5s = d.r5s,
+                    r16s = d.r16s,
+                    r23s = d.r23s,
+                    r18s = d.r18s,
+                    r28s = d.r28s,
+                    r58s = d.r58s,
+                    trnas = d.trnas,
+                    mimag = d.mimag_quality
                 )
                 .unwrap();
             } else {
-                writeln!(f, "{genome}\t0.0\t0.0\t0\t0\t0\t0\tMedium quality").unwrap();
+                writeln!(
+                    f,
+                    "{genome}\tUnknown\t0.0\t0.0\t0\t0\t0\t0\t0\t0\t0\tMedium quality"
+                )
+                .unwrap();
             }
         }
     }

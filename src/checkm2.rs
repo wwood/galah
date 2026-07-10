@@ -1,12 +1,39 @@
 use crate::QualityFinder;
 use checkm::GenomeQuality;
+use flate2::read::GzDecoder;
 use std::collections::HashMap;
+use std::io::copy as io_copy;
 #[cfg(target_family = "unix")]
 use std::os::unix::fs::symlink;
 #[cfg(target_family = "windows")]
 use std::os::windows::fs::symlink_file as symlink;
 use std::path::Path;
 use std::process::Command;
+
+fn build_checkm2_command() -> Command {
+    if let Ok(cmd_str) = std::env::var("GALAH_CHECKM2_CMD") {
+        let mut parts = cmd_str.split_whitespace();
+        let prog = parts.next().expect("GALAH_CHECKM2_CMD must not be empty");
+        let mut cmd = Command::new(prog);
+        cmd.args(parts);
+        return cmd;
+    }
+    if crate::pixi_env::is_on_path("checkm2") {
+        return Command::new("checkm2");
+    }
+    info!("checkm2 not found on PATH, falling back to bundled pixi manifest");
+    let manifest = crate::pixi_env::galah_manifest_path();
+    let mut cmd = Command::new("pixi");
+    cmd.args([
+        "run",
+        "--manifest-path",
+        manifest.to_str().unwrap(),
+        "-e",
+        "checkm2",
+        "checkm2",
+    ]);
+    cmd
+}
 
 pub struct CheckM2Analyser {
     // Cache for completeness and contamination results
@@ -68,18 +95,33 @@ fn get_comp_cont(
     let genomes_dir = tmp_path.join("genomes");
     std::fs::create_dir_all(&genomes_dir).expect("Failed to create genomes directory for CheckM2");
     for fasta in genome_paths {
-        let abs_fasta =
-            std::fs::canonicalize(fasta).expect("Failed to canonicalize genome path for symlink");
-        let new_filename = format!(
-            "{}.fna",
-            Path::new(fasta).file_stem().unwrap().to_string_lossy()
-        );
-        symlink(&abs_fasta, genomes_dir.join(new_filename))
-            .expect("Failed to create symlink for genome to run CheckM2");
+        // Derive a plain .fna name regardless of whether the source is .fna or .fna.gz
+        let stem1 = Path::new(fasta).file_stem().unwrap(); // strips .gz (or .fna)
+        let stem = if fasta.ends_with(".gz") {
+            Path::new(stem1).file_stem().unwrap_or(stem1) // strips .fna from .fna.gz
+        } else {
+            stem1
+        };
+        let dest = genomes_dir.join(format!("{}.fna", stem.to_string_lossy()));
+
+        if fasta.ends_with(".gz") {
+            let mut decoder = GzDecoder::new(
+                std::fs::File::open(fasta)
+                    .unwrap_or_else(|e| panic!("Failed to open {}: {}", fasta, e)),
+            );
+            let mut out = std::fs::File::create(&dest)
+                .unwrap_or_else(|e| panic!("Failed to create {:?}: {}", dest, e));
+            io_copy(&mut decoder, &mut out)
+                .unwrap_or_else(|e| panic!("Failed to decompress {}: {}", fasta, e));
+        } else {
+            let abs_fasta = std::fs::canonicalize(fasta)
+                .expect("Failed to canonicalize genome path for symlink");
+            symlink(&abs_fasta, &dest).expect("Failed to create symlink for genome to run CheckM2");
+        }
     }
 
     info!("Running CheckM2 on provided genomes...");
-    let output = Command::new("checkm2")
+    let output = build_checkm2_command()
         .args([
             "predict",
             "-o",

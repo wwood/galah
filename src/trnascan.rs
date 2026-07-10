@@ -1,3 +1,4 @@
+use crate::Domain;
 use crate::TrnaFinder;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -5,8 +6,13 @@ use std::process::Command;
 pub struct TrnascanAnalyser;
 
 impl TrnaFinder for TrnascanAnalyser {
+    /// Run tRNAscan-SE in all three modes (B, A, E) and return the best count.
     fn find_trnas(&self, genome_path: &str, tmp_path: &std::path::Path) -> usize {
-        get_trnascan_output(genome_path, tmp_path)
+        get_trnascan_output_for_domains(
+            genome_path,
+            &[Domain::Bacteria, Domain::Archaea, Domain::Eukaryota],
+            tmp_path,
+        )
     }
 
     fn method_name(&self) -> &str {
@@ -14,17 +20,24 @@ impl TrnaFinder for TrnascanAnalyser {
     }
 }
 
-/// Given a genome path and temp dir, run trnascan for both modes and return the best mode, hit count, and output path
-pub fn get_trnascan_output(genome_path: &str, tmp_path: &std::path::Path) -> usize {
-    let mut best_trnas = 0;
-    for mode in ["B", "A"] {
+/// Run tRNAscan-SE in the modes corresponding to `domains` and return the highest tRNA count.
+pub fn get_trnascan_output_for_domains(
+    genome_path: &str,
+    domains: &[Domain],
+    tmp_path: &std::path::Path,
+) -> usize {
+    let mut modes: Vec<&str> = domains.iter().map(|d| d.trnascan_mode()).collect();
+    modes.dedup();
+
+    let mut best = 0;
+    for mode in modes {
         let out_path = run_trnascan(genome_path, mode, tmp_path);
         let trnas = count_unique_standard_trnas(out_path.to_str().unwrap());
-        if trnas > best_trnas {
-            best_trnas = trnas;
+        if trnas > best {
+            best = trnas;
         }
     }
-    best_trnas
+    best
 }
 
 pub fn run_trnascan(genome_path: &str, mode: &str, out_dir: &Path) -> PathBuf {
@@ -60,7 +73,7 @@ pub fn run_trnascan(genome_path: &str, mode: &str, out_dir: &Path) -> PathBuf {
     out_path
 }
 
-/// Parse tRNAscan-SE output and count unique standard tRNA types
+/// Parse tRNAscan-SE output and count unique standard tRNA types.
 pub fn count_unique_standard_trnas(out_path: &str) -> usize {
     let common_trnas = [
         "Ala", "Arg", "Asn", "Asp", "Cys", "Gln", "Glu", "Gly", "His", "Ile", "Leu", "Lys", "Met",

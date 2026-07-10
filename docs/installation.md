@@ -86,13 +86,69 @@ Some usages of Galah require third party tools, which must be installed separate
 * Barrnap v0.9 https://github.com/tseemann/barrnap
 * tRNAscan-SE v2.0.12 https://github.com/UCSC-LoweLab/tRNAscan-SE
 * CheckM2 v1.1.0 https://github.com/chklovski/CheckM2
+* isiteuk (for automatic domain classification) https://github.com/wwood/isiteuk
+* EukCC v2 (for eukaryotic genome quality assessment) https://github.com/EBI-Metagenomics/EukCC
 
-These tools can be installed via pixi, using the `pixi.toml` file within the github repository.
+Most of these tools can be installed via pixi, using the `pixi.toml` file within the github repository.
 
 ```
 pixi install
 ```
 
-Note that CheckM2 requires a database to be set using the environment variable `CHECKM2DB` or
-the argument `--checkm2-db`.
-See https://github.com/chklovski/CheckM2 for details.
+**Note:** `checkm2`, `isiteuk`, and `eukcc` cannot all be installed in the same conda environment
+due to incompatible `diamond` and `zlib` dependency constraints between them.
+
+Galah locates each tool using the following priority order:
+
+1. `GALAH_CHECKM2_CMD` / `GALAH_ISITEUK_CMD` / `GALAH_EUKCC_CMD` environment variable (if set)
+2. Tool found on `PATH`
+3. Automatic installation via `pixi exec` (requires [pixi](https://pixi.sh) to be installed)
+
+With pixi installed, no manual setup is needed — galah will download and cache each tool in an
+isolated environment the first time it is needed.
+
+To pin a specific version or override the command explicitly:
+
+```bash
+# Development (pixi workspace)
+export GALAH_CHECKM2_CMD="pixi run -e checkm2 checkm2"
+export GALAH_ISITEUK_CMD="pixi run -e isiteuk isiteuk"
+export GALAH_EUKCC_CMD="pixi run -e eukcc eukcc"
+
+# Production (separate conda envs)
+conda create -n galah_checkm2 -c bioconda -c conda-forge checkm2
+conda create -n galah_isiteuk -c bioconda -c conda-forge isiteuk
+conda create -n galah_eukcc -c bioconda -c conda-forge eukcc
+export GALAH_CHECKM2_CMD="conda run -n galah_checkm2 checkm2"
+export GALAH_ISITEUK_CMD="conda run -n galah_isiteuk isiteuk"
+export GALAH_EUKCC_CMD="conda run -n galah_eukcc eukcc"
+```
+
+#### CheckM2 database
+
+CheckM2 requires a database to be set using the environment variable `CHECKM2DB` or the
+argument `--checkm2-db-path`. See https://github.com/chklovski/CheckM2 for details.
+
+```bash
+export CHECKM2DB=/path/to/CheckM2_database/uniref100.KO.1.dmnd
+```
+
+#### isiteuk metapackage
+
+isiteuk uses a SingleM metapackage to classify genomes into biological domains. Set the
+path using the environment variable `ISITEUK_METAPACKAGE_PATH` or the argument
+`--isiteuk-metapackage`.
+
+```bash
+export ISITEUK_METAPACKAGE_PATH=/path/to/isiteuk.smpkg
+```
+
+#### EukCC database
+
+EukCC requires a database for eukaryotic quality assessment. Set the path using the
+environment variable `EUKCC2_DB` or the argument `--eukcc-db-path`. The database can be
+downloaded from https://github.com/EBI-Metagenomics/EukCC.
+
+```bash
+export EUKCC2_DB=/path/to/eukcc2_db_ver_1.1
+```
