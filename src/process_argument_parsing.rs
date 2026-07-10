@@ -388,7 +388,7 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
                 .long("isiteuk-bacteria-cutoff")
                 .value_name("FLOAT")
                 .help("Minimum isiteuk num_in_target_domain for Bacteria domain assignment")
-                .default_value("10")
+                .default_value(crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF)
                 .value_parser(clap::value_parser!(f64)),
         )
         .arg(
@@ -396,7 +396,7 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
                 .long("isiteuk-archaea-cutoff")
                 .value_name("FLOAT")
                 .help("Minimum isiteuk num_in_target_domain for Archaea domain assignment")
-                .default_value("10")
+                .default_value(crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF)
                 .value_parser(clap::value_parser!(f64)),
         )
         .arg(
@@ -404,7 +404,7 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
                 .long("isiteuk-eukaryota-cutoff")
                 .value_name("FLOAT")
                 .help("Minimum isiteuk num_in_target_domain for Eukaryota domain assignment")
-                .default_value("14")
+                .default_value(crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF)
                 .value_parser(clap::value_parser!(f64)),
         )
         .arg(

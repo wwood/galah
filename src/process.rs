@@ -70,15 +70,15 @@ pub fn process_command(
     let bacteria_domain_cutoff = cluster_args
         .get_one::<f64>(&process_analyse_def.isiteuk_bacteria_cutoff_argument)
         .copied()
-        .unwrap_or(crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF);
+        .unwrap_or_else(|| crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF.parse().unwrap());
     let archaea_domain_cutoff = cluster_args
         .get_one::<f64>(&process_analyse_def.isiteuk_archaea_cutoff_argument)
         .copied()
-        .unwrap_or(crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF);
+        .unwrap_or_else(|| crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF.parse().unwrap());
     let eukaryota_domain_cutoff = cluster_args
         .get_one::<f64>(&process_analyse_def.isiteuk_eukaryota_cutoff_argument)
         .copied()
-        .unwrap_or(crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF);
+        .unwrap_or_else(|| crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF.parse().unwrap());
     let eukcc_db_path = cluster_args
         .get_one::<String>(&process_analyse_def.eukcc_db_path_argument)
         .map(|s| s.to_string());

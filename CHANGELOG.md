@@ -7,7 +7,7 @@
 - `--domain-choice isiteuk` (default): runs [isiteuk](https://github.com/wwood/isiteuk) to classify genomes by domain; genomes with no confident domain assignment are assessed under all three domains
 - EukCC support for eukaryotic genome quality (completeness/contamination); run automatically for genomes classified as Eukaryota
 - Eukaryotic rRNA and tRNA criteria: 18S/28S/5.8S/5S rRNA and ≥18 tRNAs required for high-quality eukaryotic MAGs
-- `--isiteuk-bacteria-cutoff`, `--isiteuk-archaea-cutoff`, `--isiteuk-eukaryota-cutoff` arguments to tune the minimum isiteuk marker count for domain assignment (defaults: 10, 10, 14)
+- `--isiteuk-bacteria-cutoff`, `--isiteuk-archaea-cutoff`, `--isiteuk-eukaryota-cutoff` arguments to tune the minimum isiteuk marker count for domain assignment (defaults: 10, 10, 20)
 - `--isiteuk-output` to supply a pre-computed isiteuk TSV and skip running isiteuk
 - `--isiteuk-metapackage` / `ISITEUK_METAPACKAGE_PATH` environment variable support
 - `--eukcc-db-path` / `EUKCC2_DB` environment variable support

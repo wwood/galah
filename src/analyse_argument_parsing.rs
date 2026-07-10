@@ -461,7 +461,7 @@ pub fn add_analyse_subcommand(app: clap::Command) -> clap::Command {
                 .long("isiteuk-bacteria-cutoff")
                 .value_name("FLOAT")
                 .help("Minimum isiteuk num_in_target_domain for Bacteria domain assignment")
-                .default_value("10")
+                .default_value(crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF)
                 .value_parser(clap::value_parser!(f64)),
         )
         .arg(
@@ -469,7 +469,7 @@ pub fn add_analyse_subcommand(app: clap::Command) -> clap::Command {
                 .long("isiteuk-archaea-cutoff")
                 .value_name("FLOAT")
                 .help("Minimum isiteuk num_in_target_domain for Archaea domain assignment")
-                .default_value("10")
+                .default_value(crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF)
                 .value_parser(clap::value_parser!(f64)),
         )
         .arg(
@@ -477,7 +477,7 @@ pub fn add_analyse_subcommand(app: clap::Command) -> clap::Command {
                 .long("isiteuk-eukaryota-cutoff")
                 .value_name("FLOAT")
                 .help("Minimum isiteuk num_in_target_domain for Eukaryota domain assignment")
-                .default_value("14")
+                .default_value(crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF)
                 .value_parser(clap::value_parser!(f64)),
         )
         .arg(
@@ -546,7 +546,7 @@ pub fn add_analyse_domain_parameters_to_section(
                 ))
                 .help(&format!(
                     "Minimum isiteuk num_in_target_domain for Bacteria domain assignment. {}",
-                    default_roff("10")
+                    default_roff(crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF)
                 )),
         )
         .option(
@@ -554,7 +554,7 @@ pub fn add_analyse_domain_parameters_to_section(
                 .long(&format!("--{}", definition.isiteuk_archaea_cutoff_argument))
                 .help(&format!(
                     "Minimum isiteuk num_in_target_domain for Archaea domain assignment. {}",
-                    default_roff("10")
+                    default_roff(crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF)
                 )),
         )
         .option(
@@ -565,7 +565,7 @@ pub fn add_analyse_domain_parameters_to_section(
                 ))
                 .help(&format!(
                     "Minimum isiteuk num_in_target_domain for Eukaryota domain assignment. {}",
-                    default_roff("14")
+                    default_roff(crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF)
                 )),
         )
         .option(
@@ -812,15 +812,15 @@ pub fn generate_galah_analyser<'a>(
     let bacteria_domain_cutoff = m
         .get_one::<f64>(&command_definition.isiteuk_bacteria_cutoff_argument)
         .copied()
-        .unwrap_or(crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF);
+        .unwrap_or_else(|| crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF.parse().unwrap());
     let archaea_domain_cutoff = m
         .get_one::<f64>(&command_definition.isiteuk_archaea_cutoff_argument)
         .copied()
-        .unwrap_or(crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF);
+        .unwrap_or_else(|| crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF.parse().unwrap());
     let eukaryota_domain_cutoff = m
         .get_one::<f64>(&command_definition.isiteuk_eukaryota_cutoff_argument)
         .copied()
-        .unwrap_or(crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF);
+        .unwrap_or_else(|| crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF.parse().unwrap());
     let eukcc_db_path = m
         .get_one::<String>(&command_definition.eukcc_db_path_argument)
         .map(|s| s.to_string());

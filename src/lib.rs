@@ -190,9 +190,9 @@ pub const DEFAULT_TRNA_METHOD: &str = "trnascan";
 pub const TRNA_METHODS: [&str; 1] = ["trnascan"];
 pub const DEFAULT_DOMAIN_CHOICE: &str = "isiteuk";
 pub const DOMAIN_CHOICES: [&str; 5] = ["isiteuk", "bac", "arc", "euk", "all"];
-pub const DEFAULT_ISITEUK_BACTERIA_CUTOFF: f64 = 10.0;
-pub const DEFAULT_ISITEUK_ARCHAEA_CUTOFF: f64 = 10.0;
-pub const DEFAULT_ISITEUK_EUKARYOTA_CUTOFF: f64 = 14.0;
+pub const DEFAULT_ISITEUK_BACTERIA_CUTOFF: &str = "10";
+pub const DEFAULT_ISITEUK_ARCHAEA_CUTOFF: &str = "10";
+pub const DEFAULT_ISITEUK_EUKARYOTA_CUTOFF: &str = "20";
 
 pub const AUTHOR: &str =
     "Ben J. Woodcroft, Centre for Microbiome Research, Queensland University of Technology";
