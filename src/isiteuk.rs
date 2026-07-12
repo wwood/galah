@@ -1,5 +1,7 @@
 use crate::Domain;
+use flate2::read::GzDecoder;
 use std::collections::HashMap;
+
 use std::io::Write as IoWrite;
 use std::path::Path;
 use std::process::Command;
@@ -60,10 +62,37 @@ impl IsiTeukAnalyser {
     ) -> HashMap<String, Vec<Domain>> {
         let output_path = tmp_path.join("isiteuk_output.tsv");
         let genome_list_path = tmp_path.join("isiteuk_genomes.txt");
+        let genomes_dir = tmp_path.join("isiteuk_genomes");
+        std::fs::create_dir_all(&genomes_dir).expect("Failed to create isiteuk genomes dir");
+
+        // Decompress .gz genomes; track effective path → original path for result remapping.
+        let mut effective_paths: Vec<String> = Vec::with_capacity(genome_paths.len());
+        let mut effective_to_original: HashMap<String, String> = HashMap::new();
+        for fasta in genome_paths {
+            if fasta.ends_with(".gz") {
+                let stem1 = Path::new(fasta).file_stem().unwrap();
+                let stem2 = Path::new(stem1).file_stem().unwrap_or(stem1);
+                let dest = genomes_dir.join(format!("{}.fna", stem2.to_string_lossy()));
+                let mut decoder = GzDecoder::new(
+                    std::fs::File::open(fasta)
+                        .unwrap_or_else(|e| panic!("Failed to open {}: {}", fasta, e)),
+                );
+                let mut out = std::fs::File::create(&dest)
+                    .unwrap_or_else(|e| panic!("Failed to create {:?}: {}", dest, e));
+                std::io::copy(&mut decoder, &mut out)
+                    .unwrap_or_else(|e| panic!("Failed to decompress {}: {}", fasta, e));
+                let effective = dest.to_string_lossy().to_string();
+                effective_to_original.insert(effective.clone(), fasta.clone());
+                effective_paths.push(effective);
+            } else {
+                effective_to_original.insert(fasta.clone(), fasta.clone());
+                effective_paths.push(fasta.clone());
+            }
+        }
 
         let mut f =
             std::fs::File::create(&genome_list_path).expect("Failed to create isiteuk genome list");
-        for p in genome_paths {
+        for p in &effective_paths {
             writeln!(f, "{}", p).expect("Failed to write genome path to isiteuk list");
         }
 
@@ -95,12 +124,36 @@ impl IsiTeukAnalyser {
 
         parse_isiteuk_tsv(
             output_path.to_str().unwrap(),
-            genome_paths,
+            &effective_paths,
             self.bacteria_cutoff,
             self.archaea_cutoff,
             self.eukaryota_cutoff,
         )
+        .into_iter()
+        .map(|(k, v)| (effective_to_original.get(&k).cloned().unwrap_or(k), v))
+        .collect()
     }
+}
+
+/// Derive the stem that isiteuk uses in its output from a genome file path.
+///
+/// isiteuk strips all extensions from the filename and emits just the base name.
+/// For `.fna.gz` we strip two extensions; for `.fna` / `.fa` etc. we strip one.
+/// We apply this only to the *path* side — never call this on the TSV genome column,
+/// which already IS a bare stem (and may itself contain dots, e.g. "GCF_002008365.1_genomic").
+fn genome_path_stem(path: &str) -> String {
+    let p = Path::new(path);
+    let fname = p.file_name().unwrap_or(p.as_os_str());
+    let after_gz = if path.ends_with(".gz") {
+        Path::new(fname).file_stem().unwrap_or(fname)
+    } else {
+        fname
+    };
+    Path::new(after_gz)
+        .file_stem()
+        .unwrap_or(after_gz)
+        .to_string_lossy()
+        .into_owned()
 }
 
 /// Parse an isiteuk output TSV and return per-genome domain assignments.
@@ -145,14 +198,108 @@ pub fn parse_isiteuk_tsv(
             continue;
         }
 
-        let matched = genome_paths.iter().find(|p| {
-            p.as_str() == genome_col
-                || Path::new(p).file_stem() == Path::new(genome_col).file_stem()
-        });
+        let matched = genome_paths
+            .iter()
+            .find(|p| p.as_str() == genome_col || genome_path_stem(p.as_str()) == genome_col);
         if let Some(gp) = matched {
             result.entry(gp.clone()).or_default().push(domain);
         }
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn write_isiteuk_tsv(dir: &std::path::Path, rows: &[(&str, &str, f64)]) -> String {
+        let path = dir.join("isiteuk.tsv");
+        let mut f = std::fs::File::create(&path).unwrap();
+        writeln!(
+            f,
+            "genome\tdomain\tnum_in_target_domain\tnum_not_in_target_domain"
+        )
+        .unwrap();
+        for (genome, domain, count) in rows {
+            writeln!(f, "{genome}\t{domain}\t{count}\t0").unwrap();
+        }
+        path.to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn test_genome_path_stem() {
+        assert_eq!(
+            genome_path_stem("tests/data/domain_examples/GCF_002008365.1_genomic.fna.gz"),
+            "GCF_002008365.1_genomic",
+            ".fna.gz double extension"
+        );
+        assert_eq!(
+            genome_path_stem("/tmp/isiteuk_genomes/GCF_002008365.1_genomic.fna"),
+            "GCF_002008365.1_genomic",
+            ".fna single extension"
+        );
+        assert_eq!(
+            genome_path_stem("GCF_002008365.1_genomic.fna"),
+            "GCF_002008365.1_genomic",
+            "bare filename with extension"
+        );
+    }
+
+    #[test]
+    fn test_parse_isiteuk_tsv_fna_gz_path() {
+        // isiteuk outputs stem-only ("GCF_002008365.1_genomic"), but genome_paths
+        // contains the original .fna.gz path. Matching must strip both extensions.
+        let tmpdir = tempfile::tempdir().unwrap();
+        let tsv = write_isiteuk_tsv(
+            tmpdir.path(),
+            &[("GCF_002008365.1_genomic", "d__Bacteria", 34.0)],
+        );
+        let paths = vec!["tests/data/domain_examples/GCF_002008365.1_genomic.fna.gz".to_string()];
+        let result = parse_isiteuk_tsv(&tsv, &paths, 10.0, 10.0, 20.0);
+        assert_eq!(result.len(), 1);
+        assert!(
+            result.contains_key(&paths[0]),
+            "expected key {:?}, got keys: {:?}",
+            paths[0],
+            result.keys().collect::<Vec<_>>()
+        );
+        assert_eq!(result[&paths[0]], vec![crate::Domain::Bacteria]);
+    }
+
+    #[test]
+    fn test_parse_isiteuk_tsv_decompressed_fna_path() {
+        // When classify_genomes decompresses to a .fna temp path, matching must
+        // still find the genome via the single-extension file_stem.
+        let tmpdir = tempfile::tempdir().unwrap();
+        let tsv = write_isiteuk_tsv(
+            tmpdir.path(),
+            &[("GCF_002008365.1_genomic", "d__Bacteria", 34.0)],
+        );
+        let decompressed = "/tmp/isiteuk_genomes/GCF_002008365.1_genomic.fna".to_string();
+        let paths = vec![decompressed.clone()];
+        let result = parse_isiteuk_tsv(&tsv, &paths, 10.0, 10.0, 20.0);
+        assert_eq!(result.len(), 1);
+        assert!(result.contains_key(&decompressed));
+    }
+
+    #[test]
+    fn test_parse_isiteuk_tsv_cutoff_filtering() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let tsv = write_isiteuk_tsv(
+            tmpdir.path(),
+            &[
+                ("genome_a", "d__Bacteria", 5.0),  // below cutoff of 10
+                ("genome_b", "d__Bacteria", 15.0), // above cutoff
+            ],
+        );
+        let paths = vec!["genome_a".to_string(), "genome_b".to_string()];
+        let result = parse_isiteuk_tsv(&tsv, &paths, 10.0, 10.0, 20.0);
+        assert!(
+            !result.contains_key("genome_a"),
+            "below-cutoff genome should not appear"
+        );
+        assert!(result.contains_key("genome_b"));
+    }
 }
