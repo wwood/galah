@@ -63,30 +63,61 @@ impl IsiTeukAnalyser {
         let output_path = tmp_path.join("isiteuk_output.tsv");
         let genome_list_path = tmp_path.join("isiteuk_genomes.txt");
         let genomes_dir = tmp_path.join("isiteuk_genomes");
-        std::fs::create_dir_all(&genomes_dir).expect("Failed to create isiteuk genomes dir");
 
-        // Decompress .gz genomes; track effective path → original path for result remapping.
+        // Build effective path → original mapping (compute decompressed paths without creating files).
         let mut effective_paths: Vec<String> = Vec::with_capacity(genome_paths.len());
         let mut effective_to_original: HashMap<String, String> = HashMap::new();
         for fasta in genome_paths {
             if fasta.ends_with(".gz") {
                 let stem1 = Path::new(fasta).file_stem().unwrap();
                 let stem2 = Path::new(stem1).file_stem().unwrap_or(stem1);
-                let dest = genomes_dir.join(format!("{}.fna", stem2.to_string_lossy()));
-                let mut decoder = GzDecoder::new(
-                    std::fs::File::open(fasta)
-                        .unwrap_or_else(|e| panic!("Failed to open {}: {}", fasta, e)),
-                );
-                let mut out = std::fs::File::create(&dest)
-                    .unwrap_or_else(|e| panic!("Failed to create {:?}: {}", dest, e));
-                std::io::copy(&mut decoder, &mut out)
-                    .unwrap_or_else(|e| panic!("Failed to decompress {}: {}", fasta, e));
-                let effective = dest.to_string_lossy().to_string();
+                let effective = genomes_dir
+                    .join(format!("{}.fna", stem2.to_string_lossy()))
+                    .to_string_lossy()
+                    .to_string();
                 effective_to_original.insert(effective.clone(), fasta.clone());
                 effective_paths.push(effective);
             } else {
                 effective_to_original.insert(fasta.clone(), fasta.clone());
                 effective_paths.push(fasta.clone());
+            }
+        }
+
+        // If a cached output exists, parse and return it without re-running isiteuk.
+        if output_path.is_file() {
+            info!("Using cached isiteuk output: {:?}", output_path);
+            return parse_isiteuk_tsv(
+                output_path.to_str().unwrap(),
+                &effective_paths,
+                self.bacteria_cutoff,
+                self.archaea_cutoff,
+                self.eukaryota_cutoff,
+            )
+            .into_iter()
+            .map(|(k, v)| (effective_to_original.get(&k).cloned().unwrap_or(k), v))
+            .collect();
+        }
+
+        // Decompress .gz genomes into genomes_dir for the isiteuk run.
+        std::fs::create_dir_all(&genomes_dir).expect("Failed to create isiteuk genomes dir");
+        for fasta in genome_paths {
+            if fasta.ends_with(".gz") {
+                let effective = effective_to_original
+                    .iter()
+                    .find(|(_, v)| *v == fasta)
+                    .map(|(k, _)| k.clone())
+                    .unwrap();
+                let dest = Path::new(&effective);
+                if !dest.is_file() {
+                    let mut decoder = GzDecoder::new(
+                        std::fs::File::open(fasta)
+                            .unwrap_or_else(|e| panic!("Failed to open {}: {}", fasta, e)),
+                    );
+                    let mut out = std::fs::File::create(dest)
+                        .unwrap_or_else(|e| panic!("Failed to create {:?}: {}", dest, e));
+                    std::io::copy(&mut decoder, &mut out)
+                        .unwrap_or_else(|e| panic!("Failed to decompress {}: {}", fasta, e));
+                }
             }
         }
 

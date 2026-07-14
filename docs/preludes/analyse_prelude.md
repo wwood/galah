@@ -62,6 +62,14 @@ galah analyse \
     --barrnap-gff-list barrnap_gff_list.tsv \
     --trnascan-out-list trnascan_out_list.tsv \
     --output-mimag-summary mimag_summary.tsv
+
+# Save intermediate outputs to a directory; re-running reuses completed steps
+CHECKM2DB=CheckM2_database/uniref100.KO.1.dmnd \
+ISITEUK_METAPACKAGE_PATH=/path/to/isiteuk.smpkg \
+galah analyse \
+    --genome-fasta-list genomes.txt \
+    --working-dir work/ \
+    --output-mimag-summary mimag_summary.tsv
 ```
 
 ### Domain choice

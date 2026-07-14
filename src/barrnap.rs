@@ -56,6 +56,10 @@ pub fn run_barrnap(genome_path: &str, kingdom: &str, threads: usize, out_dir: &P
         .to_string_lossy()
         .to_string();
     let gff_path = out_dir.join(format!("{genome_name}.{kingdom}.gff"));
+    if gff_path.is_file() {
+        info!("Using cached Barrnap output: {:?}", gff_path);
+        return gff_path;
+    }
     let output = Command::new("barrnap")
         .args([
             "--kingdom",

@@ -85,6 +85,9 @@ pub fn process_command(
     let eukcc_quality_report = cluster_args
         .get_one::<String>(&process_analyse_def.eukcc_quality_report_argument)
         .map(|s| s.to_string());
+    let working_dir = cluster_args
+        .get_one::<String>(&process_analyse_def.working_dir_argument)
+        .map(|s| s.to_string());
 
     // Run analyse
     let analysis = crate::analyse::analyse(
@@ -106,6 +109,7 @@ pub fn process_command(
         bacteria_domain_cutoff,
         archaea_domain_cutoff,
         eukaryota_domain_cutoff,
+        working_dir.as_deref(),
     )?;
 
     // Set up clustering context similar to cluster subcommand

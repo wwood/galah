@@ -97,6 +97,7 @@ pub struct GalahAnalyser<'a> {
     pub eukaryota_domain_cutoff: f64,
     pub eukcc_db_path: Option<String>,
     pub eukcc_quality_report: Option<String>,
+    pub working_dir: Option<String>,
 }
 
 impl GalahAnalyser<'_> {
@@ -123,6 +124,7 @@ impl GalahAnalyser<'_> {
             self.bacteria_domain_cutoff,
             self.archaea_domain_cutoff,
             self.eukaryota_domain_cutoff,
+            self.working_dir.as_deref(),
         )
     }
 }
@@ -146,6 +148,7 @@ pub struct GalahAnalyserCommandDefinition {
     pub isiteuk_eukaryota_cutoff_argument: String,
     pub eukcc_db_path_argument: String,
     pub eukcc_quality_report_argument: String,
+    pub working_dir_argument: String,
 }
 
 lazy_static! {
@@ -169,6 +172,7 @@ lazy_static! {
             isiteuk_eukaryota_cutoff_argument: "isiteuk-eukaryota-cutoff".to_string(),
             eukcc_db_path_argument: "eukcc-db-path".to_string(),
             eukcc_quality_report_argument: "eukcc-quality-report".to_string(),
+            working_dir_argument: "working-dir".to_string(),
         }
     };
 }
@@ -492,6 +496,13 @@ pub fn add_analyse_subcommand(app: clap::Command) -> clap::Command {
                 .long("eukcc-quality-report")
                 .value_name("FILE")
                 .help("Pre-computed merged EukCC TSV (with 'fasta', 'completeness', 'contamination' columns). Prevents EukCC being run for eukaryotic genomes")
+                .required(false),
+        )
+        .arg(
+            Arg::new(&*ANALYSE_COMMAND_DEFINITION.working_dir_argument)
+                .long("working-dir")
+                .value_name("DIR")
+                .help("Directory for intermediate outputs (isiteuk, CheckM2, EukCC, Barrnap, tRNAscan-SE). Outputs are reused on re-run if present. If not given, a temporary directory is used and deleted on exit.")
                 .required(false),
         );
 
@@ -827,6 +838,9 @@ pub fn generate_galah_analyser<'a>(
     let eukcc_quality_report = m
         .get_one::<String>(&command_definition.eukcc_quality_report_argument)
         .map(|s| s.to_string());
+    let working_dir = m
+        .get_one::<String>(&command_definition.working_dir_argument)
+        .map(|s| s.to_string());
 
     Ok(GalahAnalyser {
         genome_fasta_files,
@@ -846,6 +860,7 @@ pub fn generate_galah_analyser<'a>(
         eukaryota_domain_cutoff,
         eukcc_db_path,
         eukcc_quality_report,
+        working_dir,
     })
 }
 

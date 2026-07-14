@@ -24,6 +24,7 @@ pub struct ProcessAnalyseCommandDefinition {
     pub checkm_tab_table_argument: String,
     pub barrnap_gff_list_argument: String,
     pub trnascan_out_list_argument: String,
+    pub working_dir_argument: String,
 }
 
 lazy_static! {
@@ -42,6 +43,7 @@ lazy_static! {
             checkm_tab_table_argument: "checkm-tab-table".to_string(),
             barrnap_gff_list_argument: "barrnap-gff-list".to_string(),
             trnascan_out_list_argument: "trnascan-out-list".to_string(),
+            working_dir_argument: "working-dir".to_string(),
         }
     };
 }
@@ -96,6 +98,7 @@ lazy_static! {
             isiteuk_eukaryota_cutoff_argument: "isiteuk-eukaryota-cutoff".to_string(),
             eukcc_db_path_argument: "eukcc-db-path".to_string(),
             eukcc_quality_report_argument: "eukcc-quality-report".to_string(),
+            working_dir_argument: "working-dir".to_string(),
         }
     };
 }
@@ -418,6 +421,13 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
                 .long("eukcc-quality-report")
                 .value_name("FILE")
                 .help("Pre-computed merged EukCC TSV. Prevents EukCC being run for eukaryotic genomes"),
+        )
+        .arg(
+            Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.working_dir_argument)
+                .long("working-dir")
+                .value_name("DIR")
+                .help("Directory for intermediate outputs. Outputs are reused on re-run if present. If not given, a temporary directory is used and deleted on exit.")
+                .required(false),
         );
 
     process_subcommand =
@@ -460,6 +470,7 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         isiteuk_eukaryota_cutoff_argument: "isiteuk-eukaryota-cutoff".to_string(),
         eukcc_db_path_argument: "eukcc-db-path".to_string(),
         eukcc_quality_report_argument: "eukcc-quality-report".to_string(),
+        working_dir_argument: "working-dir".to_string(),
     };
 
     manual = manual.custom(

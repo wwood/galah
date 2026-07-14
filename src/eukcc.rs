@@ -89,6 +89,11 @@ fn run_eukcc_single(
     let out_dir = tmp_path.join(format!("eukcc_{}", genome_name));
     // Do not pre-create out_dir — EukCC creates it itself. If the directory already exists
     // EukCC treats it as a previous run and may resume/skip steps, causing missing output.
+    let tsv_path = out_dir.join("eukcc.tsv");
+    if tsv_path.is_file() {
+        info!("Using cached EukCC output: {:?}", tsv_path);
+        return parse_eukcc_tsv(tsv_path.to_str().unwrap(), genome_path);
+    }
 
     // EukCC does not support gzipped input; decompress beside out_dir (not inside it)
     // so EukCC's output directory stays clean.
@@ -134,7 +139,6 @@ fn run_eukcc_single(
         panic!("EukCC did not run successfully");
     }
 
-    let tsv_path = out_dir.join("eukcc.tsv");
     parse_eukcc_tsv(tsv_path.to_str().unwrap(), genome_path)
 }
 

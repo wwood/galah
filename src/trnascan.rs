@@ -47,6 +47,10 @@ pub fn run_trnascan(genome_path: &str, mode: &str, out_dir: &Path) -> PathBuf {
         .to_string_lossy()
         .to_string();
     let out_path = out_dir.join(format!("{genome_name}.{mode}.trna.out"));
+    if out_path.is_file() {
+        info!("Using cached tRNAscan-SE output: {:?}", out_path);
+        return out_path;
+    }
     let output = Command::new("tRNAscan-SE")
         .args([
             &format!("-{mode}"),

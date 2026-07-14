@@ -42,6 +42,15 @@ galah process \
     --output-quality-report quality_report.tsv \
     --output-cluster-definition clusters.tsv \
     --output-mimag-summary mimag_summary.tsv
+
+# Save intermediate outputs to a directory; re-running reuses completed steps
+CHECKM2DB=CheckM2_database/uniref100.KO.1.dmnd \
+ISITEUK_METAPACKAGE_PATH=/path/to/isiteuk.smpkg \
+galah process \
+    --genome-fasta-list genomes.txt \
+    --working-dir work/ \
+    --output-cluster-definition clusters.tsv \
+    --output-mimag-summary mimag_summary.tsv
 ```
 
 See `galah analyse --full-help` for a full description of domain classification, quality tools,

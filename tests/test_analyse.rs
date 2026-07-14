@@ -723,6 +723,154 @@ fi
         );
     }
 
+    /// Verify that all working-dir skips fire correctly.
+    ///
+    /// Pre-populates a working dir with cached outputs for every tool
+    /// (isiteuk, CheckM2, EukCC, Barrnap, tRNAscan-SE), then runs galah
+    /// with GALAH_*_CMD=false and failing stubs on PATH so that any
+    /// unexpected tool invocation causes the test to fail.
+    #[test]
+    fn test_analyse_working_dir_skips() {
+        let work_dir = tempdir().unwrap();
+        let bin_dir = tempdir().unwrap();
+
+        let bac_genome = "tests/data/abisko4/73.20120800_S1D.21.fna";
+        let bac_stem = "73.20120800_S1D.21";
+        let euk_genome = "tests/data/set1/1mbp.fna";
+        let euk_stem = "1mbp";
+
+        // Failing stubs: barrnap and tRNAscan-SE must NOT be invoked.
+        for tool in ["barrnap", "tRNAscan-SE"] {
+            let p = bin_dir.path().join(tool);
+            fs::write(
+                &p,
+                "#!/bin/bash\necho \"Unexpected invocation: $0\" >&2\nexit 1\n",
+            )
+            .unwrap();
+            let _ = std::process::Command::new("chmod")
+                .arg("+x")
+                .arg(&p)
+                .status();
+        }
+
+        // isiteuk_output.tsv: classify bac→Bacteria (score 30), euk→Eukaryota (score 25).
+        // Default cutoffs: bac/arc = 10, euk = 20, so both pass.
+        fs::write(
+            work_dir.path().join("isiteuk_output.tsv"),
+            format!(
+                "genome\tdomain\tnum_in_target_domain\tnum_not_in_target_domain\n\
+                 {bac_genome}\td__Bacteria\t30.0\t5.0\n\
+                 {euk_genome}\td__Eukaryota\t25.0\t3.0\n"
+            ),
+        )
+        .unwrap();
+
+        // checkm2/quality_report.tsv: only the prokaryotic genome.
+        fs::create_dir(work_dir.path().join("checkm2")).unwrap();
+        fs::write(
+            work_dir.path().join("checkm2/quality_report.tsv"),
+            format!(
+                "Name\tCompleteness\tContamination\tCompleteness_Model_Used\t\
+                 Translation_Table_Used\tCoding_Density\tContig_N50\tAverage_Gene_Length\t\
+                 Genome_Size\tGC_Content\tTotal_Coding_Sequences\tTotal_Contigs\t\
+                 Max_Contig_Length\tAdditional_Notes\n\
+                 {bac_stem}\t95.0\t2.0\tGradient Boost (General Model)\t\
+                 11\t0.885\t5745\t235.3\t355151\t0.33\t446\t75\t24150\tNone\n"
+            ),
+        )
+        .unwrap();
+
+        // EukCC output: eukcc_<stem>/eukcc.tsv with completeness/contamination columns.
+        let eukcc_dir = work_dir.path().join(format!("eukcc_{euk_stem}"));
+        fs::create_dir(&eukcc_dir).unwrap();
+        fs::write(
+            eukcc_dir.join("eukcc.tsv"),
+            "completeness\tcontamination\n90.0\t2.0\n",
+        )
+        .unwrap();
+
+        // Barrnap GFF for bac genome (kingdom "bac"): 5S, 16S, 23S.
+        fs::write(
+            work_dir.path().join(format!("{bac_stem}.bac.gff")),
+            "##gff-version 3\n\
+             mock\tbarrnap\trRNA\t1\t100\t.\t+\t.\tName=5S_rRNA;product=5S ribosomal RNA\n\
+             mock\tbarrnap\trRNA\t200\t300\t.\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA\n\
+             mock\tbarrnap\trRNA\t400\t500\t.\t+\t.\tName=23S_rRNA;product=23S ribosomal RNA\n",
+        )
+        .unwrap();
+
+        // Barrnap GFF for euk genome (kingdom "fun"): 18S.
+        fs::write(
+            work_dir.path().join(format!("{euk_stem}.fun.gff")),
+            "##gff-version 3\n\
+             mock\tbarrnap\trRNA\t1\t1800\t.\t+\t.\tName=18S_rRNA;product=18S ribosomal RNA\n",
+        )
+        .unwrap();
+
+        // tRNAscan-SE output for bac genome (mode "B"): 20 standard tRNAs → High quality.
+        let trna_types = [
+            "Ala", "Arg", "Asn", "Asp", "Cys", "Gln", "Glu", "Gly", "His", "Ile", "Leu", "Lys",
+            "Met", "Phe", "Pro", "Ser", "Thr", "Trp", "Tyr", "Val",
+        ];
+        let trna_header = "Sequence                      \t\ttRNA \tBounds\ttRNA\tAnti\t\
+                           Intron Bounds\tInf\t      \n\
+                           Name                          \ttRNA #\tBegin\tEnd  \tType\tCodon\t\
+                           Begin\tEnd\tScore\tNote\n\
+                           --------                      \t------\t-----\t------\t----\t-----\t\
+                           -----\t----\t------\t------\n";
+        let mut bac_trna = trna_header.to_string();
+        for t in &trna_types {
+            bac_trna.push_str(&format!("mock\t1\t101\t200\t{t}\tGCC\t0\t0\t20.0\tNote\n"));
+        }
+        fs::write(
+            work_dir.path().join(format!("{bac_stem}.B.trna.out")),
+            bac_trna,
+        )
+        .unwrap();
+
+        // tRNAscan-SE output for euk genome (mode "E"): 18 standard tRNAs → High quality.
+        let mut euk_trna = trna_header.to_string();
+        for t in trna_types.iter().take(18) {
+            euk_trna.push_str(&format!("mock\t1\t101\t200\t{t}\tGCC\t0\t0\t20.0\tNote\n"));
+        }
+        fs::write(
+            work_dir.path().join(format!("{euk_stem}.E.trna.out")),
+            euk_trna,
+        )
+        .unwrap();
+
+        let new_path = format!("{}:{}", bin_dir.path().display(), env::var("PATH").unwrap());
+
+        Assert::main_binary()
+            .with_env(&[
+                ("PATH", new_path),
+                ("GALAH_CHECKM2_CMD", String::from("false")),
+                ("GALAH_ISITEUK_CMD", String::from("false")),
+                ("GALAH_EUKCC_CMD", String::from("false")),
+            ])
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                bac_genome,
+                euk_genome,
+                "--working-dir",
+                work_dir.path().to_str().unwrap(),
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is(
+                "genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\t\
+                 rRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
+                 tests/data/abisko4/73.20120800_S1D.21.fna\t\
+                 Bacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\n\
+                 tests/data/set1/1mbp.fna\t\
+                 Eukaryota\t90.00\t2.00\t0\t0\t0\t1\t0\t0\t18\tHigh quality\n",
+            )
+            .unwrap();
+    }
+
     #[test]
     fn test_analyse_domain_choice_bac() {
         let tmpdir = tempdir().unwrap();

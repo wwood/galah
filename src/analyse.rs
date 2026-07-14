@@ -50,6 +50,7 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
     bacteria_domain_cutoff: f64,
     archaea_domain_cutoff: f64,
     eukaryota_domain_cutoff: f64,
+    working_dir: Option<&str>,
 ) -> Result<std::collections::HashMap<String, GenomeOutput>, String> {
     let quality_method = quality_finder.method_name();
     let rrna_method = rrna_finder.method_name();
@@ -59,8 +60,35 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
         quality_method, rrna_method, trna_method
     );
 
-    let tmpdir = tempdir().expect("Failed to create tempdir");
-    let tmp_path = tmpdir.path();
+    let _guard: Option<tempfile::TempDir>;
+    let tmp_path_buf: std::path::PathBuf;
+    match working_dir {
+        Some(dir) => {
+            std::fs::create_dir_all(dir).expect("Failed to create working directory");
+            tmp_path_buf = std::path::PathBuf::from(dir);
+            _guard = None;
+        }
+        None => {
+            let td = tempdir().expect("Failed to create tempdir");
+            tmp_path_buf = td.path().to_path_buf();
+            _guard = Some(td);
+        }
+    }
+    let tmp_path = tmp_path_buf.as_path();
+
+    // If working_dir contains a cached CheckM2 quality report, use it automatically.
+    let cached_checkm2_path = tmp_path.join("checkm2").join("quality_report.tsv");
+    let effective_checkm2_report: Option<String> = checkm2_quality_report.clone().or_else(|| {
+        if cached_checkm2_path.is_file() {
+            info!(
+                "Using cached CheckM2 quality report: {:?}",
+                cached_checkm2_path
+            );
+            Some(cached_checkm2_path.to_string_lossy().into_owned())
+        } else {
+            None
+        }
+    });
 
     // ── Step 1: Determine domain assignments ─────────────────────────────────
     let domain_assignments: HashMap<String, Vec<Domain>> = match domain_choice.fixed_domains() {
@@ -113,7 +141,7 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
     let mut quality_cache: HashMap<String, (f64, f64)> = HashMap::new();
 
     // Prokaryotic quality (CheckM2 or pre-computed)
-    if let Some(checkm2_report_path) = checkm2_quality_report {
+    if let Some(checkm2_report_path) = &effective_checkm2_report {
         info!("Using pre-generated CheckM2 quality report: {checkm2_report_path}");
         let checkm2_result = checkm::CheckM2QualityReport::read_file_path(checkm2_report_path)
             .map_err(|e| {
