@@ -523,4 +523,190 @@ fi
         // Quality report should exist
         assert!(output_quality.exists());
     }
+
+    #[test]
+    fn test_process_mock_combined_prok_euk_quality_report() {
+        let tmpdir = tempdir().unwrap();
+
+        // Prokaryotic pair: two distinct real genomes already known to cluster together
+        // (see test_process_mock_with_reference_genomes) with a large completeness gap so the
+        // Parks2020_reduced quality formula's per-genome penalties can't flip the ranking.
+        let prok_hi = "tests/data/abisko4/73.20120600_S2D.19.fna";
+        let prok_lo = "tests/data/abisko4/73.20120800_S1X.13.fna";
+
+        // Synthetic eukaryotic pair: identical sequence content (guaranteed 100% ANI, so they
+        // always cluster together) but distinct filenames/quality, labelled Eukaryota purely
+        // via the injected isiteuk output below. The real content doesn't matter here since
+        // completeness/contamination and domain both come from injected reports.
+        let euk_hi = tmpdir.path().join("euk_hi.fna");
+        let euk_lo = tmpdir.path().join("euk_lo.fna");
+        fs::copy("tests/data/set1/500kb.fna", &euk_hi).unwrap();
+        fs::copy("tests/data/set1/500kb.fna", &euk_lo).unwrap();
+        let euk_hi = euk_hi.to_str().unwrap().to_string();
+        let euk_lo = euk_lo.to_str().unwrap().to_string();
+
+        // Pre-computed isiteuk domain classification (num_in_target_domain above the default
+        // cutoffs of 10 for bac/arc, 20 for euk).
+        fs::write(
+            tmpdir.path().join("isiteuk_output.tsv"),
+            format!(
+                "genome\tdomain\tnum_in_target_domain\tnum_not_in_target_domain\n\
+                 {prok_hi}\td__Bacteria\t30.0\t0.0\n\
+                 {prok_lo}\td__Bacteria\t30.0\t0.0\n\
+                 {euk_hi}\td__Eukaryota\t25.0\t0.0\n\
+                 {euk_lo}\td__Eukaryota\t25.0\t0.0\n"
+            ),
+        )
+        .unwrap();
+
+        // Mocked checkm2 binary standing in for the real tool (prokaryotes only - no entry for
+        // eukaryotes, matching what real CheckM2 would produce).
+        setup_mock_bin(
+            tmpdir.path(),
+            &[
+                (String::from("73.20120600_S2D.19"), 95.0, 1.0, 0, 0, 0, 0),
+                (String::from("73.20120800_S1X.13"), 60.0, 1.0, 0, 0, 0, 0),
+            ],
+        );
+        let path = env::var("PATH").unwrap();
+        let new_path = format!("{}:{}", tmpdir.path().display(), path);
+
+        // Pre-computed EukCC quality report (eukaryotes only - no entry for prokaryotes).
+        let eukcc_report = tmpdir.path().join("eukcc_quality_report.tsv");
+        fs::write(
+            &eukcc_report,
+            "fasta\tcompleteness\tcontamination\tncbi_lng\n\
+             euk_hi\t90.0\t2.0\tEukaryota\n\
+             euk_lo\t40.0\t2.0\tEukaryota\n",
+        )
+        .unwrap();
+
+        // Minimal (header-only) Barrnap/tRNAscan-SE outputs, reused for all four genomes -
+        // rRNA/tRNA content is irrelevant to this test, only completeness/contamination-driven
+        // representative selection is being checked.
+        let empty_gff = tmpdir.path().join("empty.gff");
+        fs::write(&empty_gff, "##gff-version 3\n").unwrap();
+        let empty_trna = tmpdir.path().join("empty.trna.out");
+        fs::write(
+            &empty_trna,
+            "Sequence                      \t\ttRNA \tBounds\ttRNA\tAnti\tIntron Bounds\tInf\t      \n\
+             Name                          \ttRNA #\tBegin\tEnd  \tType\tCodon\tBegin\tEnd\tScore\tNote\n\
+             --------                      \t------\t-----\t------\t----\t-----\t-----\t----\t------\t------\n",
+        )
+        .unwrap();
+
+        // These are matched against the exact --genome-fasta-files paths (no stem fallback),
+        // so use the same literal path strings passed to the command below.
+        let empty_gff_str = empty_gff.to_str().unwrap();
+        let empty_trna_str = empty_trna.to_str().unwrap();
+        let barrnap_list = tmpdir.path().join("barrnap_gff_list.tsv");
+        fs::write(
+            &barrnap_list,
+            format!(
+                "{prok_hi}\t{empty_gff_str}\n\
+                 {prok_lo}\t{empty_gff_str}\n\
+                 {euk_hi}\t{empty_gff_str}\n\
+                 {euk_lo}\t{empty_gff_str}\n"
+            ),
+        )
+        .unwrap();
+        let trnascan_list = tmpdir.path().join("trnascan_out_list.tsv");
+        fs::write(
+            &trnascan_list,
+            format!(
+                "{prok_hi}\t{empty_trna_str}\n\
+                 {prok_lo}\t{empty_trna_str}\n\
+                 {euk_hi}\t{empty_trna_str}\n\
+                 {euk_lo}\t{empty_trna_str}\n"
+            ),
+        )
+        .unwrap();
+
+        let output_clusters = tmpdir.path().join("clusters.tsv");
+        let output_mimag = tmpdir.path().join("mimag_summary.tsv");
+        let output_quality = tmpdir.path().join("quality_report.tsv");
+
+        Assert::main_binary()
+            .with_env(&[
+                ("PATH", new_path),
+                ("CHECKM2DB", String::from("/tmp/mockdb")),
+            ])
+            .with_args(&[
+                "process",
+                "--genome-fasta-files",
+                // Lower-quality genome listed first in each pair, so a correct result can only
+                // come from genuine quality-based ordering, not input-order fallback.
+                prok_lo,
+                prok_hi,
+                &euk_lo,
+                &euk_hi,
+                "--isiteuk-output",
+                tmpdir.path().join("isiteuk_output.tsv").to_str().unwrap(),
+                "--eukcc-quality-report",
+                eukcc_report.to_str().unwrap(),
+                "--barrnap-gff-list",
+                barrnap_list.to_str().unwrap(),
+                "--trnascan-out-list",
+                trnascan_list.to_str().unwrap(),
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "90",
+                "--ani",
+                "95",
+                "--output-cluster-definition",
+                output_clusters.to_str().unwrap(),
+                "--output-mimag-summary",
+                output_mimag.to_str().unwrap(),
+                "--output-quality-report",
+                output_quality.to_str().unwrap(),
+            ])
+            .succeeds()
+            .unwrap();
+
+        // Paths under tmpdir aren't known ahead of time, so parse the cluster definition
+        // rather than asserting on an exact hardcoded string.
+        let cluster_content = fs::read_to_string(&output_clusters).unwrap();
+        let lines: Vec<&str> = cluster_content.lines().collect();
+        assert_eq!(
+            lines.len(),
+            4,
+            "Expected 4 rows (2 prok + 2 euk members): {cluster_content}"
+        );
+
+        let prok_members: Vec<&str> = lines
+            .iter()
+            .filter(|l| l.starts_with(&format!("{prok_hi}\t")))
+            .copied()
+            .collect();
+        assert_eq!(
+            prok_members.len(),
+            2,
+            "Higher-quality (CheckM2) prok genome should be representative of both prok genomes: {cluster_content}"
+        );
+        assert!(prok_members.iter().any(|l| l.ends_with(prok_hi)));
+        assert!(prok_members.iter().any(|l| l.ends_with(prok_lo)));
+
+        let euk_members: Vec<&str> = lines
+            .iter()
+            .filter(|l| l.starts_with(&format!("{euk_hi}\t")))
+            .copied()
+            .collect();
+        assert_eq!(
+            euk_members.len(),
+            2,
+            "Higher-quality (EukCC) euk genome should be representative of both euk genomes: {cluster_content}"
+        );
+        assert!(euk_members.iter().any(|l| l.ends_with(euk_hi.as_str())));
+        assert!(euk_members.iter().any(|l| l.ends_with(euk_lo.as_str())));
+
+        // Sanity-check the merged per-genome quality made it into the MIMAG summary too.
+        let mimag_content = fs::read_to_string(&output_mimag).unwrap();
+        assert!(mimag_content.contains(&format!("{prok_hi}\tBacteria\t95.00\t1.00")));
+        assert!(mimag_content.contains(&format!("{prok_lo}\tBacteria\t60.00\t1.00")));
+        assert!(mimag_content.contains(&format!("{euk_hi}\tEukaryota\t90.00\t2.00")));
+        assert!(mimag_content.contains(&format!("{euk_lo}\tEukaryota\t40.00\t2.00")));
+    }
 }

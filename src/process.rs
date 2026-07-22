@@ -4,6 +4,23 @@ use crate::checkm2::CheckM2Analyser;
 use crate::cluster_argument_parsing;
 use crate::trnascan::TrnascanAnalyser;
 use std::collections::HashMap;
+use std::io::Write;
+use std::path::Path;
+
+/// Double-strip a genome path down to its bare name, matching the convention used by the
+/// `checkm` crate's `retrieve_via_fasta_path` (strips `.gz` then the remaining extension).
+fn genome_name_stem(genome_path: &str) -> String {
+    let stem1 = Path::new(genome_path).file_stem().unwrap();
+    if genome_path.ends_with(".gz") {
+        Path::new(stem1)
+            .file_stem()
+            .unwrap_or(stem1)
+            .to_string_lossy()
+            .into_owned()
+    } else {
+        stem1.to_string_lossy().into_owned()
+    }
+}
 
 type ProcessResult = Result<(HashMap<String, GenomeOutput>, Vec<Vec<usize>>, Vec<String>), String>;
 
@@ -173,7 +190,52 @@ pub fn process_command(
             (genomes.to_vec(), None)
         };
 
-    // Build clusterer, injecting the CheckM2 quality report path from analyse (if produced)
+    // Build clusterer, injecting quality for representative ranking.
+    //
+    // `analysis` already merges CheckM2 (Bacteria/Archaea) and EukCC (Eukaryota) completeness/
+    // contamination for every genome in `genomes`, regardless of domain. Write that combined
+    // table out as a genome-info-style report so representative selection can use it directly,
+    // rather than relying on the CheckM2-only report (which has no entry for eukaryotes, and
+    // would panic when one is looked up).
+    //
+    // Reference genomes are not covered by `analysis` (analyse() only runs on `genomes`), so
+    // when reference genomes are in play, fall back to the pre-existing behaviour of only
+    // injecting quality when the user explicitly requested a CheckM2 report be written out.
+    // Kept alive until the end of this function so the path below stays valid for
+    // `generate_galah_clusterer` to read; cleaned up automatically on drop.
+    let mut _combined_quality_guard: Option<tempfile::NamedTempFile> = None;
+    let combined_quality_report = if reference_genomes.is_none() {
+        let mut combined_quality_file = tempfile::Builder::new()
+            .prefix("galah-process-combined-quality")
+            .suffix(".csv")
+            .tempfile()
+            .expect("Failed to create combined quality report tempfile");
+        writeln!(combined_quality_file, "genome,completeness,contamination")
+            .expect("Failed to write combined quality report header");
+        for (genome_path, output) in &analysis {
+            writeln!(
+                combined_quality_file,
+                "{},{},{}",
+                genome_name_stem(genome_path),
+                output.completeness,
+                output.contamination
+            )
+            .expect("Failed to write combined quality report row");
+        }
+        combined_quality_file
+            .flush()
+            .expect("Failed to flush combined quality report");
+        let path = combined_quality_file.path().to_string_lossy().into_owned();
+        _combined_quality_guard = Some(combined_quality_file);
+        Some(cluster_argument_parsing::InjectedQualityReport::GenomeInfo(
+            path,
+        ))
+    } else {
+        output_quality_report_path
+            .clone()
+            .map(cluster_argument_parsing::InjectedQualityReport::CheckM2)
+    };
+
     let galah = cluster_argument_parsing::generate_galah_clusterer(
         &combined_genomes,
         &None,
@@ -181,7 +243,7 @@ pub fn process_command(
         cluster_args,
         cluster_def,
         ref_genomes_for_clusterer.as_deref(),
-        output_quality_report_path.clone(),
+        combined_quality_report,
     )
     .expect("Failed to parse galah clustering arguments correctly");
 

@@ -860,11 +860,21 @@ enum CheckMResultEnum {
     },
 }
 
+/// A quality report injected by a caller (e.g. `process`) rather than named directly by the
+/// user on the command line, distinguished by format since the two are not interchangeable.
+pub enum InjectedQualityReport {
+    /// Path to a CheckM2 `quality_report.tsv`-format file.
+    CheckM2(String),
+    /// Path to a genome-info CSV (`genome,completeness,contamination`), as read by
+    /// `genome_info_file::read_genome_info_file`.
+    GenomeInfo(String),
+}
+
 pub fn filter_genomes_through_checkm<'a>(
     genome_fasta_files: &'a Vec<String>,
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
-    injected_quality_report: Option<String>,
+    injected_quality_report: Option<InjectedQualityReport>,
 ) -> std::result::Result<Vec<&'a str>, String> {
     if clap_matches.get_flag(&argument_definition.dereplication_cluster_contigs_argument) {
         return Ok(genome_fasta_files.iter().map(|s| &**s).collect());
@@ -920,13 +930,21 @@ pub fn filter_genomes_through_checkm<'a>(
                     )
                     .expect("Error parsing genomeInfo file"),
                 }
-            } else if injected_quality_report.is_some() {
-                info!("Reading injected CheckM2 Quality report ..");
-                CheckMResultEnum::CheckM2Result {
-                    result: checkm::CheckM2QualityReport::read_file_path(
-                        injected_quality_report.as_deref().unwrap(),
-                    )
-                    .unwrap(),
+            } else if let Some(report) = &injected_quality_report {
+                match report {
+                    InjectedQualityReport::CheckM2(path) => {
+                        info!("Reading injected CheckM2 Quality report ..");
+                        CheckMResultEnum::CheckM2Result {
+                            result: checkm::CheckM2QualityReport::read_file_path(path).unwrap(),
+                        }
+                    }
+                    InjectedQualityReport::GenomeInfo(path) => {
+                        info!("Reading injected combined quality report ..");
+                        CheckMResultEnum::GenomeInfoGenomeQuality {
+                            result: genome_info_file::read_genome_info_file(path)
+                                .expect("Error parsing injected combined quality report"),
+                        }
+                    }
                 }
             } else if clap_matches
                 .contains_id(&argument_definition.dereplication_run_checkm2_argument)
@@ -1226,7 +1244,7 @@ pub fn generate_galah_clusterer<'a>(
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
     reference_genomes: Option<&[&str]>,
-    injected_quality_report: Option<String>,
+    injected_quality_report: Option<InjectedQualityReport>,
 ) -> std::result::Result<GalahClusterer<'a>, String> {
     crate::external_command_checker::check_for_fastani();
 

@@ -1,5 +1,7 @@
 use crate::Domain;
 use crate::TrnaFinder;
+use flate2::read::GzDecoder;
+use std::io::copy as io_copy;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -29,9 +31,36 @@ pub fn get_trnascan_output_for_domains(
     let mut modes: Vec<&str> = domains.iter().map(|d| d.trnascan_mode()).collect();
     modes.dedup();
 
+    // tRNAscan-SE does not support gzipped input; decompress once up front if needed
+    // (reusing the file if another step, e.g. EukCC, already decompressed this genome).
+    let decompressed_path;
+    let effective_path: &str = if genome_path.ends_with(".gz") {
+        let stem1 = Path::new(genome_path).file_stem().unwrap();
+        let genome_name = Path::new(stem1)
+            .file_stem()
+            .unwrap_or(stem1)
+            .to_string_lossy()
+            .into_owned();
+        let dest = tmp_path.join(format!("{genome_name}.fna"));
+        if !dest.is_file() {
+            let mut decoder = GzDecoder::new(
+                std::fs::File::open(genome_path)
+                    .unwrap_or_else(|e| panic!("Failed to open {}: {}", genome_path, e)),
+            );
+            let mut out = std::fs::File::create(&dest)
+                .unwrap_or_else(|e| panic!("Failed to create {:?}: {}", dest, e));
+            io_copy(&mut decoder, &mut out)
+                .unwrap_or_else(|e| panic!("Failed to decompress {}: {}", genome_path, e));
+        }
+        decompressed_path = dest.to_string_lossy().into_owned();
+        &decompressed_path
+    } else {
+        genome_path
+    };
+
     let mut best = 0;
     for mode in modes {
-        let out_path = run_trnascan(genome_path, mode, tmp_path);
+        let out_path = run_trnascan(effective_path, mode, tmp_path);
         let trnas = count_unique_standard_trnas(out_path.to_str().unwrap());
         if trnas > best {
             best = trnas;
