@@ -63,21 +63,22 @@ No domain needs to be specified manually — each genome is classified and route
 `mimag_summary.tsv` reports one row per input genome, with its assigned domain, completeness, contamination, rRNA/tRNA gene counts, and overall MIMAG quality category:
 
 ```tsv
-genome	domain	completeness	contamination	rRNA_5S	rRNA_16S	rRNA_23S	rRNA_18S	rRNA_28S	rRNA_5.8S	tRNAs	MIMAG_quality
-GCF_002008365.1_genomic.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality
-GCF_002008365.1_genomic.dup1.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality
-GCF_002008365.1_genomic.dup2.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality
-GCF_002008365.1_genomic.dup3.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality
-GCF_002008365.1_genomic.dup4.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality
-GCF_002008365.1_genomic.dup5.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality
-GCA_003139855.1_genomic.fna.gz	Archaea	84.95	0.03	1	1	1	0	0	1	20	Medium quality
-binchicken_co8412.34_euk.fna.gz	Eukaryota	99.25	1.88	7	0	0	0	0	0	17	Medium quality
+genome	domain	completeness	contamination	rRNA_5S	rRNA_16S	rRNA_23S	rRNA_18S	rRNA_28S	rRNA_5.8S	tRNAs	MIMAG_quality	notes
+GCF_002008365.1_genomic.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCF_002008365.1_genomic.dup1.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCF_002008365.1_genomic.dup2.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCF_002008365.1_genomic.dup3.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCF_002008365.1_genomic.dup4.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCF_002008365.1_genomic.dup5.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCA_003139855.1_genomic.fna.gz	Archaea	84.95	0.03	1	1	1	0	0	1	20	Medium quality	
+binchicken_co8412.34_euk.fna.gz	Eukaryota	99.25	1.88	7	0	0	0	0	0	17	Medium quality	
 ```
 
 - `domain`: the domain assigned by isiteuk (`Bacteria`, `Archaea`, or `Eukaryota`).
 - `completeness`/`contamination`: from CheckM2 (Bacteria/Archaea) or EukCC (Eukaryota).
 - `rRNA_*`/`tRNAs`: counts of the rRNA genes relevant to the assigned domain (5S/16S/23S for prokaryotes; 18S/28S/5.8S/5S for eukaryotes) and the total number of distinct standard tRNAs found, from Barrnap and tRNAscan-SE respectively.
 - `MIMAG_quality`: the overall [MIMAG](https://doi.org/10.1038/nbt.3893) quality category determined from the above.
+- `notes`: empty unless isiteuk's domain call was multi-domain/ambiguous (no cutoff passed, or several passed at once). When ambiguous, both CheckM2 and EukCC are run and whichever reports higher completeness wins; this column then records that the domain was ambiguous and, if resolved, which tool's result (and completeness scores) won.
 
 The bacterial genome reaches High quality (completeness ≥ 90%, contamination < 5%, all of 5S/16S/23S present, ≥ 18 tRNA types).
 The archaeal and eukaryotic genomes both land at Medium quality instead: the archaeal genome's completeness (84.95%) is just under the 90% High-quality threshold, and the eukaryotic genome is one tRNA type short of the ≥ 18 required (17 found) despite otherwise-excellent completeness and contamination.

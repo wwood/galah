@@ -28,6 +28,7 @@ pub struct GenomeOutput {
     pub r58s: usize,
     pub trnas: usize,
     pub mimag_quality: String,
+    pub notes: String,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -128,17 +129,25 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
             .unwrap_or(all_domains.as_slice())
     };
 
-    // Split genomes into prokaryote vs eukaryote-only groups for quality analysis.
-    let (prok_genomes, euk_only_genomes): (Vec<&String>, Vec<&String>) = genomes
+    // Genomes to run CheckM2 on, and genomes to run EukCC on. Not mutually exclusive: a genome
+    // with no confident domain call (fallback to all three above) or one isiteuk confidently
+    // assigned multiple domains including Eukaryota is a candidate for both, and gets assessed
+    // by both - see the resolution step below.
+    let prok_genomes: Vec<&String> = genomes
         .iter()
-        .partition(|g| get_domains(g).iter().any(|d| d.is_prokaryote()));
+        .filter(|g| get_domains(g).iter().any(|d| d.is_prokaryote()))
+        .collect();
+    let euk_genomes: Vec<&String> = genomes
+        .iter()
+        .filter(|g| get_domains(g).contains(&Domain::Eukaryota))
+        .collect();
 
-    let quality_summary = match (prok_genomes.is_empty(), euk_only_genomes.is_empty()) {
+    let quality_summary = match (prok_genomes.is_empty(), euk_genomes.is_empty()) {
         (false, false) => format!(
-            "{} on {} prokaryotic genome(s), EukCC on {} eukaryotic genome(s)",
+            "{} on {} genome(s), EukCC on {} genome(s)",
             quality_method,
             prok_genomes.len(),
-            euk_only_genomes.len()
+            euk_genomes.len()
         ),
         (false, true) => quality_method.to_string(),
         (true, false) => "EukCC".to_string(),
@@ -153,109 +162,118 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
     );
 
     // ── Step 2: Quality analysis ──────────────────────────────────────────────
-    let mut quality_cache: HashMap<String, (f64, f64)> = HashMap::new();
+    // CheckM2 and EukCC results are kept separate until both have had a chance to run, then
+    // resolved per-genome below - a genome assessed by both (ambiguous domain) can't simply be
+    // inserted into one shared cache, since whichever ran second would silently clobber the
+    // first's result rather than the two being compared.
+    let mut checkm_quality_cache: HashMap<String, (f64, f64)> = HashMap::new();
+    let mut euk_quality_cache: HashMap<String, (f64, f64)> = HashMap::new();
 
     // Prokaryotic quality (CheckM2 or pre-computed)
-    if let Some(checkm2_report_path) = &effective_checkm2_report {
-        info!("Using pre-generated CheckM2 quality report: {checkm2_report_path}");
-        let checkm2_result = checkm::CheckM2QualityReport::read_file_path(checkm2_report_path)
-            .map_err(|e| {
-                format!("Failed to parse CheckM2 quality report {checkm2_report_path}: {e}")
-            })?;
-        for genome_path in genomes {
-            let genome_stem = Path::new(genome_path)
-                .file_stem()
-                .unwrap()
-                .to_string_lossy();
-            if let Ok(q) = checkm2_result.retrieve_via_fasta_path(genome_path) {
-                quality_cache.insert(
-                    genome_path.clone(),
-                    (
-                        q.completeness() as f64 * 100.0,
-                        q.contamination() as f64 * 100.0,
-                    ),
-                );
-            } else if let Some((_, q)) = checkm2_result
-                .genome_to_quality
-                .iter()
-                .find(|(k, _)| **k == genome_stem)
-            {
-                quality_cache.insert(
-                    genome_path.clone(),
-                    (
-                        q.completeness() as f64 * 100.0,
-                        q.contamination() as f64 * 100.0,
-                    ),
-                );
-            }
-        }
-    } else if let Some(checkm_tab_path) = checkm_tab_table {
-        info!("Using pre-generated CheckM tab table: {checkm_tab_path}");
-        let checkm1_result = checkm::CheckM1TabTable::read_file_path(checkm_tab_path)
-            .map_err(|e| format!("Failed to parse CheckM tab table {checkm_tab_path}: {e}"))?;
-        for genome_path in genomes {
-            let genome_stem = Path::new(genome_path)
-                .file_stem()
-                .unwrap()
-                .to_string_lossy();
-            if let Ok(q) = checkm1_result.retrieve_via_fasta_path(genome_path) {
-                quality_cache.insert(
-                    genome_path.clone(),
-                    (
-                        q.completeness() as f64 * 100.0,
-                        q.contamination() as f64 * 100.0,
-                    ),
-                );
-            } else if let Some((_, q)) = checkm1_result
-                .genome_to_quality
-                .iter()
-                .find(|(k, _)| **k == genome_stem)
-            {
-                quality_cache.insert(
-                    genome_path.clone(),
-                    (
-                        q.completeness() as f64 * 100.0,
-                        q.contamination() as f64 * 100.0,
-                    ),
-                );
-            }
-        }
-    } else if !prok_genomes.is_empty() {
-        let prok_paths: Vec<String> = prok_genomes.iter().map(|g| (*g).clone()).collect();
-        quality_finder.prepare_comp_cont(&prok_paths, threads, tmp_path);
-
-        if let Some(dest) = output_quality_report_path {
-            let src = tmp_path.join("checkm2").join("quality_report.tsv");
-            if let Some(parent) = std::path::Path::new(dest).parent() {
-                if !parent.as_os_str().is_empty() {
-                    std::fs::create_dir_all(parent).map_err(|e| {
-                        format!("Failed to create parent directory for quality report output: {e}")
-                    })?;
+    if !prok_genomes.is_empty() {
+        if let Some(checkm2_report_path) = &effective_checkm2_report {
+            info!("Using pre-generated CheckM2 quality report: {checkm2_report_path}");
+            let checkm2_result = checkm::CheckM2QualityReport::read_file_path(checkm2_report_path)
+                .map_err(|e| {
+                    format!("Failed to parse CheckM2 quality report {checkm2_report_path}: {e}")
+                })?;
+            for genome_path in &prok_genomes {
+                let genome_stem = Path::new(genome_path.as_str())
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy();
+                if let Ok(q) = checkm2_result.retrieve_via_fasta_path(genome_path) {
+                    checkm_quality_cache.insert(
+                        (*genome_path).clone(),
+                        (
+                            q.completeness() as f64 * 100.0,
+                            q.contamination() as f64 * 100.0,
+                        ),
+                    );
+                } else if let Some((_, q)) = checkm2_result
+                    .genome_to_quality
+                    .iter()
+                    .find(|(k, _)| **k == genome_stem)
+                {
+                    checkm_quality_cache.insert(
+                        (*genome_path).clone(),
+                        (
+                            q.completeness() as f64 * 100.0,
+                            q.contamination() as f64 * 100.0,
+                        ),
+                    );
                 }
             }
-            std::fs::copy(&src, dest).map_err(|e| {
-                format!(
-                    "Failed to copy CheckM2 quality report from {} to {}: {}",
-                    src.display(),
-                    dest,
-                    e
-                )
-            })?;
-        }
+        } else if let Some(checkm_tab_path) = checkm_tab_table {
+            info!("Using pre-generated CheckM tab table: {checkm_tab_path}");
+            let checkm1_result = checkm::CheckM1TabTable::read_file_path(checkm_tab_path)
+                .map_err(|e| format!("Failed to parse CheckM tab table {checkm_tab_path}: {e}"))?;
+            for genome_path in &prok_genomes {
+                let genome_stem = Path::new(genome_path.as_str())
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy();
+                if let Ok(q) = checkm1_result.retrieve_via_fasta_path(genome_path) {
+                    checkm_quality_cache.insert(
+                        (*genome_path).clone(),
+                        (
+                            q.completeness() as f64 * 100.0,
+                            q.contamination() as f64 * 100.0,
+                        ),
+                    );
+                } else if let Some((_, q)) = checkm1_result
+                    .genome_to_quality
+                    .iter()
+                    .find(|(k, _)| **k == genome_stem)
+                {
+                    checkm_quality_cache.insert(
+                        (*genome_path).clone(),
+                        (
+                            q.completeness() as f64 * 100.0,
+                            q.contamination() as f64 * 100.0,
+                        ),
+                    );
+                }
+            }
+        } else {
+            let prok_paths: Vec<String> = prok_genomes.iter().map(|g| (*g).clone()).collect();
+            quality_finder.prepare_comp_cont(&prok_paths, threads, tmp_path);
 
-        for g in &prok_paths {
-            quality_cache.insert(g.clone(), quality_finder.find_comp_cont(g));
+            if let Some(dest) = output_quality_report_path {
+                let src = tmp_path.join("checkm2").join("quality_report.tsv");
+                if let Some(parent) = std::path::Path::new(dest).parent() {
+                    if !parent.as_os_str().is_empty() {
+                        std::fs::create_dir_all(parent).map_err(|e| {
+                            format!(
+                                "Failed to create parent directory for quality report output: {e}"
+                            )
+                        })?;
+                    }
+                }
+                std::fs::copy(&src, dest).map_err(|e| {
+                    format!(
+                        "Failed to copy CheckM2 quality report from {} to {}: {}",
+                        src.display(),
+                        dest,
+                        e
+                    )
+                })?;
+            }
+
+            for g in &prok_paths {
+                checkm_quality_cache.insert(g.clone(), quality_finder.find_comp_cont(g));
+            }
         }
     }
 
     // Eukaryotic quality (EukCC or pre-computed)
-    if !euk_only_genomes.is_empty() {
-        let euk_paths: Vec<String> = euk_only_genomes.iter().map(|g| (*g).clone()).collect();
+    if !euk_genomes.is_empty() {
+        let euk_paths: Vec<String> = euk_genomes.iter().map(|g| (*g).clone()).collect();
 
         if let Some(eukcc_report_path) = eukcc_quality_report {
             info!("Using pre-computed EukCC quality report: {eukcc_report_path}");
             let euk_cache = parse_eukcc_quality_report(eukcc_report_path, &euk_paths)?;
-            quality_cache.extend(euk_cache);
+            euk_quality_cache.extend(euk_cache);
         } else {
             let db_path = eukcc_db_path
                 .or_else(|| std::env::var("EUKCC2_DB").ok())
@@ -263,8 +281,41 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
             let mut eukcc = EukccAnalyser::new(db_path);
             eukcc.prepare_comp_cont(&euk_paths, threads, tmp_path);
             for g in &euk_paths {
-                quality_cache.insert(g.clone(), eukcc.find_comp_cont(g));
+                euk_quality_cache.insert(g.clone(), eukcc.find_comp_cont(g));
             }
+        }
+    }
+
+    // Resolve per-genome quality. Genomes assessed by only one tool just take that result; a
+    // genome assessed by both (ambiguous domain) takes whichever reports higher completeness,
+    // and that choice is remembered - collapsed to just the winning tool's domain(s), since
+    // CheckM2 doesn't itself distinguish Bacteria from Archaea - so the genome's reported domain
+    // and MIMAG criteria (Step 5) follow the winner rather than staying an uninformative
+    // three-way guess.
+    let mut quality_cache: HashMap<String, (f64, f64)> = HashMap::new();
+    let mut ambiguous_resolved_to: HashMap<String, Vec<Domain>> = HashMap::new();
+    for genome_path in genomes {
+        match (
+            checkm_quality_cache.get(genome_path),
+            euk_quality_cache.get(genome_path),
+        ) {
+            (Some(&checkm_q), Some(&euk_q)) => {
+                if euk_q.0 >= checkm_q.0 {
+                    quality_cache.insert(genome_path.clone(), euk_q);
+                    ambiguous_resolved_to.insert(genome_path.clone(), vec![Domain::Eukaryota]);
+                } else {
+                    quality_cache.insert(genome_path.clone(), checkm_q);
+                    ambiguous_resolved_to
+                        .insert(genome_path.clone(), vec![Domain::Bacteria, Domain::Archaea]);
+                }
+            }
+            (Some(&checkm_q), None) => {
+                quality_cache.insert(genome_path.clone(), checkm_q);
+            }
+            (None, Some(&euk_q)) => {
+                quality_cache.insert(genome_path.clone(), euk_q);
+            }
+            (None, None) => {}
         }
     }
 
@@ -317,7 +368,16 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
             .copied()
             .unwrap_or_else(|| panic!("tRNA data not found for genome: {}", genome_path));
 
-        let domains = get_domains(genome_path);
+        // An ambiguous genome resolved above by comparing CheckM2 vs EukCC reports just that
+        // winning tool's domain(s); otherwise fall back to the isiteuk/--domain-choice call.
+        let owned_domains;
+        let domains: &[Domain] = match ambiguous_resolved_to.get(genome_path) {
+            Some(resolved) => {
+                owned_domains = resolved.clone();
+                &owned_domains
+            }
+            None => get_domains(genome_path),
+        };
         let domain_str = domains
             .iter()
             .map(|d| d.display_name())
@@ -328,6 +388,53 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
         let primary_domain = domains.first();
         let mimag_quality =
             compute_mimag_quality(primary_domain, completeness, contamination, rrna, trnas);
+
+        // Note when the domain call was multi-domain/ambiguous, and if so, whether it was
+        // resolved by comparing CheckM2 vs EukCC completeness (Step 2 above).
+        let mut note_parts: Vec<String> = Vec::new();
+        let ambiguity_note = match domain_choice {
+            DomainChoice::All => {
+                Some("--domain-choice all: assessed under Bacteria, Archaea, Eukaryota".to_string())
+            }
+            DomainChoice::Isiteuk => match domain_assignments.get(genome_path) {
+                None => Some(
+                    "no confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota"
+                        .to_string(),
+                ),
+                Some(d) if d.is_empty() => Some(
+                    "no confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota"
+                        .to_string(),
+                ),
+                Some(d) if d.len() > 1 => Some(format!(
+                    "isiteuk assigned multiple domains: {}",
+                    d.iter()
+                        .map(|x| x.display_name())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )),
+                _ => None,
+            },
+            _ => None,
+        };
+        if let Some(note) = ambiguity_note {
+            note_parts.push(note);
+        }
+        if let (Some(resolved), Some(&(checkm_comp, _)), Some(&(euk_comp, _))) = (
+            ambiguous_resolved_to.get(genome_path),
+            checkm_quality_cache.get(genome_path),
+            euk_quality_cache.get(genome_path),
+        ) {
+            note_parts.push(format!(
+                "domain resolved to {} via higher completeness (CheckM2 {:.2}% vs EukCC {:.2}%)",
+                resolved
+                    .iter()
+                    .map(|d| d.display_name())
+                    .collect::<Vec<_>>()
+                    .join(","),
+                checkm_comp,
+                euk_comp
+            ));
+        }
 
         genome_outputs.insert(
             genome_path.to_string(),
@@ -343,6 +450,7 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
                 r58s,
                 trnas,
                 mimag_quality: mimag_quality.to_string(),
+                notes: note_parts.join("; "),
             },
         );
     }

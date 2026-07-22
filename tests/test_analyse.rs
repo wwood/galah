@@ -137,11 +137,11 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/set1/1mbp.fna\tBacteria\t6.35\t0.67\t0\t0\t0\t0\t0\t0\t0\tLow quality\n\
-            tests/data/set1/500kb.fna\tBacteria\t4.08\t0.02\t0\t0\t0\t0\t0\t0\t0\tLow quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t82.17\t0.00\t1\t1\t1\t0\t0\t0\t19\tMedium quality\n\
-            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t84.95\t0.03\t1\t1\t1\t0\t0\t0\t18\tMedium quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t6.35\t0.67\t0\t0\t0\t0\t0\t0\t0\tLow quality\t\n\
+            tests/data/set1/500kb.fna\tBacteria\t4.08\t0.02\t0\t0\t0\t0\t0\t0\t0\tLow quality\t\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t82.17\t0.00\t1\t1\t1\t0\t0\t0\t19\tMedium quality\t\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t84.95\t0.03\t1\t1\t1\t0\t0\t0\t18\tMedium quality\t\n")
             .unwrap();
     }
 
@@ -179,8 +179,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n")
             .unwrap();
     }
 
@@ -219,8 +219,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n")
             .unwrap();
     }
 
@@ -258,8 +258,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t0\t0\t0\t0\t0\t15\tMedium quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t0\t0\t0\t0\t0\t15\tMedium quality\t\n")
             .unwrap();
     }
 
@@ -297,8 +297,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t0\t1\t0\t0\t0\t20\tMedium quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t0\t1\t0\t0\t0\t20\tMedium quality\t\n")
             .unwrap();
     }
 
@@ -336,8 +336,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t16\tMedium quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t16\tMedium quality\t\n")
             .unwrap();
     }
 
@@ -375,8 +375,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t89.90\t2.00\t1\t1\t1\t0\t0\t0\t20\tMedium quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t89.90\t2.00\t1\t1\t1\t0\t0\t0\t20\tMedium quality\t\n")
             .unwrap();
     }
 
@@ -414,8 +414,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t5.10\t1\t1\t1\t0\t0\t0\t20\tMedium quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t5.10\t1\t1\t1\t0\t0\t0\t20\tMedium quality\t\n")
             .unwrap();
     }
 
@@ -453,8 +453,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t49.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tLow quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t49.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tLow quality\t\n")
             .unwrap();
     }
 
@@ -492,8 +492,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t11.00\t1\t1\t1\t0\t0\t0\t20\tLow quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t11.00\t1\t1\t1\t0\t0\t0\t20\tLow quality\t\n")
             .unwrap();
     }
 
@@ -521,11 +521,137 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/set1/1mbp.fna\tBacteria\t95.50\t1.20\t1\t1\t1\t0\t0\t0\t19\tHigh quality\n\
-            tests/data/set1/500kb.fna\tBacteria\t68.37\t2.91\t0\t1\t1\t0\t0\t0\t10\tMedium quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.50\t1.20\t0\t0\t1\t0\t0\t0\t1\tMedium quality\n\
-            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t95.37\t2.91\t0\t0\t0\t0\t0\t0\t0\tMedium quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t95.50\t1.20\t1\t1\t1\t0\t0\t0\t19\tHigh quality\t\n\
+            tests/data/set1/500kb.fna\tBacteria\t68.37\t2.91\t0\t1\t1\t0\t0\t0\t10\tMedium quality\t\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.50\t1.20\t0\t0\t1\t0\t0\t0\t1\tMedium quality\t\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t95.37\t2.91\t0\t0\t0\t0\t0\t0\t0\tMedium quality\t\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_ambiguous_domain_prefers_eukcc_when_higher_completeness() {
+        let tmpdir = tempdir().unwrap();
+        let genome = "tests/data/set1/1mbp.fna";
+
+        // No row for `genome` at all - it fails every domain cutoff, so isiteuk classification
+        // is empty for it and it falls back to being a candidate for every domain.
+        fs::write(
+            tmpdir.path().join("isiteuk_output.tsv"),
+            "genome\tdomain\tnum_in_target_domain\tnum_not_in_target_domain\n",
+        )
+        .unwrap();
+
+        fs::write(
+            tmpdir.path().join("checkm2_quality_report.tsv"),
+            "Name\tCompleteness\tContamination\tCompleteness_Model_Used\tTranslation_Table_Used\t\
+             Coding_Density\tContig_N50\tAverage_Gene_Length\tGenome_Size\tGC_Content\t\
+             Total_Coding_Sequences\tTotal_Contigs\tMax_Contig_Length\tAdditional_Notes\n\
+             1mbp\t40.0\t1.0\tGradient Boost (General Model)\t11\t0.885\t5745\t235.3\t355151\t\
+             0.33\t446\t75\t24150\tNone\n",
+        )
+        .unwrap();
+
+        fs::write(
+            tmpdir.path().join("eukcc_quality_report.tsv"),
+            "fasta\tcompleteness\tcontamination\tncbi_lng\n\
+             1mbp\t90.0\t2.0\tEukaryota\n",
+        )
+        .unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                genome,
+                "--isiteuk-output",
+                tmpdir.path().join("isiteuk_output.tsv").to_str().unwrap(),
+                "--checkm2-quality-report",
+                tmpdir
+                    .path()
+                    .join("checkm2_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--eukcc-quality-report",
+                tmpdir
+                    .path()
+                    .join("eukcc_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--barrnap-gff-list",
+                "tests/data/analyse_file_inputs/barrnap_gff_list.tsv",
+                "--trnascan-out-list",
+                "tests/data/analyse_file_inputs/trnascan_out_list.tsv",
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tEukaryota\t90.00\t2.00\t1\t1\t1\t0\t0\t0\t19\tHigh quality\tno confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota; domain resolved to Eukaryota via higher completeness (CheckM2 40.00% vs EukCC 90.00%)\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_ambiguous_domain_prefers_checkm2_when_higher_completeness() {
+        let tmpdir = tempdir().unwrap();
+        let genome = "tests/data/set1/1mbp.fna";
+
+        fs::write(
+            tmpdir.path().join("isiteuk_output.tsv"),
+            "genome\tdomain\tnum_in_target_domain\tnum_not_in_target_domain\n",
+        )
+        .unwrap();
+
+        fs::write(
+            tmpdir.path().join("checkm2_quality_report.tsv"),
+            "Name\tCompleteness\tContamination\tCompleteness_Model_Used\tTranslation_Table_Used\t\
+             Coding_Density\tContig_N50\tAverage_Gene_Length\tGenome_Size\tGC_Content\t\
+             Total_Coding_Sequences\tTotal_Contigs\tMax_Contig_Length\tAdditional_Notes\n\
+             1mbp\t95.0\t1.0\tGradient Boost (General Model)\t11\t0.885\t5745\t235.3\t355151\t\
+             0.33\t446\t75\t24150\tNone\n",
+        )
+        .unwrap();
+
+        fs::write(
+            tmpdir.path().join("eukcc_quality_report.tsv"),
+            "fasta\tcompleteness\tcontamination\tncbi_lng\n\
+             1mbp\t30.0\t2.0\tEukaryota\n",
+        )
+        .unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                genome,
+                "--isiteuk-output",
+                tmpdir.path().join("isiteuk_output.tsv").to_str().unwrap(),
+                "--checkm2-quality-report",
+                tmpdir
+                    .path()
+                    .join("checkm2_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--eukcc-quality-report",
+                tmpdir
+                    .path()
+                    .join("eukcc_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--barrnap-gff-list",
+                "tests/data/analyse_file_inputs/barrnap_gff_list.tsv",
+                "--trnascan-out-list",
+                "tests/data/analyse_file_inputs/trnascan_out_list.tsv",
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria,Archaea\t95.00\t1.00\t1\t1\t1\t0\t0\t0\t19\tHigh quality\tno confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota; domain resolved to Bacteria,Archaea via higher completeness (CheckM2 95.00% vs EukCC 30.00%)\n")
             .unwrap();
     }
 
@@ -553,11 +679,11 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/set1/1mbp.fna\tBacteria\t95.50\t1.20\t1\t1\t1\t0\t0\t0\t19\tHigh quality\n\
-            tests/data/set1/500kb.fna\tBacteria\t58.37\t12.91\t0\t1\t1\t0\t0\t0\t10\tLow quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t48.37\t1.20\t0\t0\t1\t0\t0\t0\t1\tLow quality\n\
-            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t38.37\t2.91\t0\t0\t0\t0\t0\t0\t0\tLow quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t95.50\t1.20\t1\t1\t1\t0\t0\t0\t19\tHigh quality\t\n\
+            tests/data/set1/500kb.fna\tBacteria\t58.37\t12.91\t0\t1\t1\t0\t0\t0\t10\tLow quality\t\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t48.37\t1.20\t0\t0\t1\t0\t0\t0\t1\tLow quality\t\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t38.37\t2.91\t0\t0\t0\t0\t0\t0\t0\tLow quality\t\n")
             .unwrap();
     }
 
@@ -594,8 +720,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n")
             .unwrap();
 
         let quality_report_contents = std::fs::read_to_string(&quality_report_path).unwrap();
@@ -637,7 +763,7 @@ fi
 
         assert_eq!(
             lines[0],
-            "genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality",
+            "genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes",
             "Output header mismatch"
         );
         assert_eq!(lines.len(), 4, "Expected header + 3 genome lines");
@@ -673,7 +799,7 @@ fi
         );
         let valid_tiers = ["High quality", "Medium quality", "Low quality"];
         assert!(
-            valid_tiers.contains(&euk_line.split('\t').last().unwrap_or("")),
+            valid_tiers.contains(&euk_line.split('\t').nth(11).unwrap_or("")),
             "Eukaryota genome MIMAG quality should be a valid tier"
         );
     }
@@ -714,7 +840,7 @@ fi
         );
         // Verify euk rRNA columns are present (indices 7=18S, 8=28S, 9=5.8S)
         let fields: Vec<&str> = euk_line.split('\t').collect();
-        assert_eq!(fields.len(), 12, "Expected 12 columns in output");
+        assert_eq!(fields.len(), 13, "Expected 13 columns in output");
         let valid_tiers = ["High quality", "Medium quality", "Low quality"];
         assert!(
             valid_tiers.contains(&fields[11]),
@@ -862,11 +988,11 @@ fi
             .stdout()
             .is(
                 "genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\t\
-                 rRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
+                 rRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
                  tests/data/abisko4/73.20120800_S1D.21.fna\t\
-                 Bacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\n\
+                 Bacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n\
                  tests/data/set1/1mbp.fna\t\
-                 Eukaryota\t90.00\t2.00\t0\t0\t0\t1\t0\t0\t18\tHigh quality\n",
+                 Eukaryota\t90.00\t2.00\t0\t0\t0\t1\t0\t0\t18\tHigh quality\t\n",
             )
             .unwrap();
     }
@@ -901,8 +1027,8 @@ fi
             .succeeds()
             .stdout()
             .is("\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\n")
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n")
             .unwrap();
     }
 }

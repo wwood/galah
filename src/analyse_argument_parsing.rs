@@ -872,14 +872,14 @@ pub fn write_analyse_outputs(
     if let Some(mut f) = output_definitions.output_mimag_summary {
         writeln!(
             f,
-            "genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality",
+            "genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes",
         )
         .unwrap();
         for genome in genome_fasta_files {
             if let Some(d) = analysis.get(&**genome) {
                 writeln!(
                     f,
-                    "{genome}\t{domain}\t{comp:.2}\t{cont:.2}\t{r5s}\t{r16s}\t{r23s}\t{r18s}\t{r28s}\t{r58s}\t{trnas}\t{mimag}",
+                    "{genome}\t{domain}\t{comp:.2}\t{cont:.2}\t{r5s}\t{r16s}\t{r23s}\t{r18s}\t{r28s}\t{r58s}\t{trnas}\t{mimag}\t{notes}",
                     genome = genome,
                     domain = d.domain,
                     comp = d.completeness,
@@ -891,13 +891,14 @@ pub fn write_analyse_outputs(
                     r28s = d.r28s,
                     r58s = d.r58s,
                     trnas = d.trnas,
-                    mimag = d.mimag_quality
+                    mimag = d.mimag_quality,
+                    notes = d.notes
                 )
                 .unwrap();
             } else {
                 writeln!(
                     f,
-                    "{genome}\tUnknown\t0.0\t0.0\t0\t0\t0\t0\t0\t0\t0\tMedium quality"
+                    "{genome}\tUnknown\t0.0\t0.0\t0\t0\t0\t0\t0\t0\t0\tMedium quality\tWarning: No analysis results found for this genome. Check input files and logs for errors.",
                 )
                 .unwrap();
             }

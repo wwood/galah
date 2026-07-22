@@ -179,11 +179,11 @@ fi
         assert!(output_mimag.exists());
         let content = fs::read_to_string(&output_mimag).unwrap();
         let expected = "\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/set1/1mbp.fna\tBacteria\t6.35\t0.67\t0\t0\t0\t0\t0\t0\t0\tLow quality\n\
-            tests/data/set1/500kb.fna\tBacteria\t4.08\t0.02\t0\t0\t0\t0\t0\t0\t0\tLow quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t82.17\t0.00\t1\t1\t1\t0\t0\t0\t19\tMedium quality\n\
-            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t84.95\t0.03\t1\t1\t1\t0\t0\t0\t18\tMedium quality\n";
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t6.35\t0.67\t0\t0\t0\t0\t0\t0\t0\tLow quality\t\n\
+            tests/data/set1/500kb.fna\tBacteria\t4.08\t0.02\t0\t0\t0\t0\t0\t0\t0\tLow quality\t\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t82.17\t0.00\t1\t1\t1\t0\t0\t0\t19\tMedium quality\t\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t84.95\t0.03\t1\t1\t1\t0\t0\t0\t18\tMedium quality\t\n";
         assert_eq!(content, expected);
 
         assert!(output_quality.exists());
@@ -227,7 +227,7 @@ fi
 
         assert_eq!(
             lines[0],
-            "genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality",
+            "genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes",
             "Output header mismatch"
         );
         assert_eq!(lines.len(), 4, "Expected header + 3 genome lines");
@@ -325,11 +325,11 @@ fi
         assert!(output_mimag.exists());
         let content = fs::read_to_string(&output_mimag).unwrap();
         let expected = "\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/set1/1mbp.fna\tBacteria\t85.00\t3.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\n\
-            tests/data/set1/500kb.fna\tBacteria\t80.00\t4.00\t0\t1\t0\t0\t0\t0\t10\tMedium quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\n\
-            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t90.00\t5.00\t1\t1\t1\t0\t0\t0\t20\tMedium quality\n";
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t85.00\t3.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\t\n\
+            tests/data/set1/500kb.fna\tBacteria\t80.00\t4.00\t0\t1\t0\t0\t0\t0\t10\tMedium quality\t\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t90.00\t5.00\t1\t1\t1\t0\t0\t0\t20\tMedium quality\t\n";
         assert_eq!(content, expected);
 
         assert!(output_quality.exists());
@@ -386,11 +386,11 @@ fi
         assert!(output_mimag.exists());
         let content = fs::read_to_string(&output_mimag).unwrap();
         let expected = "\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/set1/1mbp.fna\tBacteria\t85.00\t3.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\n\
-            tests/data/set1/500kb.fna\tBacteria\t80.00\t4.00\t0\t1\t0\t0\t0\t0\t10\tMedium quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\n\
-            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t90.00\t5.00\t1\t1\t1\t0\t0\t0\t20\tMedium quality\n";
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t85.00\t3.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\t\n\
+            tests/data/set1/500kb.fna\tBacteria\t80.00\t4.00\t0\t1\t0\t0\t0\t0\t10\tMedium quality\t\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t90.00\t5.00\t1\t1\t1\t0\t0\t0\t20\tMedium quality\t\n";
         assert_eq!(content, expected);
 
         assert!(output_quality.exists());
@@ -446,11 +446,11 @@ fi
         assert!(output_mimag.exists());
         let content = fs::read_to_string(&output_mimag).unwrap();
         let expected = "\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/set1/1mbp.fna\tBacteria\t80.00\t4.00\t0\t1\t0\t0\t0\t0\t10\tMedium quality\n\
-            tests/data/set1/500kb.fna\tBacteria\t85.00\t3.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\n\
-            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t90.00\t5.00\t1\t1\t1\t0\t0\t0\t20\tMedium quality\n\
-            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\n";
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t80.00\t4.00\t0\t1\t0\t0\t0\t0\t10\tMedium quality\t\n\
+            tests/data/set1/500kb.fna\tBacteria\t85.00\t3.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\t\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t90.00\t5.00\t1\t1\t1\t0\t0\t0\t20\tMedium quality\t\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n";
         assert_eq!(content, expected);
 
         assert!(output_quality.exists());
@@ -515,9 +515,9 @@ fi
         assert!(output_mimag.exists());
         let content = fs::read_to_string(&output_mimag).unwrap();
         let expected = "\
-            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\n\
-            tests/data/abisko4/73.20120800_S1X.13.fna\tBacteria\t90.00\t5.00\t1\t1\t1\t0\t0\t0\t20\tMedium quality\n\
-            tests/data/set1/500kb.fna\tBacteria\t85.00\t3.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\n";
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/abisko4/73.20120800_S1X.13.fna\tBacteria\t90.00\t5.00\t1\t1\t1\t0\t0\t0\t20\tMedium quality\t\n\
+            tests/data/set1/500kb.fna\tBacteria\t85.00\t3.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\t\n";
         assert_eq!(content, expected);
 
         // Quality report should exist
