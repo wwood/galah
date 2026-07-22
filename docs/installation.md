@@ -34,7 +34,7 @@ pixi shell
 
 One can see [details of the galah recipe](https://bioconda.github.io/recipes/galah/README.html).
 
-Galah can also be used indirectly through
+Galah cluster can also be used indirectly through
 [CoverM](https://github.com/wwood/CoverM) via its `cluster` subcommand, which is also available on bioconda.
 
 ## Install from Bioconda via Conda

@@ -55,10 +55,6 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
     let quality_method = quality_finder.method_name();
     let rrna_method = rrna_finder.method_name();
     let trna_method = trna_finder.method_name();
-    info!(
-        "Running {}, {} and {} on provided genomes...",
-        quality_method, rrna_method, trna_method
-    );
 
     let _guard: Option<tempfile::TempDir>;
     let tmp_path_buf: std::path::PathBuf;
@@ -136,6 +132,25 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
     let (prok_genomes, euk_only_genomes): (Vec<&String>, Vec<&String>) = genomes
         .iter()
         .partition(|g| get_domains(g).iter().any(|d| d.is_prokaryote()));
+
+    let quality_summary = match (prok_genomes.is_empty(), euk_only_genomes.is_empty()) {
+        (false, false) => format!(
+            "{} on {} prokaryotic genome(s), EukCC on {} eukaryotic genome(s)",
+            quality_method,
+            prok_genomes.len(),
+            euk_only_genomes.len()
+        ),
+        (false, true) => quality_method.to_string(),
+        (true, false) => "EukCC".to_string(),
+        (true, true) => quality_method.to_string(),
+    };
+    info!(
+        "Running {}, {} and {} on {} provided genome(s)...",
+        quality_summary,
+        rrna_method,
+        trna_method,
+        genomes.len()
+    );
 
     // ── Step 2: Quality analysis ──────────────────────────────────────────────
     let mut quality_cache: HashMap<String, (f64, f64)> = HashMap::new();

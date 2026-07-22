@@ -5,7 +5,9 @@ logo: galah_logo.png
 colors:
   main: "#bc7dab"
 navigation:
+  - path: docs/why.md
   - path: docs/installation.md
+  - path: docs/demo.md
   - path: docs/tools
     children:
     - path: docs/tools/process.md
