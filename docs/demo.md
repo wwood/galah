@@ -53,7 +53,7 @@ galah process \
   --output-cluster-definition clusters.tsv
 ```
 
-By default, Galah runs [isiteuk](https://github.com/wwood/isiteuk) to classify each genome by domain, then assesses quality with the tool appropriate to that domain: CheckM2, Barrnap and tRNAscan-SE for Bacteria/Archaea, and EukCC (with eukaryotic rRNA/tRNA criteria) for Eukaryota.
+By default, Galah runs [isiteuk](https://github.com/wwood/isiteuk) to classify each genome by domain (based on marker gene content), then assesses quality with the tool appropriate to that domain: CheckM2, Barrnap and tRNAscan-SE for Bacteria/Archaea, and EukCC (with eukaryotic rRNA/tRNA criteria) for Eukaryota.
 No domain needs to be specified manually — each genome is classified and routed automatically.
 
 ## Understanding the output
@@ -100,3 +100,32 @@ GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup5.fna.gz
 
 The 6 (near-)identical bacterial genomes collapse into a single cluster (all sharing the same representative in the first column), while the archaeal and eukaryotic genomes each form their own single-genome cluster, since neither is within 95% ANI of anything else in the input.
 So from 8 input genomes, `galah process` reports **3 representative genomes** in total — one per distinct organism.
+
+## Domain choice options
+
+`--domain-choice` controls how each genome's domain is decided, and defaults to `isiteuk` (used throughout this demo). Two other values are useful when a genome's domain is uncertain or you want to double-check isiteuk's call:
+
+- `--domain-choice completeness` skips isiteuk and instead runs *both* CheckM2 and EukCC on every genome, keeping whichever reports the higher completeness as a single row. If CheckM2 wins, the domain is reported as `Bacteria,Archaea` (CheckM2 doesn't distinguish the two); rRNA and tRNA are then searched under Bacteria and Archaea kingdoms/modes and the *pair* from whichever single one scores higher overall is kept. This is also what happens automatically to any genome isiteuk can't confidently classify. Works with both `analyse` and `process`.
+- `--domain-choice all` also runs both CheckM2 and EukCC on every genome, but reports **all three domains as separate rows** instead of picking a winner — useful for inspecting how a genome scores under every domain's criteria. Since this produces multiple rows per genome, there's no single quality value left to cluster on, so it's supported by `analyse` only; `process --domain-choice all` is rejected with an error.
+
+For example, running `analyse --domain-choice all` on just the archaeal genome from this demo:
+
+```bash
+galah analyse \
+  --genome-fasta-files GCA_003139855.1_genomic.fna.gz \
+  --domain-choice all \
+  --output-mimag-summary mimag_summary_all.tsv
+```
+
+produces three rows for that one genome, one per domain:
+
+```tsv
+genome	domain	completeness	contamination	rRNA_5S	rRNA_16S	rRNA_23S	rRNA_18S	rRNA_28S	rRNA_5.8S	tRNAs	MIMAG_quality	notes
+GCA_003139855.1_genomic.fna.gz	Archaea	84.95	0.03	1	1	1	0	0	1	20	Medium quality	
+GCA_003139855.1_genomic.fna.gz	Bacteria	84.95	0.03	1	1	1	0	0	0	18	Medium quality	
+GCA_003139855.1_genomic.fna.gz	Eukaryota	10.60	0.92	1	0	0	1	0	0	19	Low quality	
+```
+
+The Bacteria and Archaea rows share the same completeness/contamination (CheckM2 doesn't distinguish between them), but their rRNA/tRNA counts differ since each row's Barrnap/tRNAscan-SE search is restricted to that row's own kingdom/mode.
+The Eukaryota row shows EukCC finding almost no real eukaryotic signal, correctly landing at Low quality.
+The exact Eukaryota-row numbers can vary a little between EukCC/database versions: since this genome isn't actually eukaryotic, EukCC's phylogenetic placement step has no confident clade to land on (expect something like `Genome belongs to clade: protozoa (Best TaxID: protist_common)` in its log).

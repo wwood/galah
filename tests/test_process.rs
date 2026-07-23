@@ -709,4 +709,26 @@ fi
         assert!(mimag_content.contains(&format!("{euk_hi}\tEukaryota\t90.00\t2.00")));
         assert!(mimag_content.contains(&format!("{euk_lo}\tEukaryota\t40.00\t2.00")));
     }
+
+    /// `--domain-choice all` produces multiple rows per genome (one per domain), which has no
+    /// single quality value to cluster on - `process` must reject it rather than guess.
+    #[test]
+    fn test_process_domain_choice_all_is_rejected() {
+        Assert::main_binary()
+            .with_args(&[
+                "process",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "--domain-choice",
+                "all",
+                "--output-mimag-summary",
+                "/dev/stdout",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .fails()
+            .stderr()
+            .contains("--domain-choice all is not supported by `process`")
+            .unwrap();
+    }
 }

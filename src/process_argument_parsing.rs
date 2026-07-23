@@ -372,7 +372,7 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
                 .value_name("CHOICE")
                 .value_parser(crate::DOMAIN_CHOICES)
                 .default_value(crate::DEFAULT_DOMAIN_CHOICE)
-                .help("Method for determining genome domain. 'isiteuk' runs isiteuk first; 'bac', 'arc', 'euk' fix domain; 'all' runs all domains"),
+                .help("Method for determining genome domain. 'isiteuk' runs isiteuk first; 'bac', 'arc', 'euk' fix domain; 'completeness' runs CheckM2+EukCC and keeps whichever has higher completeness. 'all' is not supported by process (see `analyse --domain-choice all`)"),
         )
         .arg(
             Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.isiteuk_output_argument)

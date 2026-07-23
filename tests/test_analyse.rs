@@ -656,6 +656,372 @@ fi
     }
 
     #[test]
+    fn test_analyse_ambiguous_domain_restricts_rrna_trna_to_resolved_domain() {
+        let tmpdir = tempdir().unwrap();
+        let bin_dir = tempdir().unwrap();
+        let genome = "tests/data/set1/1mbp.fna";
+
+        fs::write(
+            tmpdir.path().join("isiteuk_output.tsv"),
+            "genome\tdomain\tnum_in_target_domain\tnum_not_in_target_domain\n",
+        )
+        .unwrap();
+        fs::write(
+            tmpdir.path().join("checkm2_quality_report.tsv"),
+            "Name\tCompleteness\tContamination\tCompleteness_Model_Used\tTranslation_Table_Used\t\
+             Coding_Density\tContig_N50\tAverage_Gene_Length\tGenome_Size\tGC_Content\t\
+             Total_Coding_Sequences\tTotal_Contigs\tMax_Contig_Length\tAdditional_Notes\n\
+             1mbp\t40.0\t1.0\tGradient Boost (General Model)\t11\t0.885\t5745\t235.3\t355151\t\
+             0.33\t446\t75\t24150\tNone\n",
+        )
+        .unwrap();
+        fs::write(
+            tmpdir.path().join("eukcc_quality_report.tsv"),
+            "fasta\tcompleteness\tcontamination\tncbi_lng\n\
+             1mbp\t90.0\t2.0\tEukaryota\n",
+        )
+        .unwrap();
+
+        // Barrnap mock: --kingdom fun succeeds with one 18S hit; bac/arc are hard failures.
+        let barrnap_script = "#!/bin/bash\n\
+             kingdom=\"\"\n\
+             while [[ $# -gt 0 ]]; do\n\
+             \x20\x20case $1 in\n\
+             \x20\x20\x20\x20--kingdom) kingdom=$2; shift 2;;\n\
+             \x20\x20\x20\x20*) shift;;\n\
+             \x20\x20esac\n\
+             done\n\
+             case \"$kingdom\" in\n\
+             \x20\x20fun) echo -e '##gff-version 3\\nmock\\tbarrnap\\trRNA\\t1\\t100\\t.\\t+\\t.\\tName=18S_rRNA;product=18S ribosomal RNA' ;;\n\
+             \x20\x20*) echo \"Unexpected barrnap --kingdom $kingdom\" >&2; exit 1 ;;\n\
+             esac\n";
+        let barrnap = bin_dir.path().join("barrnap");
+        fs::write(&barrnap, barrnap_script).unwrap();
+
+        // tRNAscan-SE mock: -E succeeds with 18 standard tRNAs; -B/-A are hard failures.
+        let mut trnascan_script = String::from(
+            "#!/bin/bash\n\
+             mode=\"\"\n\
+             out=\"\"\n\
+             while [[ $# -gt 0 ]]; do\n\
+             \x20\x20case $1 in\n\
+             \x20\x20\x20\x20-B|-A|-E) mode=$1; shift;;\n\
+             \x20\x20\x20\x20-o) out=$2; shift 2;;\n\
+             \x20\x20\x20\x20*) shift;;\n\
+             \x20\x20esac\n\
+             done\n\
+             if [[ \"$mode\" != \"-E\" ]]; then\n\
+             \x20\x20echo \"Unexpected tRNAscan-SE mode $mode\" >&2\n\
+             \x20\x20exit 1\n\
+             fi\n\
+             echo -e 'Sequence                      \\t\\ttRNA \\tBounds\\ttRNA\\tAnti\\tIntron Bounds\\tInf\\t      ' > \"$out\"\n\
+             echo -e 'Name                          \\ttRNA #\\tBegin\\tEnd  \\tType\\tCodon\\tBegin\\tEnd\\tScore\\tNote' >> \"$out\"\n\
+             echo -e '--------                      \\t------\\t-----\\t------\\t----\\t-----\\t-----\\t----\\t------\\t------' >> \"$out\"\n",
+        );
+        for trna in [
+            "Ala", "Arg", "Asn", "Asp", "Cys", "Gln", "Glu", "Gly", "His", "Ile", "Leu", "Lys",
+            "Met", "Phe", "Pro", "Ser", "Thr", "Trp",
+        ] {
+            trnascan_script.push_str(&format!(
+                "echo -e 'mock\\t1\\t101\\t200\\t{trna}\\tGCC\\t0\\t0\\t20.0\\tNote' >> \"$out\"\n"
+            ));
+        }
+        let trnascan = bin_dir.path().join("tRNAscan-SE");
+        fs::write(&trnascan, trnascan_script).unwrap();
+
+        for script in [&barrnap, &trnascan] {
+            let _ = std::process::Command::new("chmod")
+                .arg("+x")
+                .arg(script)
+                .status();
+        }
+
+        let new_path = format!("{}:{}", bin_dir.path().display(), env::var("PATH").unwrap());
+
+        Assert::main_binary()
+            .with_env(&[("PATH", new_path)])
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                genome,
+                "--isiteuk-output",
+                tmpdir.path().join("isiteuk_output.tsv").to_str().unwrap(),
+                "--checkm2-quality-report",
+                tmpdir
+                    .path()
+                    .join("checkm2_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--eukcc-quality-report",
+                tmpdir
+                    .path()
+                    .join("eukcc_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tEukaryota\t90.00\t2.00\t0\t0\t0\t1\t0\t0\t18\tHigh quality\tno confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota; domain resolved to Eukaryota via higher completeness (CheckM2 40.00% vs EukCC 90.00%)\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_ambiguous_domain_picks_rrna_and_trna_together() {
+        let tmpdir = tempdir().unwrap();
+        let bin_dir = tempdir().unwrap();
+        let genome = "tests/data/set1/1mbp.fna";
+
+        fs::write(
+            tmpdir.path().join("isiteuk_output.tsv"),
+            "genome\tdomain\tnum_in_target_domain\tnum_not_in_target_domain\n",
+        )
+        .unwrap();
+        fs::write(
+            tmpdir.path().join("checkm2_quality_report.tsv"),
+            "Name\tCompleteness\tContamination\tCompleteness_Model_Used\tTranslation_Table_Used\t\
+             Coding_Density\tContig_N50\tAverage_Gene_Length\tGenome_Size\tGC_Content\t\
+             Total_Coding_Sequences\tTotal_Contigs\tMax_Contig_Length\tAdditional_Notes\n\
+             1mbp\t90.0\t1.0\tGradient Boost (General Model)\t11\t0.885\t5745\t235.3\t355151\t\
+             0.33\t446\t75\t24150\tNone\n",
+        )
+        .unwrap();
+        fs::write(
+            tmpdir.path().join("eukcc_quality_report.tsv"),
+            "fasta\tcompleteness\tcontamination\tncbi_lng\n\
+             1mbp\t20.0\t2.0\tEukaryota\n",
+        )
+        .unwrap();
+
+        // Barrnap mock: bac kingdom finds all 3 prokaryotic rRNA types; arc kingdom finds none.
+        let barrnap_script = "#!/bin/bash\n\
+             kingdom=\"\"\n\
+             while [[ $# -gt 0 ]]; do\n\
+             \x20\x20case $1 in\n\
+             \x20\x20\x20\x20--kingdom) kingdom=$2; shift 2;;\n\
+             \x20\x20\x20\x20*) shift;;\n\
+             \x20\x20esac\n\
+             done\n\
+             case \"$kingdom\" in\n\
+             \x20\x20bac) echo -e '##gff-version 3\\n\
+mock\\tbarrnap\\trRNA\\t1\\t100\\t.\\t+\\t.\\tName=5S_rRNA;product=5S ribosomal RNA\\n\
+mock\\tbarrnap\\trRNA\\t200\\t300\\t.\\t+\\t.\\tName=16S_rRNA;product=16S ribosomal RNA\\n\
+mock\\tbarrnap\\trRNA\\t400\\t500\\t.\\t+\\t.\\tName=23S_rRNA;product=23S ribosomal RNA' ;;\n\
+             \x20\x20arc) echo -e '##gff-version 3' ;;\n\
+             \x20\x20*) echo \"Unexpected barrnap --kingdom $kingdom\" >&2; exit 1 ;;\n\
+             esac\n";
+        let barrnap = bin_dir.path().join("barrnap");
+        fs::write(&barrnap, barrnap_script).unwrap();
+
+        // tRNAscan-SE mock: -B (Bacteria) finds 5 standard tRNAs; -A (Archaea) finds 20.
+        let trnascan_script = "#!/bin/bash\n\
+             mode=\"\"\n\
+             out=\"\"\n\
+             while [[ $# -gt 0 ]]; do\n\
+             \x20\x20case $1 in\n\
+             \x20\x20\x20\x20-B|-A) mode=$1; shift;;\n\
+             \x20\x20\x20\x20-o) out=$2; shift 2;;\n\
+             \x20\x20\x20\x20*) shift;;\n\
+             \x20\x20esac\n\
+             done\n\
+             {\n\
+             \x20\x20echo -e 'Sequence                      \\t\\ttRNA \\tBounds\\ttRNA\\tAnti\\tIntron Bounds\\tInf\\t      '\n\
+             \x20\x20echo -e 'Name                          \\ttRNA #\\tBegin\\tEnd  \\tType\\tCodon\\tBegin\\tEnd\\tScore\\tNote'\n\
+             \x20\x20echo -e '--------                      \\t------\\t-----\\t------\\t----\\t-----\\t-----\\t----\\t------\\t------'\n\
+             \x20\x20if [[ \"$mode\" == \"-B\" ]]; then\n\
+             \x20\x20\x20\x20for t in Ala Arg Asn Asp Cys; do echo -e \"mock\\t1\\t101\\t200\\t$t\\tGCC\\t0\\t0\\t20.0\\tNote\"; done\n\
+             \x20\x20elif [[ \"$mode\" == \"-A\" ]]; then\n\
+             \x20\x20\x20\x20for t in Ala Arg Asn Asp Cys Gln Glu Gly His Ile Leu Lys Met Phe Pro Ser Thr Trp Tyr Val; do echo -e \"mock\\t1\\t101\\t200\\t$t\\tGCC\\t0\\t0\\t20.0\\tNote\"; done\n\
+             \x20\x20else\n\
+             \x20\x20\x20\x20echo \"Unexpected tRNAscan-SE mode $mode\" >&2\n\
+             \x20\x20fi\n\
+             } > \"$out\"\n";
+        let trnascan = bin_dir.path().join("tRNAscan-SE");
+        fs::write(&trnascan, trnascan_script).unwrap();
+
+        for script in [&barrnap, &trnascan] {
+            let _ = std::process::Command::new("chmod")
+                .arg("+x")
+                .arg(script)
+                .status();
+        }
+
+        let new_path = format!("{}:{}", bin_dir.path().display(), env::var("PATH").unwrap());
+
+        Assert::main_binary()
+            .with_env(&[("PATH", new_path)])
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                genome,
+                "--isiteuk-output",
+                tmpdir.path().join("isiteuk_output.tsv").to_str().unwrap(),
+                "--checkm2-quality-report",
+                tmpdir
+                    .path()
+                    .join("checkm2_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--eukcc-quality-report",
+                tmpdir
+                    .path()
+                    .join("eukcc_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria,Archaea\t90.00\t1.00\t0\t0\t0\t0\t0\t0\t20\tMedium quality\tno confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota; domain resolved to Bacteria,Archaea via higher completeness (CheckM2 90.00% vs EukCC 20.00%)\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_domain_choice_completeness() {
+        let tmpdir = tempdir().unwrap();
+        fs::write(
+            tmpdir.path().join("eukcc_quality_report.tsv"),
+            "fasta\tcompleteness\tcontamination\tncbi_lng\n\
+             1mbp\t75.0\t5.0\tEukaryota\n",
+        )
+        .unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "--domain-choice",
+                "completeness",
+                "--checkm2-quality-report",
+                "tests/data/analyse_file_inputs/checkm2_quality_report.tsv",
+                "--eukcc-quality-report",
+                tmpdir
+                    .path()
+                    .join("eukcc_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--barrnap-gff-list",
+                "tests/data/analyse_file_inputs/barrnap_gff_list.tsv",
+                "--trnascan-out-list",
+                "tests/data/analyse_file_inputs/trnascan_out_list.tsv",
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria,Archaea\t95.50\t1.20\t1\t1\t1\t0\t0\t0\t19\tHigh quality\t--domain-choice completeness: assessed under Bacteria, Archaea, Eukaryota; domain resolved to Bacteria,Archaea via higher completeness (CheckM2 95.50% vs EukCC 75.00%)\n")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_analyse_domain_choice_all_produces_one_row_per_domain() {
+        let bin_dir = tempdir().unwrap();
+        let genome = "tests/data/set1/1mbp.fna";
+
+        // Barrnap mock: full prokaryotic set for bac, partial (missing 5S) for arc, full
+        // eukaryotic set for fun.
+        let barrnap_script = "#!/bin/bash\n\
+             kingdom=\"\"\n\
+             while [[ $# -gt 0 ]]; do\n\
+             \x20\x20case $1 in\n\
+             \x20\x20\x20\x20--kingdom) kingdom=$2; shift 2;;\n\
+             \x20\x20\x20\x20*) shift;;\n\
+             \x20\x20esac\n\
+             done\n\
+             case \"$kingdom\" in\n\
+             \x20\x20bac) echo -e '##gff-version 3\\n\
+mock\\tbarrnap\\trRNA\\t1\\t100\\t.\\t+\\t.\\tName=5S_rRNA;product=5S ribosomal RNA\\n\
+mock\\tbarrnap\\trRNA\\t200\\t300\\t.\\t+\\t.\\tName=16S_rRNA;product=16S ribosomal RNA\\n\
+mock\\tbarrnap\\trRNA\\t400\\t500\\t.\\t+\\t.\\tName=23S_rRNA;product=23S ribosomal RNA' ;;\n\
+             \x20\x20arc) echo -e '##gff-version 3\\n\
+mock\\tbarrnap\\trRNA\\t200\\t300\\t.\\t+\\t.\\tName=16S_rRNA;product=16S ribosomal RNA\\n\
+mock\\tbarrnap\\trRNA\\t400\\t500\\t.\\t+\\t.\\tName=23S_rRNA;product=23S ribosomal RNA' ;;\n\
+             \x20\x20fun) echo -e '##gff-version 3\\n\
+mock\\tbarrnap\\trRNA\\t1\\t100\\t.\\t+\\t.\\tName=18S_rRNA;product=18S ribosomal RNA\\n\
+mock\\tbarrnap\\trRNA\\t200\\t300\\t.\\t+\\t.\\tName=28S_rRNA;product=28S ribosomal RNA\\n\
+mock\\tbarrnap\\trRNA\\t400\\t500\\t.\\t+\\t.\\tName=5.8S_rRNA;product=5.8S ribosomal RNA' ;;\n\
+             \x20\x20*) echo \"Unexpected barrnap --kingdom $kingdom\" >&2; exit 1 ;;\n\
+             esac\n";
+        let barrnap = bin_dir.path().join("barrnap");
+        fs::write(&barrnap, barrnap_script).unwrap();
+
+        // tRNAscan-SE mock: 20 standard tRNAs regardless of mode (sufficient for all rows).
+        let mut trnascan_script = String::from(
+            "#!/bin/bash\n\
+             out=\"\"\n\
+             while [[ $# -gt 0 ]]; do\n\
+             \x20\x20case $1 in\n\
+             \x20\x20\x20\x20-o) out=$2; shift 2;;\n\
+             \x20\x20\x20\x20*) shift;;\n\
+             \x20\x20esac\n\
+             done\n\
+             echo -e 'Sequence                      \\t\\ttRNA \\tBounds\\ttRNA\\tAnti\\tIntron Bounds\\tInf\\t      ' > \"$out\"\n\
+             echo -e 'Name                          \\ttRNA #\\tBegin\\tEnd  \\tType\\tCodon\\tBegin\\tEnd\\tScore\\tNote' >> \"$out\"\n\
+             echo -e '--------                      \\t------\\t-----\\t------\\t----\\t-----\\t-----\\t----\\t------\\t------' >> \"$out\"\n",
+        );
+        for trna in [
+            "Ala", "Arg", "Asn", "Asp", "Cys", "Gln", "Glu", "Gly", "His", "Ile", "Leu", "Lys",
+            "Met", "Phe", "Pro", "Ser", "Thr", "Trp", "Tyr", "Val",
+        ] {
+            trnascan_script.push_str(&format!(
+                "echo -e 'mock\\t1\\t101\\t200\\t{trna}\\tGCC\\t0\\t0\\t20.0\\tNote' >> \"$out\"\n"
+            ));
+        }
+        let trnascan = bin_dir.path().join("tRNAscan-SE");
+        fs::write(&trnascan, trnascan_script).unwrap();
+
+        for script in [&barrnap, &trnascan] {
+            let _ = std::process::Command::new("chmod")
+                .arg("+x")
+                .arg(script)
+                .status();
+        }
+
+        let new_path = format!("{}:{}", bin_dir.path().display(), env::var("PATH").unwrap());
+
+        let eukcc_report = bin_dir.path().join("eukcc_quality_report.tsv");
+        fs::write(
+            &eukcc_report,
+            "fasta\tcompleteness\tcontamination\tncbi_lng\n\
+             1mbp\t75.0\t5.0\tEukaryota\n",
+        )
+        .unwrap();
+
+        Assert::main_binary()
+            .with_env(&[("PATH", new_path)])
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                genome,
+                "--domain-choice",
+                "all",
+                "--checkm2-quality-report",
+                "tests/data/analyse_file_inputs/checkm2_quality_report.tsv",
+                "--eukcc-quality-report",
+                eukcc_report.to_str().unwrap(),
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t95.50\t1.20\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n\
+            tests/data/set1/1mbp.fna\tArchaea\t95.50\t1.20\t0\t1\t1\t0\t0\t0\t20\tMedium quality\t\n\
+            tests/data/set1/1mbp.fna\tEukaryota\t75.00\t5.00\t0\t0\t0\t1\t1\t1\t20\tMedium quality\t\n")
+            .unwrap();
+    }
+
+    #[test]
     fn test_analyse_with_checkm_tab_table() {
         Assert::main_binary()
             .with_args(&[

@@ -22,7 +22,14 @@ fn genome_name_stem(genome_path: &str) -> String {
     }
 }
 
-type ProcessResult = Result<(HashMap<String, GenomeOutput>, Vec<Vec<usize>>, Vec<String>), String>;
+type ProcessResult = Result<
+    (
+        HashMap<String, Vec<GenomeOutput>>,
+        Vec<Vec<usize>>,
+        Vec<String>,
+    ),
+    String,
+>;
 
 pub fn process_command(
     genomes: &[String],
@@ -40,6 +47,17 @@ pub fn process_command(
     let domain_choice = domain_choice_str
         .parse::<crate::DomainChoice>()
         .unwrap_or(crate::DomainChoice::Isiteuk);
+
+    // --domain-choice all produces multiple rows per genome (one per domain), which has no
+    // single quality value to cluster on - reject rather than guess which row to rank by.
+    if matches!(domain_choice, crate::DomainChoice::All) {
+        eprintln!(
+            "Error: --domain-choice all is not supported by `process` (produces multiple\n\
+             rows per genome, but clustering needs one quality value per genome).\n\
+             Use `analyse --domain-choice all`, or `process --domain-choice completeness`."
+        );
+        std::process::exit(1);
+    }
 
     // Quality analyser (CheckM2) input directly or with DB path from arg or env
     let checkm2_quality_report = cluster_args
@@ -212,7 +230,11 @@ pub fn process_command(
             .expect("Failed to create combined quality report tempfile");
         writeln!(combined_quality_file, "genome,completeness,contamination")
             .expect("Failed to write combined quality report header");
-        for (genome_path, output) in &analysis {
+        for (genome_path, outputs) in &analysis {
+            // `--domain-choice all` is rejected above, so every genome has exactly one row here.
+            let output = outputs
+                .first()
+                .expect("Analysis produced no rows for genome");
             writeln!(
                 combined_quality_file,
                 "{},{},{}",

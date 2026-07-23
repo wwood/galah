@@ -52,7 +52,7 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
     archaea_domain_cutoff: f64,
     eukaryota_domain_cutoff: f64,
     working_dir: Option<&str>,
-) -> Result<std::collections::HashMap<String, GenomeOutput>, String> {
+) -> Result<std::collections::HashMap<String, Vec<GenomeOutput>>, String> {
     let quality_method = quality_finder.method_name();
     let rrna_method = rrna_finder.method_name();
     let trna_method = trna_finder.method_name();
@@ -286,175 +286,269 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
         }
     }
 
-    // Resolve per-genome quality. Genomes assessed by only one tool just take that result; a
-    // genome assessed by both (ambiguous domain) takes whichever reports higher completeness,
-    // and that choice is remembered - collapsed to just the winning tool's domain(s), since
-    // CheckM2 doesn't itself distinguish Bacteria from Archaea - so the genome's reported domain
-    // and MIMAG criteria (Step 5) follow the winner rather than staying an uninformative
-    // three-way guess.
-    let mut quality_cache: HashMap<String, (f64, f64)> = HashMap::new();
-    let mut ambiguous_resolved_to: HashMap<String, Vec<Domain>> = HashMap::new();
-    for genome_path in genomes {
-        match (
-            checkm_quality_cache.get(genome_path),
-            euk_quality_cache.get(genome_path),
-        ) {
-            (Some(&checkm_q), Some(&euk_q)) => {
-                if euk_q.0 >= checkm_q.0 {
-                    quality_cache.insert(genome_path.clone(), euk_q);
-                    ambiguous_resolved_to.insert(genome_path.clone(), vec![Domain::Eukaryota]);
-                } else {
-                    quality_cache.insert(genome_path.clone(), checkm_q);
-                    ambiguous_resolved_to
-                        .insert(genome_path.clone(), vec![Domain::Bacteria, Domain::Archaea]);
-                }
-            }
-            (Some(&checkm_q), None) => {
-                quality_cache.insert(genome_path.clone(), checkm_q);
-            }
-            (None, Some(&euk_q)) => {
-                quality_cache.insert(genome_path.clone(), euk_q);
-            }
-            (None, None) => {}
+    // Pre-computed rRNA/tRNA inputs are per-genome, single-file, and domain-agnostic (whatever
+    // kingdom/mode the file already represents) - reused as-is regardless of domain resolution.
+    let precomputed_rrna: Option<HashMap<String, RrnaCounts>> = match barrnap_gff_list {
+        Some(list_path) => {
+            info!("Using pre-generated Barrnap GFF list: {list_path}");
+            Some(parse_barrnap_gff_list(list_path)?)
         }
-    }
-
-    // ── Step 3: rRNA analysis ─────────────────────────────────────────────────
-    // Returns (r5s, r16s, r23s, r18s, r28s, r58s)
-    let rrna_cache: HashMap<String, (usize, usize, usize, usize, usize, usize)> =
-        if let Some(barrnap_list_path) = barrnap_gff_list {
-            info!("Using pre-generated Barrnap GFF list: {barrnap_list_path}");
-            parse_barrnap_gff_list(barrnap_list_path)?
-        } else {
-            genomes
-                .iter()
-                .map(|g| {
-                    let domains = get_domains(g);
-                    let result = barrnap::get_barrnap_output_for_domains(g, domains, tmp_path);
-                    (g.clone(), result)
-                })
-                .collect()
-        };
-
-    // ── Step 4: tRNA analysis ─────────────────────────────────────────────────
-    let trna_cache: HashMap<String, usize> = if let Some(trnascan_list_path) = trnascan_out_list {
-        info!("Using pre-generated tRNAscan-SE output list: {trnascan_list_path}");
-        parse_trnascan_out_list(trnascan_list_path)?
-    } else {
-        genomes
-            .iter()
-            .map(|g| {
-                let domains = get_domains(g);
-                let count = trnascan::get_trnascan_output_for_domains(g, domains, tmp_path);
-                (g.clone(), count)
-            })
-            .collect()
+        None => None,
+    };
+    let precomputed_trna: Option<HashMap<String, usize>> = match trnascan_out_list {
+        Some(list_path) => {
+            info!("Using pre-generated tRNAscan-SE output list: {list_path}");
+            Some(parse_trnascan_out_list(list_path)?)
+        }
+        None => None,
     };
 
-    // ── Step 5: Assemble GenomeOutput ─────────────────────────────────────────
-    let mut genome_outputs: HashMap<String, GenomeOutput> = HashMap::new();
-    for genome_path in genomes {
-        let (completeness, contamination) = quality_cache
-            .get(genome_path)
-            .copied()
-            .unwrap_or_else(|| panic!("Quality data not found for genome: {}", genome_path));
-        let rrna = rrna_cache
-            .get(genome_path)
-            .copied()
-            .unwrap_or_else(|| panic!("rRNA data not found for genome: {}", genome_path));
-        let (r5s, r16s, r23s, r18s, r28s, r58s) = rrna;
-        let trnas = trna_cache
-            .get(genome_path)
-            .copied()
-            .unwrap_or_else(|| panic!("tRNA data not found for genome: {}", genome_path));
+    let mut genome_outputs: HashMap<String, Vec<GenomeOutput>> = HashMap::new();
 
-        // An ambiguous genome resolved above by comparing CheckM2 vs EukCC reports just that
-        // winning tool's domain(s); otherwise fall back to the isiteuk/--domain-choice call.
-        let owned_domains;
-        let domains: &[Domain] = match ambiguous_resolved_to.get(genome_path) {
-            Some(resolved) => {
-                owned_domains = resolved.clone();
-                &owned_domains
+    if matches!(domain_choice, DomainChoice::All) {
+        // ── DomainChoice::All: one row per domain, no resolution/collapsing ─────────────
+        for genome_path in genomes {
+            let mut rows = Vec::with_capacity(3);
+            for domain in [Domain::Bacteria, Domain::Archaea, Domain::Eukaryota] {
+                let (completeness, contamination) = if domain.is_prokaryote() {
+                    checkm_quality_cache.get(genome_path)
+                } else {
+                    euk_quality_cache.get(genome_path)
+                }
+                .copied()
+                .unwrap_or_else(|| panic!("Quality data not found for genome: {}", genome_path));
+
+                let rrna = match &precomputed_rrna {
+                    Some(cache) => cache.get(genome_path).copied().unwrap_or_else(|| {
+                        panic!("rRNA data not found for genome: {}", genome_path)
+                    }),
+                    None => barrnap::get_barrnap_output_for_domains(
+                        genome_path,
+                        std::slice::from_ref(&domain),
+                        tmp_path,
+                    ),
+                };
+                let (r5s, r16s, r23s, r18s, r28s, r58s) = rrna;
+                let trnas = match &precomputed_trna {
+                    Some(cache) => cache.get(genome_path).copied().unwrap_or_else(|| {
+                        panic!("tRNA data not found for genome: {}", genome_path)
+                    }),
+                    None => trnascan::get_trnascan_output_for_domains(
+                        genome_path,
+                        std::slice::from_ref(&domain),
+                        tmp_path,
+                    ),
+                };
+
+                let mimag_quality =
+                    compute_mimag_quality(Some(&domain), completeness, contamination, rrna, trnas);
+
+                rows.push(GenomeOutput {
+                    domain: domain.display_name().to_string(),
+                    completeness,
+                    contamination,
+                    r5s,
+                    r16s,
+                    r23s,
+                    r18s,
+                    r28s,
+                    r58s,
+                    trnas,
+                    mimag_quality: mimag_quality.to_string(),
+                    notes: String::new(),
+                });
             }
-            None => get_domains(genome_path),
-        };
-        let domain_str = domains
-            .iter()
-            .map(|d| d.display_name())
-            .collect::<Vec<_>>()
-            .join(",");
-
-        // Use primary domain (first in list) to determine MIMAG criteria.
-        let primary_domain = domains.first();
-        let mimag_quality =
-            compute_mimag_quality(primary_domain, completeness, contamination, rrna, trnas);
-
-        // Note when the domain call was multi-domain/ambiguous, and if so, whether it was
-        // resolved by comparing CheckM2 vs EukCC completeness (Step 2 above).
-        let mut note_parts: Vec<String> = Vec::new();
-        let ambiguity_note = match domain_choice {
-            DomainChoice::All => {
-                Some("--domain-choice all: assessed under Bacteria, Archaea, Eukaryota".to_string())
+            genome_outputs.insert(genome_path.clone(), rows);
+        }
+    } else {
+        // ── Everything else: resolve to a single row per genome ─────────────────────────
+        // Genomes assessed by only one tool just take that result; a genome assessed by both
+        // (ambiguous domain, or --domain-choice completeness) takes whichever reports higher
+        // completeness, and that choice is remembered - collapsed to just the winning tool's
+        // domain(s), since CheckM2 doesn't itself distinguish Bacteria from Archaea - so the
+        // genome's reported domain, MIMAG criteria and rRNA/tRNA search below all follow the
+        // winner rather than staying an uninformative three-way guess.
+        let mut quality_cache: HashMap<String, (f64, f64)> = HashMap::new();
+        let mut ambiguous_resolved_to: HashMap<String, Vec<Domain>> = HashMap::new();
+        for genome_path in genomes {
+            match (
+                checkm_quality_cache.get(genome_path),
+                euk_quality_cache.get(genome_path),
+            ) {
+                (Some(&checkm_q), Some(&euk_q)) => {
+                    if euk_q.0 >= checkm_q.0 {
+                        quality_cache.insert(genome_path.clone(), euk_q);
+                        ambiguous_resolved_to.insert(genome_path.clone(), vec![Domain::Eukaryota]);
+                    } else {
+                        quality_cache.insert(genome_path.clone(), checkm_q);
+                        ambiguous_resolved_to
+                            .insert(genome_path.clone(), vec![Domain::Bacteria, Domain::Archaea]);
+                    }
+                }
+                (Some(&checkm_q), None) => {
+                    quality_cache.insert(genome_path.clone(), checkm_q);
+                }
+                (None, Some(&euk_q)) => {
+                    quality_cache.insert(genome_path.clone(), euk_q);
+                }
+                (None, None) => {}
             }
-            DomainChoice::Isiteuk => match domain_assignments.get(genome_path) {
-                None => Some(
-                    "no confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota"
+        }
+
+        for genome_path in genomes {
+            let (completeness, contamination) = quality_cache
+                .get(genome_path)
+                .copied()
+                .unwrap_or_else(|| panic!("Quality data not found for genome: {}", genome_path));
+
+            // An ambiguous genome resolved above by comparing CheckM2 vs EukCC uses just that
+            // winning tool's domain(s) to search for rRNA/tRNA too, so the two decisions can't
+            // land on mismatched domains; otherwise fall back to the isiteuk/--domain-choice call.
+            let owned_domains;
+            let domains: &[Domain] = match ambiguous_resolved_to.get(genome_path) {
+                Some(resolved) => {
+                    owned_domains = resolved.clone();
+                    &owned_domains
+                }
+                None => get_domains(genome_path),
+            };
+
+            let (rrna, trnas) = match (&precomputed_rrna, &precomputed_trna) {
+                // Both live: pick rRNA and tRNA together from whichever single candidate domain
+                // scores highest overall, rather than letting Barrnap and tRNAscan-SE each pick
+                // their own best kingdom/mode independently (which could disagree - e.g. Bacteria
+                // winning on rRNA while Archaea wins on tRNA for the same ambiguous genome).
+                (None, None) => best_rrna_trna_for_domains(genome_path, domains, tmp_path),
+                _ => {
+                    let rrna = match &precomputed_rrna {
+                        Some(cache) => cache.get(genome_path).copied().unwrap_or_else(|| {
+                            panic!("rRNA data not found for genome: {}", genome_path)
+                        }),
+                        None => {
+                            barrnap::get_barrnap_output_for_domains(genome_path, domains, tmp_path)
+                        }
+                    };
+                    let trnas = match &precomputed_trna {
+                        Some(cache) => cache.get(genome_path).copied().unwrap_or_else(|| {
+                            panic!("tRNA data not found for genome: {}", genome_path)
+                        }),
+                        None => trnascan::get_trnascan_output_for_domains(
+                            genome_path,
+                            domains,
+                            tmp_path,
+                        ),
+                    };
+                    (rrna, trnas)
+                }
+            };
+            let (r5s, r16s, r23s, r18s, r28s, r58s) = rrna;
+
+            let domain_str = domains
+                .iter()
+                .map(|d| d.display_name())
+                .collect::<Vec<_>>()
+                .join(",");
+
+            // Use primary domain (first in list) to determine MIMAG criteria.
+            let primary_domain = domains.first();
+            let mimag_quality =
+                compute_mimag_quality(primary_domain, completeness, contamination, rrna, trnas);
+
+            // Note when the domain call was multi-domain/ambiguous, and if so, whether it was
+            // resolved by comparing CheckM2 vs EukCC completeness above.
+            let mut note_parts: Vec<String> = Vec::new();
+            let ambiguity_note = match domain_choice {
+                DomainChoice::Completeness => Some(
+                    "--domain-choice completeness: assessed under Bacteria, Archaea, Eukaryota"
                         .to_string(),
                 ),
-                Some(d) if d.is_empty() => Some(
-                    "no confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota"
-                        .to_string(),
-                ),
-                Some(d) if d.len() > 1 => Some(format!(
-                    "isiteuk assigned multiple domains: {}",
-                    d.iter()
-                        .map(|x| x.display_name())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )),
+                DomainChoice::Isiteuk => match domain_assignments.get(genome_path) {
+                    None => Some(
+                        "no confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota"
+                            .to_string(),
+                    ),
+                    Some(d) if d.is_empty() => Some(
+                        "no confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota"
+                            .to_string(),
+                    ),
+                    Some(d) if d.len() > 1 => Some(format!(
+                        "isiteuk assigned multiple domains: {}",
+                        d.iter()
+                            .map(|x| x.display_name())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )),
+                    _ => None,
+                },
                 _ => None,
-            },
-            _ => None,
-        };
-        if let Some(note) = ambiguity_note {
-            note_parts.push(note);
-        }
-        if let (Some(resolved), Some(&(checkm_comp, _)), Some(&(euk_comp, _))) = (
-            ambiguous_resolved_to.get(genome_path),
-            checkm_quality_cache.get(genome_path),
-            euk_quality_cache.get(genome_path),
-        ) {
-            note_parts.push(format!(
-                "domain resolved to {} via higher completeness (CheckM2 {:.2}% vs EukCC {:.2}%)",
-                resolved
-                    .iter()
-                    .map(|d| d.display_name())
-                    .collect::<Vec<_>>()
-                    .join(","),
-                checkm_comp,
-                euk_comp
-            ));
-        }
+            };
+            if let Some(note) = ambiguity_note {
+                note_parts.push(note);
+            }
+            if let (Some(resolved), Some(&(checkm_comp, _)), Some(&(euk_comp, _))) = (
+                ambiguous_resolved_to.get(genome_path),
+                checkm_quality_cache.get(genome_path),
+                euk_quality_cache.get(genome_path),
+            ) {
+                note_parts.push(format!(
+                    "domain resolved to {} via higher completeness (CheckM2 {:.2}% vs EukCC {:.2}%)",
+                    resolved
+                        .iter()
+                        .map(|d| d.display_name())
+                        .collect::<Vec<_>>()
+                        .join(","),
+                    checkm_comp,
+                    euk_comp
+                ));
+            }
 
-        genome_outputs.insert(
-            genome_path.to_string(),
-            GenomeOutput {
-                domain: domain_str,
-                completeness,
-                contamination,
-                r5s,
-                r16s,
-                r23s,
-                r18s,
-                r28s,
-                r58s,
-                trnas,
-                mimag_quality: mimag_quality.to_string(),
-                notes: note_parts.join("; "),
-            },
-        );
+            genome_outputs.insert(
+                genome_path.clone(),
+                vec![GenomeOutput {
+                    domain: domain_str,
+                    completeness,
+                    contamination,
+                    r5s,
+                    r16s,
+                    r23s,
+                    r18s,
+                    r28s,
+                    r58s,
+                    trnas,
+                    mimag_quality: mimag_quality.to_string(),
+                    notes: note_parts.join("; "),
+                }],
+            );
+        }
     }
+
     Ok(genome_outputs)
+}
+
+/// Runs rRNA and tRNA analysis for each candidate domain and returns the pair from whichever
+/// single domain has the higher combined (rRNA + tRNA) total, so the two never disagree about
+/// which kingdom/mode best matches this genome (unlike picking each independently, which could
+/// e.g. have Bacteria's kingdom win on rRNA while Archaea's mode wins on tRNA).
+fn best_rrna_trna_for_domains(
+    genome_path: &str,
+    domains: &[Domain],
+    tmp_path: &std::path::Path,
+) -> (RrnaCounts, usize) {
+    let mut best: Option<(RrnaCounts, usize, usize)> = None;
+    for domain in domains {
+        let single = std::slice::from_ref(domain);
+        let rrna = barrnap::get_barrnap_output_for_domains(genome_path, single, tmp_path);
+        let trnas = trnascan::get_trnascan_output_for_domains(genome_path, single, tmp_path);
+        let score = rrna.0 + rrna.1 + rrna.2 + rrna.3 + rrna.4 + rrna.5 + trnas;
+        if best
+            .as_ref()
+            .is_none_or(|&(_, _, best_score)| score > best_score)
+        {
+            best = Some((rrna, trnas, score));
+        }
+    }
+    let (rrna, trnas, _) = best.expect("domains must not be empty");
+    (rrna, trnas)
 }
 
 fn compute_mimag_quality(

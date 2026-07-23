@@ -104,7 +104,7 @@ impl GalahAnalyser<'_> {
     pub fn analyse(
         &mut self,
         output_quality_report_path: &Option<String>,
-    ) -> Result<std::collections::HashMap<String, GenomeOutput>, String> {
+    ) -> Result<std::collections::HashMap<String, Vec<GenomeOutput>>, String> {
         crate::analyse::analyse(
             self.genome_fasta_files,
             self.threads,
@@ -444,7 +444,7 @@ pub fn add_analyse_subcommand(app: clap::Command) -> clap::Command {
                 .value_name("CHOICE")
                 .value_parser(crate::DOMAIN_CHOICES)
                 .default_value(crate::DEFAULT_DOMAIN_CHOICE)
-                .help("Method for determining genome domain. 'isiteuk' runs isiteuk first; 'bac', 'arc', 'euk' fix domain for all genomes; 'all' runs tools for all domains"),
+                .help("Method for determining genome domain. 'isiteuk' runs isiteuk first; 'bac', 'arc', 'euk' fix domain for all genomes; 'completeness' runs CheckM2+EukCC for every genome and keeps whichever has higher completeness (one row); 'all' runs CheckM2+EukCC for every genome and reports all three domains (three rows)"),
         )
         .arg(
             Arg::new(&*ANALYSE_COMMAND_DEFINITION.isiteuk_output_argument)
@@ -524,11 +524,15 @@ pub fn add_analyse_domain_parameters_to_section(
                     "Method for determining genome domain. \
                     '{}' runs isiteuk to classify each genome (default). \
                     '{}', '{}', '{}' fix all genomes to that domain. \
-                    '{}' runs tools for all three domains. {}",
+                    '{}' runs CheckM2 and EukCC (and matching rRNA/tRNA) for every genome and \
+                    reports only the higher-completeness domain's result, one row per genome. \
+                    '{}' runs CheckM2 and EukCC for every genome and reports all three domains \
+                    as separate rows. {}",
                     monospace_roff("isiteuk"),
                     monospace_roff("bac"),
                     monospace_roff("arc"),
                     monospace_roff("euk"),
+                    monospace_roff("completeness"),
                     monospace_roff("all"),
                     default_roff(crate::DEFAULT_DOMAIN_CHOICE)
                 )),
@@ -866,7 +870,7 @@ pub fn generate_galah_analyser<'a>(
 
 pub fn write_analyse_outputs(
     output_definitions: AnalyseOutput,
-    analysis: &HashMap<String, GenomeOutput>,
+    analysis: &HashMap<String, Vec<GenomeOutput>>,
     genome_fasta_files: &Vec<String>,
 ) {
     if let Some(mut f) = output_definitions.output_mimag_summary {
@@ -876,25 +880,27 @@ pub fn write_analyse_outputs(
         )
         .unwrap();
         for genome in genome_fasta_files {
-            if let Some(d) = analysis.get(&**genome) {
-                writeln!(
-                    f,
-                    "{genome}\t{domain}\t{comp:.2}\t{cont:.2}\t{r5s}\t{r16s}\t{r23s}\t{r18s}\t{r28s}\t{r58s}\t{trnas}\t{mimag}\t{notes}",
-                    genome = genome,
-                    domain = d.domain,
-                    comp = d.completeness,
-                    cont = d.contamination,
-                    r5s = d.r5s,
-                    r16s = d.r16s,
-                    r23s = d.r23s,
-                    r18s = d.r18s,
-                    r28s = d.r28s,
-                    r58s = d.r58s,
-                    trnas = d.trnas,
-                    mimag = d.mimag_quality,
-                    notes = d.notes
-                )
-                .unwrap();
+            if let Some(rows) = analysis.get(&**genome) {
+                for d in rows {
+                    writeln!(
+                        f,
+                        "{genome}\t{domain}\t{comp:.2}\t{cont:.2}\t{r5s}\t{r16s}\t{r23s}\t{r18s}\t{r28s}\t{r58s}\t{trnas}\t{mimag}\t{notes}",
+                        genome = genome,
+                        domain = d.domain,
+                        comp = d.completeness,
+                        cont = d.contamination,
+                        r5s = d.r5s,
+                        r16s = d.r16s,
+                        r23s = d.r23s,
+                        r18s = d.r18s,
+                        r28s = d.r28s,
+                        r58s = d.r58s,
+                        trnas = d.trnas,
+                        mimag = d.mimag_quality,
+                        notes = d.notes
+                    )
+                    .unwrap();
+                }
             } else {
                 writeln!(
                     f,

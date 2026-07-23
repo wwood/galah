@@ -142,7 +142,11 @@ pub enum DomainChoice {
     Archaea,
     /// Treat all genomes as Eukaryota.
     Eukaryota,
-    /// Run all domain tools for every genome and take the best result.
+    /// Run CheckM2 and EukCC (and matching rRNA/tRNA) for every genome; report only the
+    /// higher-completeness domain's result, one row per genome.
+    Completeness,
+    /// Run CheckM2 and EukCC (and matching rRNA/tRNA) for every genome; report all three domains
+    /// as separate rows, one row per domain per genome.
     All,
 }
 
@@ -154,6 +158,7 @@ impl std::str::FromStr for DomainChoice {
             "bac" => Ok(DomainChoice::Bacteria),
             "arc" => Ok(DomainChoice::Archaea),
             "euk" => Ok(DomainChoice::Eukaryota),
+            "completeness" => Ok(DomainChoice::Completeness),
             "all" => Ok(DomainChoice::All),
             _ => Err(format!("Unknown domain choice: {s}")),
         }
@@ -167,7 +172,9 @@ impl DomainChoice {
             DomainChoice::Bacteria => Some(vec![Domain::Bacteria]),
             DomainChoice::Archaea => Some(vec![Domain::Archaea]),
             DomainChoice::Eukaryota => Some(vec![Domain::Eukaryota]),
-            DomainChoice::All => Some(vec![Domain::Bacteria, Domain::Archaea, Domain::Eukaryota]),
+            DomainChoice::Completeness | DomainChoice::All => {
+                Some(vec![Domain::Bacteria, Domain::Archaea, Domain::Eukaryota])
+            }
             DomainChoice::Isiteuk => None,
         }
     }
@@ -189,7 +196,7 @@ pub const RRNA_METHODS: [&str; 1] = ["barrnap"];
 pub const DEFAULT_TRNA_METHOD: &str = "trnascan";
 pub const TRNA_METHODS: [&str; 1] = ["trnascan"];
 pub const DEFAULT_DOMAIN_CHOICE: &str = "isiteuk";
-pub const DOMAIN_CHOICES: [&str; 5] = ["isiteuk", "bac", "arc", "euk", "all"];
+pub const DOMAIN_CHOICES: [&str; 6] = ["isiteuk", "bac", "arc", "euk", "completeness", "all"];
 pub const DEFAULT_ISITEUK_BACTERIA_CUTOFF: &str = "10";
 pub const DEFAULT_ISITEUK_ARCHAEA_CUTOFF: &str = "10";
 pub const DEFAULT_ISITEUK_EUKARYOTA_CUTOFF: &str = "20";
