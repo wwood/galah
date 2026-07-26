@@ -79,6 +79,7 @@ GCF_002008365.1_genomic.dup4.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High qua
 GCF_002008365.1_genomic.dup5.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
 GCA_003139855.1_genomic.fna.gz	Archaea	84.95	0.03	1	1	1	0	0	1	20	Medium quality	
 binchicken_co8412.34_euk.fna.gz	Eukaryota	99.25	1.88	7	0	0	0	0	0	17	Medium quality	
+chimera_arc_euk.fna.gz	Archaea	100.00	34.26	8	1	1	0	0	1	20	Low quality	isiteuk assigned multiple domains: Eukaryota, Archaea; domain resolved to Archaea via higher completeness (CheckM2 100.00% vs EukCC 99.25%)
 ```
 
 - `domain`: the domain assigned by isiteuk (`Bacteria`, `Archaea`, or `Eukaryota`).
@@ -88,28 +89,28 @@ binchicken_co8412.34_euk.fna.gz	Eukaryota	99.25	1.88	7	0	0	0	0	0	17	Medium quali
 - `notes`: empty unless isiteuk's domain call was multi-domain/ambiguous (no cutoff passed, or several passed at once). When ambiguous, both CheckM2 and EukCC are run and whichever reports higher completeness wins; this column then records that the domain was ambiguous and, if resolved, which tool's result (and completeness scores) won.
 
 The bacterial genome reaches High quality (completeness ≥ 90%, contamination < 5%, all of 5S/16S/23S present, ≥ 18 tRNA types).
-The archaeal and eukaryotic genomes both land at Medium quality instead: the archaeal genome's completeness (84.95%) is just under the 90% High-quality threshold, and the eukaryotic genome is one tRNA type short of the ≥ 18 required (17 found) despite otherwise-excellent completeness and contamination.
+The archaeal and eukaryotic genomes both land at Medium quality instead: the archaeal genome's completeness (84.95%) is just under the 90% High-quality threshold, and the eukaryotic genome is one tRNA type short of the ≥ 18 required (17 found).
 
-`chimera_arc_euk.fna.gz` isn't shown above because its row depends on a fix that hasn't shipped in a release yet: Galah decompressed `.gz` genomes with a decoder that only reads the *first* gzip member of a file, so a genome built by literally concatenating two gzip files (as above) had its second half silently dropped before isiteuk ever saw it — the chimera was misclassified as pure Archaea, no ambiguity detected. With that fixed, real isiteuk output on the correctly-decompressed chimera shows it clearing *both* the Archaea cutoff (`num_in_target_domain` 21.8 vs cutoff 10) and the Eukaryota cutoff (212.4 vs cutoff 20), so `notes` should read something like `isiteuk assigned multiple domains: Archaea, Eukaryota; domain resolved to Eukaryota via higher completeness (CheckM2 ~85% vs EukCC ~99%)`. Once you're on a version with the fix, rerun the `galah process` command above and check your own `mimag_summary.tsv` for the exact row.
+The chimera genome is exactly the case `--domain-choice isiteuk`'s ambiguity handling is for: isiteuk finds marker genes for both Eukaryota and Archaea in the same file (unsurprising, since it's literally the concatenation of an archaeal and a eukaryotic genome), so Galah falls back to running both CheckM2 and EukCC and keeping whichever reports higher completeness. Here CheckM2 calls it 100.00% complete against the Archaea/Bacteria marker set (the archaeal contigs plus the eukaryote contigs are enough to convince CheckM2 that the genome is complete) versus EukCC's 99.25% (which is actually just the completeness of the embedded eukaryotic genome), so the row is reported as Archaea, but with contamination inflated to 34.26% by the eukaryotic contigs CheckM2 doesn't expect to see — dragging its MIMAG quality down to Low despite the high completeness. The `notes` column records exactly what happened so this isn't mistaken for a straightforward domain call.
 
 ### `--output-cluster-definition`
 
 `clusters.tsv` reports one `representative<TAB>member` line per input genome, clustered by ANI (95% by default) using the MIMAG quality scores above to pick the best representative of each cluster:
 
 ```tsv
-binchicken_co8412.34_euk.fna.gz	binchicken_co8412.34_euk.fna.gz
-GCA_003139855.1_genomic.fna.gz	GCA_003139855.1_genomic.fna.gz
-GCA_003139855.1_genomic.fna.gz	chimera_arc_euk.fna.gz
 GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.fna.gz
 GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup1.fna.gz
-GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup2.fna.gz
 GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup3.fna.gz
+GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup2.fna.gz
 GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup4.fna.gz
 GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup5.fna.gz
+GCA_003139855.1_genomic.fna.gz	GCA_003139855.1_genomic.fna.gz
+GCA_003139855.1_genomic.fna.gz	chimera_arc_euk.fna.gz
+binchicken_co8412.34_euk.fna.gz	binchicken_co8412.34_euk.fna.gz
 ```
 
-The 6 (near-)identical bacterial genomes collapse into a single cluster as before, and the eukaryotic genome again forms its own singleton — but the chimera genome clusters *with* the archaeal genome rather than forming a new cluster: its file contains the archaeal genome's contigs unmodified, so skani finds them close enough (well within 95% ANI over the aligned region) to group together, with `GCA_003139855.1_genomic.fna.gz` chosen as representative. Clustering reads `.gz` files independently of the decompression bug mentioned above (skani decompresses them itself), so this grouping should hold regardless of that fix — but exactly *why* the archaeal genome rather than the chimera is chosen as representative depends on their relative completeness/contamination/contig counts, which for the chimera specifically may change once CheckM2 is correctly seeing its full (post-fix) content rather than just the truncated archaeal portion. Worth re-checking your own `clusters.tsv` once you're on a fixed version.
-So even with the chimera added, `galah process` still reports **3 representative genomes** from the now 9 input genomes — one per distinct organism, exactly as before.
+The 6 (near-)identical bacterial genomes collapse into a single cluster, and the eukaryotic genome forms its own singleton — but the chimera genome clusters *with* the archaeal genome rather than forming a new cluster: its file contains the archaeal genome's contigs unmodified, so skani finds them close enough (well within 95% ANI over the aligned region) to group together, with `GCA_003139855.1_genomic.fna.gz` chosen as representative over the chimera itself since it has much lower contamination.
+So even with the chimera added, `galah process` still reports **3 representative genomes** from the 9 input genomes — one per distinct organism.
 
 ## Domain choice options
 

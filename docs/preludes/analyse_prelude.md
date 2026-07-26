@@ -82,7 +82,8 @@ The `--domain-choice` flag controls how galah determines the biological domain f
 | `bac` | Treat all genomes as Bacteria |
 | `arc` | Treat all genomes as Archaea |
 | `euk` | Treat all genomes as Eukaryota |
-| `all` | Run all domain tools for every genome and take the best result |
+| `completeness` | Run CheckM2 and EukCC on every genome and keep whichever reports the higher completeness as a single row |
+| `all` | Run CheckM2 and EukCC on every genome and report all three domains as separate rows |
 
 ### Output format
 
@@ -102,6 +103,7 @@ The `--output-mimag-summary` TSV contains one row per genome with these columns:
 | `rRNA_5.8S` | Number of 5.8S rRNA genes found (eukaryotes) |
 | `tRNAs` | Number of unique standard tRNA types found |
 | `MIMAG_quality` | MIMAG quality tier: High quality, Medium quality, or Low quality |
+| `notes` | Empty unless the domain call was ambiguous; otherwise records which tools/domains were involved and how the ambiguity was resolved |
 
 ### MIMAG quality criteria
 
