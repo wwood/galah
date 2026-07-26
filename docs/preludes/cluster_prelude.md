@@ -10,9 +10,10 @@ galah cluster --cluster-contigs --small-genomes --genome-fasta-files contigs.fna
 galah cluster --genome-fasta-directory input_genomes/ --output-representative-fasta-directory output_directory/ 
 # Example: cluster genomes specified in genomes.txt at 95% ANI after preclustering at 90% using finch method
 galah cluster --ani 95 --precluster-ani 90 --precluster-method finch --genome-fasta-list genomes.txt --output-cluster-definition clusters.tsv
-# Example: cluster a set of genomes and then their representatives against a set of reference genomes (reduces memory usage against clustering all together)
-galah cluster --genome-fasta-directory input_genomes/ --output-representative-list genome_reps.txt
-galah cluster --genome-fasta-list genome_reps.txt --reference-genomes-list reference_genomes.txt --output-cluster-definition clusters.tsv
+# Example: cluster a set of new genomes against a set of (already-dereplicated) reference genomes
+# (reduces memory usage vs. clustering everything together). The new genomes are dereplicated
+# amongst themselves first, then only the resulting representative(s) are compared against the reference genomes.
+galah cluster --genome-fasta-directory input_genomes/ --reference-genomes-list reference_genomes.txt --output-cluster-definition clusters.tsv
 # Example: cluster a large set of genomes using low-memory mode
 galah cluster --low-memory --genome-fasta-directory input_genomes/ --output-representative-fasta-directory output_directory/
 ```

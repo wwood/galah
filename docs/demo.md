@@ -139,3 +139,22 @@ GCA_003139855.1_genomic.fna.gz	Eukaryota	10.60	0.92	1	0	0	1	0	0	19	Low quality
 The Bacteria and Archaea rows share the same completeness/contamination (CheckM2 doesn't distinguish between them), but their rRNA/tRNA counts differ since each row's Barrnap/tRNAscan-SE search is restricted to that row's own kingdom/mode.
 The Eukaryota row shows EukCC finding almost no real eukaryotic signal, correctly landing at Low quality.
 The exact Eukaryota-row numbers can vary a little between EukCC/database versions: since this genome isn't actually eukaryotic, EukCC's phylogenetic placement step has no confident clade to land on (expect something like `Genome belongs to clade: protozoa (Best TaxID: protist_common)` in its log).
+
+## Dereplicating against a reference catalogue (e.g. GlobDB)
+
+Rather than re-dereplicating an entire growing genome catalogue from scratch every time new genomes arrive, `--reference-genomes`/`--reference-genomes-list` let you cluster only the new genomes against an already-dereplicated reference set (see [Why use Galah?](/why#dereplicating-against-an-existing-catalogue) for benchmarking against [GlobDB](https://globdb.org/), a public catalogue of hundreds of thousands of dereplicated prokaryotic genomes).
+
+The new genomes given via `--genome-fasta-files`/`--genome-fasta-directory`/`--genome-fasta-list` do **not** need to be dereplicated amongst themselves first, Galah does that automatically before comparing against the reference set. The reference genomes themselves must already be dereplicated at the chosen ANI, since reference-vs-reference comparisons are never made.
+
+```bash
+# reference_genomes.txt: one path per line to an already-dereplicated reference catalogue,
+# e.g. downloaded from https://globdb.org/
+galah cluster \
+  --genome-fasta-directory new_genomes/ \
+  --reference-genomes-list reference_genomes.txt \
+  --precluster-ani 90 --ani 95 \
+  --threads 8 \
+  --output-cluster-definition clusters.tsv
+```
+
+Any of `new_genomes/`'s genomes within 95% ANI of each other collapse into one representative first; each resulting representative is then compared only against the reference catalogue (not against every other reference), so the cost scales with the number of *new* genomes rather than the size of the reference catalogue. A `new_genomes/` genome that doesn't match anything in the reference catalogue becomes a new representative of its own.

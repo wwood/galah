@@ -13,10 +13,12 @@
 - `--eukcc-db-path` / `EUKCC2_DB` environment variable support
 - `--eukcc-quality-report` to supply a pre-computed EukCC TSV and skip running EukCC
 - Bundled pixi environments for CheckM2, isiteuk, and EukCC: tools are installed automatically on first use if not found on `PATH`
+- `--skip-input-dereplication` (for `cluster`/`process`): when used with `--reference-genomes`/`--reference-genomes-list`, restores the behaviour prior to this release by comparing every input genome directly against the reference set instead of dereplicating input genomes amongst themselves first
 
 ### Changed
 - Domain output column in MIMAG summary now reflects the assigned domain(s); multi-domain genomes show comma-separated values (e.g. `Bacteria,Archaea`)
 - Barrnap and tRNAscan-SE are now run in the mode matching each genome's assigned domain
+- `--reference-genomes`/`--reference-genomes-list` no longer require input genomes to be pre-dereplicated amongst themselves before being clustered against the reference set: input genomes are now dereplicated amongst themselves first automatically, and only the resulting representative(s) are then matched against the reference genomes (which must still already be dereplicated, since reference-vs-reference comparisons are never made)
 
 ### Fixed
 - `.gz` genome inputs built from multiple concatenated gzip streams (e.g. `cat a.fna.gz b.fna.gz > combined.fna.gz`) were silently truncated to just the first stream before being passed to isiteuk, CheckM2, EukCC or tRNAscan-SE, since decompression used `GzDecoder` (single-member) instead of `MultiGzDecoder` (multi-member, per RFC 1952)

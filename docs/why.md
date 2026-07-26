@@ -39,7 +39,7 @@ Note that galah's preclustering step (grouping genomes roughly by ANI before fin
 ## Dereplicating against an existing catalogue
 
 Growing a genome catalogue over time usually means re-dereplicating everything from scratch against the new batch of genomes.
-Galah's `--reference-genomes` option instead lets new genomes be clustered directly against an already-dereplicated reference set, so only input-vs-reference comparisons are needed, rather than all-vs-all.
+Galah's `--reference-genomes` option instead lets new genomes be clustered directly against an already-dereplicated reference set: the new genomes are first dereplicated amongst themselves (so they don't need to be pre-dereplicated by the caller), and only the resulting representative(s) are then compared against the reference set - reference-vs-reference comparisons are never made, so only a small number of input-vs-reference comparisons are needed, rather than all-vs-all.
 
 We benchmarked this by clustering 100 to 50,000 input genomes against all 346,233 genomes in [GlobDB](https://globdb.org/) r232 as reference genomes, comparing galah's low-memory mode (clustering the input genomes together with all reference genomes) against galah's `--reference-genomes` mode (clustering the new genomes against the pre-existing reference set). No other tool benchmarked above was able to complete this comparison under the same resource limits.
 

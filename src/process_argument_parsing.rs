@@ -67,6 +67,7 @@ lazy_static! {
             dereplication_low_memory_argument: "low-memory".to_string(),
             dereplication_reference_genomes_argument: "reference-genomes".to_string(),
             dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
+            dereplication_skip_input_dereplication_argument: "skip-input-dereplication".to_string(),
             dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
             dereplication_output_representative_fasta_directory:
                 "output-representative-fasta-directory".to_string(),
@@ -257,16 +258,20 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .long("reference-genomes")
-            .help("Reference genomes to cluster against.")
+            .help("Reference genomes to cluster against. These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes.")
             .value_delimiter(' ')
             .num_args(1..)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
             .long("reference-genomes-list")
-            .help("File containing paths to reference genomes (one per line).")
+            .help("File containing paths to reference genomes (one per line). These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes.")
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument))
+        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_input_dereplication_argument)
+            .long("skip-input-dereplication")
+            .help("When used with --reference-genomes/--reference-genomes-list, skip dereplicating input genomes amongst themselves first: compare every input genome directly against the reference set instead, so near-duplicate input genomes are not merged before matching (restores the behaviour prior to this flag's introduction). Has no effect unless reference genomes are given.")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
@@ -515,6 +520,7 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         dereplication_low_memory_argument: "low-memory".to_string(),
         dereplication_reference_genomes_argument: "reference-genomes".to_string(),
         dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
+        dereplication_skip_input_dereplication_argument: "skip-input-dereplication".to_string(),
         dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
         dereplication_output_representative_fasta_directory:
             "output-representative-fasta-directory".to_string(),
