@@ -1,6 +1,6 @@
 use crate::QualityFinder;
 use checkm::GenomeQuality;
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use std::collections::HashMap;
 use std::io::copy as io_copy;
 #[cfg(target_family = "unix")]
@@ -105,7 +105,7 @@ fn get_comp_cont(
         let dest = genomes_dir.join(format!("{}.fna", stem.to_string_lossy()));
 
         if fasta.ends_with(".gz") {
-            let mut decoder = GzDecoder::new(
+            let mut decoder = MultiGzDecoder::new(
                 std::fs::File::open(fasta)
                     .unwrap_or_else(|e| panic!("Failed to open {}: {}", fasta, e)),
             );

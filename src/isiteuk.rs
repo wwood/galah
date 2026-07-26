@@ -1,5 +1,5 @@
 use crate::Domain;
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use std::collections::HashMap;
 
 use std::io::Write as IoWrite;
@@ -109,7 +109,7 @@ impl IsiTeukAnalyser {
                     .unwrap();
                 let dest = Path::new(&effective);
                 if !dest.is_file() {
-                    let mut decoder = GzDecoder::new(
+                    let mut decoder = MultiGzDecoder::new(
                         std::fs::File::open(fasta)
                             .unwrap_or_else(|e| panic!("Failed to open {}: {}", fasta, e)),
                     );
@@ -276,6 +276,30 @@ mod tests {
             "GCF_002008365.1_genomic",
             "bare filename with extension"
         );
+    }
+
+    #[test]
+    fn test_gzip_decompression_reads_all_concatenated_members() {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::io::Read;
+
+        let mut encoder1 = GzEncoder::new(Vec::new(), Compression::default());
+        encoder1.write_all(b">seq1\nACGT\n").unwrap();
+        let member1 = encoder1.finish().unwrap();
+
+        let mut encoder2 = GzEncoder::new(Vec::new(), Compression::default());
+        encoder2.write_all(b">seq2\nTTTT\n").unwrap();
+        let member2 = encoder2.finish().unwrap();
+
+        let mut concatenated = member1;
+        concatenated.extend(member2);
+
+        let mut decoded = String::new();
+        MultiGzDecoder::new(&concatenated[..])
+            .read_to_string(&mut decoded)
+            .unwrap();
+        assert_eq!(decoded, ">seq1\nACGT\n>seq2\nTTTT\n");
     }
 
     #[test]

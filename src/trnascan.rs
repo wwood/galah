@@ -1,6 +1,6 @@
 use crate::Domain;
 use crate::TrnaFinder;
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use std::io::copy as io_copy;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -43,7 +43,7 @@ pub fn get_trnascan_output_for_domains(
             .into_owned();
         let dest = tmp_path.join(format!("{genome_name}.fna"));
         if !dest.is_file() {
-            let mut decoder = GzDecoder::new(
+            let mut decoder = MultiGzDecoder::new(
                 std::fs::File::open(genome_path)
                     .unwrap_or_else(|e| panic!("Failed to open {}: {}", genome_path, e)),
             );

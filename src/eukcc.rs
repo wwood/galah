@@ -1,5 +1,5 @@
 use crate::QualityFinder;
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use std::collections::HashMap;
 use std::io::copy as io_copy;
 use std::path::Path;
@@ -103,7 +103,7 @@ fn run_eukcc_single(
     let decompressed_path;
     let effective_path: &str = if genome_path.ends_with(".gz") {
         let dest = tmp_path.join(format!("{}.fna", genome_name));
-        let mut decoder = GzDecoder::new(
+        let mut decoder = MultiGzDecoder::new(
             std::fs::File::open(genome_path)
                 .unwrap_or_else(|e| panic!("Failed to open {}: {}", genome_path, e)),
         );
@@ -131,14 +131,14 @@ fn run_eukcc_single(
     }
 
     let output = cmd.output().expect("Failed to run EukCC");
-    info!(
-        "EukCC run on {} exited with {}.\nstdout:\n{}\nstderr:\n{}",
-        genome_path,
-        output.status,
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
     if !output.status.success() {
+        info!(
+            "EukCC run on {} failed with {}.\nstdout:\n{}\nstderr:\n{}",
+            genome_path,
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
         panic!("EukCC did not run successfully");
     }
 

@@ -655,6 +655,74 @@ fi
             .unwrap();
     }
 
+    /// When isiteuk itself flags specific domains (here Archaea and Eukaryota, but *not*
+    /// Bacteria) and CheckM2 wins the completeness comparison, the resolved domain should be
+    /// just the prokaryotic domain(s) isiteuk actually flagged (Archaea) - not an uninformative
+    /// "Bacteria,Archaea" that asserts something (Bacteria) isiteuk never found support for.
+    #[test]
+    fn test_analyse_ambiguous_domain_checkm2_wins_uses_isiteuk_flagged_prokaryote_domain() {
+        let tmpdir = tempdir().unwrap();
+        let genome = "tests/data/set1/1mbp.fna";
+
+        fs::write(
+            tmpdir.path().join("isiteuk_output.tsv"),
+            "genome\tdomain\tnum_in_target_domain\tnum_not_in_target_domain\n\
+             1mbp\td__Eukaryota\t25.0\t3.0\n\
+             1mbp\td__Archaea\t15.0\t2.0\n",
+        )
+        .unwrap();
+
+        fs::write(
+            tmpdir.path().join("checkm2_quality_report.tsv"),
+            "Name\tCompleteness\tContamination\tCompleteness_Model_Used\tTranslation_Table_Used\t\
+             Coding_Density\tContig_N50\tAverage_Gene_Length\tGenome_Size\tGC_Content\t\
+             Total_Coding_Sequences\tTotal_Contigs\tMax_Contig_Length\tAdditional_Notes\n\
+             1mbp\t95.0\t1.0\tGradient Boost (General Model)\t11\t0.885\t5745\t235.3\t355151\t\
+             0.33\t446\t75\t24150\tNone\n",
+        )
+        .unwrap();
+
+        fs::write(
+            tmpdir.path().join("eukcc_quality_report.tsv"),
+            "fasta\tcompleteness\tcontamination\tncbi_lng\n\
+             1mbp\t30.0\t2.0\tEukaryota\n",
+        )
+        .unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                genome,
+                "--isiteuk-output",
+                tmpdir.path().join("isiteuk_output.tsv").to_str().unwrap(),
+                "--checkm2-quality-report",
+                tmpdir
+                    .path()
+                    .join("checkm2_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--eukcc-quality-report",
+                tmpdir
+                    .path()
+                    .join("eukcc_quality_report.tsv")
+                    .to_str()
+                    .unwrap(),
+                "--barrnap-gff-list",
+                "tests/data/analyse_file_inputs/barrnap_gff_list.tsv",
+                "--trnascan-out-list",
+                "tests/data/analyse_file_inputs/trnascan_out_list.tsv",
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tArchaea\t95.00\t1.00\t1\t1\t1\t0\t0\t0\t19\tHigh quality\tisiteuk assigned multiple domains: Eukaryota, Archaea; domain resolved to Archaea via higher completeness (CheckM2 95.00% vs EukCC 30.00%)\n")
+            .unwrap();
+    }
+
     #[test]
     fn test_analyse_ambiguous_domain_restricts_rrna_trna_to_resolved_domain() {
         let tmpdir = tempdir().unwrap();

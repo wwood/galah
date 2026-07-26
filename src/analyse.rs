@@ -381,8 +381,22 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
                         ambiguous_resolved_to.insert(genome_path.clone(), vec![Domain::Eukaryota]);
                     } else {
                         quality_cache.insert(genome_path.clone(), checkm_q);
-                        ambiguous_resolved_to
-                            .insert(genome_path.clone(), vec![Domain::Bacteria, Domain::Archaea]);
+                        // CheckM2 itself doesn't distinguish Bacteria from Archaea, but isiteuk's
+                        // own call is more specific than "a prokaryotic tool won" - show whichever
+                        // of the two isiteuk actually flagged, falling back to both only when
+                        // isiteuk gave no confident domain call at all (or, for --domain-choice
+                        // completeness/all, always flagged all three).
+                        let prokaryotic_domains: Vec<Domain> = domain_assignments
+                            .get(genome_path)
+                            .map(|d| {
+                                d.iter()
+                                    .filter(|x| x.is_prokaryote())
+                                    .cloned()
+                                    .collect::<Vec<_>>()
+                            })
+                            .filter(|d| !d.is_empty())
+                            .unwrap_or_else(|| vec![Domain::Bacteria, Domain::Archaea]);
+                        ambiguous_resolved_to.insert(genome_path.clone(), prokaryotic_domains);
                     }
                 }
                 (Some(&checkm_q), None) => {

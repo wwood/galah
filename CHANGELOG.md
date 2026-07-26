@@ -18,6 +18,9 @@
 - Domain output column in MIMAG summary now reflects the assigned domain(s); multi-domain genomes show comma-separated values (e.g. `Bacteria,Archaea`)
 - Barrnap and tRNAscan-SE are now run in the mode matching each genome's assigned domain
 
+### Fixed
+- `.gz` genome inputs built from multiple concatenated gzip streams (e.g. `cat a.fna.gz b.fna.gz > combined.fna.gz`) were silently truncated to just the first stream before being passed to isiteuk, CheckM2, EukCC or tRNAscan-SE, since decompression used `GzDecoder` (single-member) instead of `MultiGzDecoder` (multi-member, per RFC 1952)
+
 ## Version 0.5.2
 
 ### Changed
