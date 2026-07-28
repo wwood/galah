@@ -130,6 +130,7 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_fraglen_argument: String,
     pub dereplication_cluster_contigs_argument: String,
     pub dereplication_low_memory_argument: String,
+    pub dereplication_skip_sanitize_headers_argument: String,
     pub dereplication_reference_genomes_argument: String,
     pub dereplication_reference_genomes_list_argument: String,
     pub dereplication_skip_input_dereplication_argument: String,
@@ -157,6 +158,7 @@ lazy_static! {
             dereplication_fraglen_argument: "fragment-length".to_string(),
             dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
             dereplication_low_memory_argument: "low-memory".to_string(),
+            dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
             dereplication_reference_genomes_argument: "reference-genomes".to_string(),
             dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
             dereplication_skip_input_dereplication_argument: "skip-input-dereplication"
@@ -445,6 +447,21 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     definition.dereplication_low_memory_argument
                 ))
                 .help("Reduce memory use by sketching to file and searching it instead."),
+        )
+        .flag(
+            Flag::new()
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_skip_sanitize_headers_argument
+                ))
+                .help(
+                    "Skip checking/rewriting FASTA headers that contain tab characters before \
+                    running skani, passing genome paths straight through unchanged. Mainly \
+                    useful for benchmarking against tools which do not perform \
+                    this sanitizing step. If any input genome actually has a tab character in \
+                    a header line, skani's TSV output will be silently corrupted, so only use \
+                    this on genome sets already known not to have tabs in their headers.",
+                ),
         )
         .option(
             Opt::new("PATH ...")
@@ -1306,6 +1323,9 @@ pub fn generate_galah_clusterer<'a>(
                 cluster_contigs,
             )?;
 
+            let skip_sanitize_headers = clap_matches
+                .get_flag(&argument_definition.dereplication_skip_sanitize_headers_argument);
+
             // Filter reference genomes to only include those that passed quality filtering
             let reference_genomes = reference_genomes.map(|refs| {
                 refs.iter()
@@ -1424,6 +1444,7 @@ pub fn generate_galah_clusterer<'a>(
                         threads,
                         low_memory: clap_matches
                             .get_flag(&argument_definition.dereplication_low_memory_argument),
+                        skip_sanitize_headers,
                     }),
                     _ => panic!("Programming error"),
                 },
@@ -1526,6 +1547,7 @@ pub fn generate_galah_clusterer<'a>(
                             )
                         }),
                         small_genomes,
+                        skip_sanitize_headers,
                     }),
                     _ => panic!("Programming error"),
                 },
@@ -1745,6 +1767,10 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
+            .long(&*GALAH_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
+            .help("Skip checking/rewriting FASTA headers containing tabs before running skani, using genome paths as-is. Mainly for benchmarking against tools (e.g. skDER) which do not sanitize headers. If any input genome has a tab in a header line, skani's TSV output will be silently corrupted, so only use this when input genomes are known not to have tabs in their headers.")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .long("reference-genomes")
             .help("Reference genomes to cluster against. These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes - so input genomes do not need to be pre-dereplicated. Uses less memory and time than clustering everything together.")

@@ -65,6 +65,7 @@ lazy_static! {
             dereplication_large_contigs_argument: "large-contigs".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
             dereplication_low_memory_argument: "low-memory".to_string(),
+            dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
             dereplication_reference_genomes_argument: "reference-genomes".to_string(),
             dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
             dereplication_skip_input_dereplication_argument: "skip-input-dereplication".to_string(),
@@ -256,6 +257,10 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
+        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
+            .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
+            .help("Skip checking/rewriting FASTA headers containing tabs before running skani, using genome paths as-is. Mainly for benchmarking against tools which do not sanitize headers. If any input genome has a tab in a header line, skani's TSV output will be silently corrupted, so only use this when input genomes are known not to have tabs in their headers.")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .long("reference-genomes")
             .help("Reference genomes to cluster against. These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes.")
@@ -518,6 +523,7 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         dereplication_fraglen_argument: "fragment-length".to_string(),
         dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
         dereplication_low_memory_argument: "low-memory".to_string(),
+        dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
         dereplication_reference_genomes_argument: "reference-genomes".to_string(),
         dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
         dereplication_skip_input_dereplication_argument: "skip-input-dereplication".to_string(),
