@@ -112,6 +112,7 @@ pub struct GalahClusterer<'a> {
     pub cluster_contigs: bool,
     pub contig_names: &'a Option<Vec<&'a str>>,
     pub reference_genomes: Option<Vec<String>>,
+    pub dereplicate_input_genomes_first: bool,
 }
 
 pub struct GalahClustererCommandDefinition {
@@ -129,8 +130,10 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_fraglen_argument: String,
     pub dereplication_cluster_contigs_argument: String,
     pub dereplication_low_memory_argument: String,
+    pub dereplication_skip_sanitize_headers_argument: String,
     pub dereplication_reference_genomes_argument: String,
     pub dereplication_reference_genomes_list_argument: String,
+    pub dereplication_skip_input_dereplication_argument: String,
     // pub dereplication_ani_method_argument: String,
     pub dereplication_output_cluster_definition_file: String,
     pub dereplication_output_representative_fasta_directory: String,
@@ -155,8 +158,11 @@ lazy_static! {
             dereplication_fraglen_argument: "fragment-length".to_string(),
             dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
             dereplication_low_memory_argument: "low-memory".to_string(),
+            dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
             dereplication_reference_genomes_argument: "reference-genomes".to_string(),
             dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
+            dereplication_skip_input_dereplication_argument: "skip-input-dereplication"
+                .to_string(),
             // dereplication_ani_method_argument: "ani-method".to_string(),
             dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
             dereplication_output_representative_fasta_directory:
@@ -195,7 +201,7 @@ lazy_static! {
 
 {}
 
-  {} cluster --genome-fasta-list genome_reps.txt
+  {} cluster --genome-fasta-list new_genomes.txt
     --reference-genomes-list reference_genomes.txt
     --output-cluster-definition clusters.tsv
 
@@ -237,11 +243,13 @@ See {} cluster --full-help for further options and further detail.
             .and_then(|s| s.into_string().ok())
             .expect("Failed to find running program basename"),
         ansi_term::Colour::Purple.paint(
-            "Example: Dereplicate a set of genome representatives against a set of reference genomes,\n\
-            output the cluster definition to clusters.tsv:\n\
-            Note: assumes that each group (inputs and references) is already dereplicated previously.\n\
-            Galah will only form clusters across the two groups (input <-> reference), never within a\n\
-            group. Uses less memory than clustering together."
+            "Example: Dereplicate a set of new genomes against a set of reference genomes,\n\
+            output the cluster definition to clusters.tsv. New genomes are dereplicated\n\
+            amongst themselves first, then only the resulting representative(s) are compared\n\
+            against the reference genomes, so new genomes do not need to be pre-dereplicated.\n\
+            The reference genomes themselves must already be dereplicated, since\n\
+            reference-vs-reference comparisons are never made. Uses less memory and time than\n\
+            clustering everything together."
         ),
         std::env::current_exe()
             .ok()
@@ -440,13 +448,32 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 ))
                 .help("Reduce memory use by sketching to file and searching it instead."),
         )
+        .flag(
+            Flag::new()
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_skip_sanitize_headers_argument
+                ))
+                .help(
+                    "Skip checking/rewriting FASTA headers that contain tab characters before \
+                    running skani, passing genome paths straight through unchanged. Mainly \
+                    useful for benchmarking against tools which do not perform \
+                    this sanitizing step. If any input genome actually has a tab character in \
+                    a header line, skani's TSV output will be silently corrupted, so only use \
+                    this on genome sets already known not to have tabs in their headers.",
+                ),
+        )
         .option(
             Opt::new("PATH ...")
                 .long(&format!(
                     "--{}",
                     definition.dereplication_reference_genomes_argument
                 ))
-                .help("Reference genomes to cluster against. These should be pre-clustered at the chosen %ANI. \
+                .help("Reference genomes to cluster against. These should be pre-clustered at the chosen %ANI - \
+                reference-vs-reference comparisons are never made, so this is not checked. Input genomes \
+                (--genome-fasta-files etc.) are dereplicated amongst themselves first, as if no reference \
+                genomes were given at all, and only the resulting representative(s) are then compared against \
+                these reference genomes - so input genomes do not need to be pre-dereplicated beforehand. \
                 If quality is provided for representative selection, values for these genomes must also be provided. \
                 Genomes within the precluster ANI cutoff of each reference will be placed in the same precluster. \
                 Mutually exclusive with --reference-genomes-list."),
@@ -457,10 +484,28 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_reference_genomes_list_argument
                 ))
-                .help("File containing paths to reference genomes (one per line). These should be pre-clustered at the chosen %ANI. \
+                .help("File containing paths to reference genomes (one per line). These should be pre-clustered at the chosen %ANI - \
+                reference-vs-reference comparisons are never made, so this is not checked. Input genomes \
+                (--genome-fasta-files etc.) are dereplicated amongst themselves first, as if no reference \
+                genomes were given at all, and only the resulting representative(s) are then compared against \
+                these reference genomes - so input genomes do not need to be pre-dereplicated beforehand. \
                 If quality is provided for representative selection, values for these genomes must also be provided. \
                 Genomes within the precluster ANI cutoff of each reference will be placed in the same precluster. \
                 Mutually exclusive with --reference-genomes."),
+        )
+        .flag(
+            Flag::new()
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_skip_input_dereplication_argument
+                ))
+                .help(
+                    "When used with --reference-genomes/--reference-genomes-list, skip dereplicating \
+                    input genomes amongst themselves first: compare every input genome directly against \
+                    the reference set instead, so near-duplicate input genomes are not merged before \
+                    matching (restores the behaviour prior to this flag's introduction). Has no effect \
+                    unless reference genomes are given.",
+                ),
         )
 }
 
@@ -860,11 +905,21 @@ enum CheckMResultEnum {
     },
 }
 
+/// A quality report injected by a caller (e.g. `process`) rather than named directly by the
+/// user on the command line, distinguished by format since the two are not interchangeable.
+pub enum InjectedQualityReport {
+    /// Path to a CheckM2 `quality_report.tsv`-format file.
+    CheckM2(String),
+    /// Path to a genome-info CSV (`genome,completeness,contamination`), as read by
+    /// `genome_info_file::read_genome_info_file`.
+    GenomeInfo(String),
+}
+
 pub fn filter_genomes_through_checkm<'a>(
     genome_fasta_files: &'a Vec<String>,
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
-    injected_quality_report: Option<String>,
+    injected_quality_report: Option<InjectedQualityReport>,
 ) -> std::result::Result<Vec<&'a str>, String> {
     if clap_matches.get_flag(&argument_definition.dereplication_cluster_contigs_argument) {
         return Ok(genome_fasta_files.iter().map(|s| &**s).collect());
@@ -920,13 +975,21 @@ pub fn filter_genomes_through_checkm<'a>(
                     )
                     .expect("Error parsing genomeInfo file"),
                 }
-            } else if injected_quality_report.is_some() {
-                info!("Reading injected CheckM2 Quality report ..");
-                CheckMResultEnum::CheckM2Result {
-                    result: checkm::CheckM2QualityReport::read_file_path(
-                        injected_quality_report.as_deref().unwrap(),
-                    )
-                    .unwrap(),
+            } else if let Some(report) = &injected_quality_report {
+                match report {
+                    InjectedQualityReport::CheckM2(path) => {
+                        info!("Reading injected CheckM2 Quality report ..");
+                        CheckMResultEnum::CheckM2Result {
+                            result: checkm::CheckM2QualityReport::read_file_path(path).unwrap(),
+                        }
+                    }
+                    InjectedQualityReport::GenomeInfo(path) => {
+                        info!("Reading injected combined quality report ..");
+                        CheckMResultEnum::GenomeInfoGenomeQuality {
+                            result: genome_info_file::read_genome_info_file(path)
+                                .expect("Error parsing injected combined quality report"),
+                        }
+                    }
                 }
             } else if clap_matches
                 .contains_id(&argument_definition.dereplication_run_checkm2_argument)
@@ -1226,7 +1289,7 @@ pub fn generate_galah_clusterer<'a>(
     clap_matches: &clap::ArgMatches,
     argument_definition: &GalahClustererCommandDefinition,
     reference_genomes: Option<&[&str]>,
-    injected_quality_report: Option<String>,
+    injected_quality_report: Option<InjectedQualityReport>,
 ) -> std::result::Result<GalahClusterer<'a>, String> {
     crate::external_command_checker::check_for_fastani();
 
@@ -1260,6 +1323,9 @@ pub fn generate_galah_clusterer<'a>(
                 cluster_contigs,
             )?;
 
+            let skip_sanitize_headers = clap_matches
+                .get_flag(&argument_definition.dereplication_skip_sanitize_headers_argument);
+
             // Filter reference genomes to only include those that passed quality filtering
             let reference_genomes = reference_genomes.map(|refs| {
                 refs.iter()
@@ -1267,6 +1333,9 @@ pub fn generate_galah_clusterer<'a>(
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>()
             });
+
+            let dereplicate_input_genomes_first = !clap_matches
+                .get_flag(&argument_definition.dereplication_skip_input_dereplication_argument);
 
             Ok(GalahClusterer {
                 genome_fasta_paths: v2,
@@ -1375,6 +1444,7 @@ pub fn generate_galah_clusterer<'a>(
                         threads,
                         low_memory: clap_matches
                             .get_flag(&argument_definition.dereplication_low_memory_argument),
+                        skip_sanitize_headers,
                     }),
                     _ => panic!("Programming error"),
                 },
@@ -1477,12 +1547,14 @@ pub fn generate_galah_clusterer<'a>(
                             )
                         }),
                         small_genomes,
+                        skip_sanitize_headers,
                     }),
                     _ => panic!("Programming error"),
                 },
                 cluster_contigs,
                 contig_names,
                 reference_genomes,
+                dereplicate_input_genomes_first,
             })
         }
     }
@@ -1525,6 +1597,7 @@ impl GalahClusterer<'_> {
             self.cluster_contigs,
             self.contig_names.as_deref(),
             reference_genomes_strs.as_deref(),
+            self.dereplicate_input_genomes_first,
         )
     }
 }
@@ -1694,18 +1767,26 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
+            .long(&*GALAH_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
+            .help("Skip checking/rewriting FASTA headers containing tabs before running skani, using genome paths as-is. Mainly for benchmarking against tools (e.g. skDER) which do not sanitize headers. If any input genome has a tab in a header line, skani's TSV output will be silently corrupted, so only use this when input genomes are known not to have tabs in their headers.")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .long("reference-genomes")
-            .help("Reference genomes to cluster against. These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
+            .help("Reference genomes to cluster against. These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes - so input genomes do not need to be pre-dereplicated. Uses less memory and time than clustering everything together.")
             .value_delimiter(' ')
             .num_args(1..)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_low_memory_argument)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
             .long("reference-genomes-list")
-            .help("File containing paths to reference genomes (one per line). These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
+            .help("File containing paths to reference genomes (one per line). These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes - so input genomes do not need to be pre-dereplicated. Uses less memory and time than clustering everything together.")
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_low_memory_argument)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_skip_input_dereplication_argument)
+            .long("skip-input-dereplication")
+            .help("When used with --reference-genomes/--reference-genomes-list, skip dereplicating input genomes amongst themselves first: compare every input genome directly against the reference set instead, so near-duplicate input genomes are not merged before matching (restores the behaviour prior to this flag's introduction). Has no effect unless reference genomes are given.")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")

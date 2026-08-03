@@ -1,5 +1,5 @@
 use std;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Mutex;
 
 use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
@@ -11,6 +11,15 @@ use rayon::prelude::*;
 
 /// Given a list of genomes, return them clustered. Use preclusterer for first pass
 /// analysis, then clusterer as the actual threshold.
+///
+/// When `reference_genomes` is given, `genomes` (which are assumed to already include the
+/// reference genomes themselves, per the existing calling convention) are *not* required to be
+/// pre-dereplicated amongst themselves first (unless `dereplicate_input_genomes_first` is set to
+/// `false`): the non-reference genomes are dereplicated amongst themselves here, and only the
+/// resulting representative(s) are then matched against the reference genomes - see
+/// `cluster_query_genomes_then_match_to_references`. Setting `dereplicate_input_genomes_first` to
+/// `false` restores the older behaviour, where every non-reference genome is compared directly
+/// against the reference set and near-duplicate non-reference genomes are never merged first.
 pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::marker::Sync>(
     genomes: &[&str],
     preclusterer: &P,
@@ -18,10 +27,196 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     cluster_contigs: bool,
     contig_names: Option<&[&str]>,
     reference_genomes: Option<&[&str]>,
+    dereplicate_input_genomes_first: bool,
 ) -> Vec<Vec<usize>> {
     clusterer.initialise();
 
+    match reference_genomes {
+        Some(ref_genomes) if !ref_genomes.is_empty() => {
+            let preclusterer_name = preclusterer.method_name();
+            if dereplicate_input_genomes_first {
+                cluster_query_genomes_then_match_to_references(
+                    genomes,
+                    preclusterer,
+                    clusterer,
+                    ref_genomes,
+                )
+            } else {
+                // Restores the pre-existing (single-phase) behaviour: every non-reference
+                // genome is compared directly against the reference set, with no
+                // dereplication amongst themselves first.
+                let preclusterer_cache =
+                    preclusterer.distances_with_references(genomes, ref_genomes);
+                cluster_from_precomputed_distances(
+                    genomes,
+                    clusterer,
+                    false,
+                    None,
+                    preclusterer_name,
+                    preclusterer_cache,
+                )
+            }
+        }
+        _ => {
+            let preclusterer_name = preclusterer.method_name();
+            if cluster_contigs && preclusterer_name == "finch" {
+                panic!("{} does not support contig comparisons.", preclusterer_name);
+            }
+            let preclusterer_cache = if cluster_contigs {
+                preclusterer.distances_contigs(genomes, contig_names.unwrap())
+            } else {
+                preclusterer.distances(genomes)
+            };
+            cluster_from_precomputed_distances(
+                genomes,
+                clusterer,
+                cluster_contigs,
+                contig_names,
+                preclusterer_name,
+                preclusterer_cache,
+            )
+        }
+    }
+}
+
+/// Cluster `genomes` against `reference_genomes` in two phases:
+///
+/// 1. The non-reference genomes within `genomes` are dereplicated amongst themselves (exactly
+///    as if no references had been given at all), producing one representative per group.
+/// 2. Only those representative(s) - not every non-reference genome - are then matched against
+///    `reference_genomes`, using the existing reference-matching algorithm unchanged.
+///
+/// Every original non-reference genome ends up in whichever final cluster its own phase-1
+/// representative was placed in during phase 2. This means callers no longer need to
+/// pre-dereplicate their input genomes themselves before combining them with references (the
+/// previously-documented two-step `galah cluster` workflow is now automatic in one call), and
+/// phase 2 only ever has to compare a handful of representatives against the reference set
+/// rather than every input genome.
+fn cluster_query_genomes_then_match_to_references<
+    P: PreclusterDistanceFinder,
+    C: ClusterDistanceFinder + std::marker::Sync,
+>(
+    genomes: &[&str],
+    preclusterer: &P,
+    clusterer: &C,
+    reference_genomes: &[&str],
+) -> Vec<Vec<usize>> {
+    let ref_set: HashSet<&str> = reference_genomes.iter().copied().collect();
+
+    // Preserve relative order (which may encode a quality-based ranking already applied by the
+    // caller) when splitting into query (non-reference) vs reference genomes.
+    let mut query_genomes: Vec<&str> = Vec::new();
+    let mut query_original_indices: Vec<usize> = Vec::new();
+    for (i, g) in genomes.iter().enumerate() {
+        if !ref_set.contains(*g) {
+            query_genomes.push(*g);
+            query_original_indices.push(i);
+        }
+    }
+
+    if query_genomes.is_empty() {
+        return vec![];
+    }
+
     let preclusterer_name = preclusterer.method_name();
+
+    // Phase 1: dereplicate the query genomes amongst themselves, ignoring references entirely.
+    info!(
+        "Dereplicating {} input genome(s) amongst themselves before matching against {} reference genome(s) ..",
+        query_genomes.len(),
+        reference_genomes.len()
+    );
+    let phase1_preclusterer_cache = preclusterer.distances(&query_genomes);
+    let phase1_clusters = cluster_from_precomputed_distances(
+        &query_genomes,
+        clusterer,
+        false,
+        None,
+        preclusterer_name,
+        phase1_preclusterer_cache,
+    );
+    // The representative of each cluster is always pushed first - see
+    // `find_precluster_cluster_memberships` below.
+    let phase1_reps: Vec<&str> = phase1_clusters
+        .iter()
+        .map(|c| query_genomes[c[0]])
+        .collect();
+
+    // Phase 2: match only the phase-1 representative(s) against the reference genomes, using
+    // the same reference-matching algorithm as before.
+    info!(
+        "Found {} representative(s) amongst the {} input genome(s); matching these against the {} reference genome(s) ..",
+        phase1_reps.len(),
+        query_genomes.len(),
+        reference_genomes.len()
+    );
+    // Preserve `genomes`' original relative order (which may encode a quality-based ranking,
+    // e.g. a higher-quality query genome sorted ahead of a lower-quality reference) rather than
+    // forcing references first - `find_precluster_cluster_representatives` treats the earliest
+    // index in a precluster as the default representative, so getting this order wrong could
+    // silently flip which genome (reference or query) wins as representative.
+    let phase1_rep_set: HashSet<&str> = phase1_reps.iter().copied().collect();
+    let mut phase2_genomes: Vec<&str> =
+        Vec::with_capacity(reference_genomes.len() + phase1_reps.len());
+    for g in genomes.iter() {
+        if ref_set.contains(*g) || phase1_rep_set.contains(g) {
+            phase2_genomes.push(*g);
+        }
+    }
+
+    let phase2_preclusterer_cache =
+        preclusterer.distances_with_references(&phase2_genomes, reference_genomes);
+    let phase2_clusters = cluster_from_precomputed_distances(
+        &phase2_genomes,
+        clusterer,
+        false,
+        None,
+        preclusterer_name,
+        phase2_preclusterer_cache,
+    );
+
+    // Expand phase-2 clusters back out: every phase-1 representative that ended up in a
+    // phase-2 cluster pulls its whole phase-1 group along with it (in original-index terms),
+    // all under whichever genome phase 2 chose as the final representative.
+    let genome_to_original_index: HashMap<&str, usize> =
+        genomes.iter().enumerate().map(|(i, g)| (*g, i)).collect();
+    let phase1_rep_to_cluster_index: HashMap<&str, usize> = phase1_reps
+        .iter()
+        .enumerate()
+        .map(|(cluster_index, rep)| (*rep, cluster_index))
+        .collect();
+
+    phase2_clusters
+        .into_iter()
+        .map(|phase2_cluster| {
+            let mut expanded: Vec<usize> = Vec::with_capacity(phase2_cluster.len());
+            for phase2_index in phase2_cluster {
+                let g = phase2_genomes[phase2_index];
+                match phase1_rep_to_cluster_index.get(g) {
+                    Some(&phase1_cluster_index) => {
+                        for &within_phase1_index in &phase1_clusters[phase1_cluster_index] {
+                            expanded.push(query_original_indices[within_phase1_index]);
+                        }
+                    }
+                    None => expanded.push(genome_to_original_index[g]),
+                }
+            }
+            expanded
+        })
+        .collect()
+}
+
+/// Shared clustering core: given a precomputed preclustering distance cache, partition it into
+/// preclusters and find/assign representatives within each. Used for the plain (no-reference)
+/// path directly, and internally by both phases of `cluster_query_genomes_then_match_to_references`.
+fn cluster_from_precomputed_distances<C: ClusterDistanceFinder + std::marker::Sync>(
+    genomes: &[&str],
+    clusterer: &C,
+    cluster_contigs: bool,
+    contig_names: Option<&[&str]>,
+    preclusterer_name: &str,
+    preclusterer_cache: SortedPairGenomeDistanceCache,
+) -> Vec<Vec<usize>> {
     let clusterer_name = clusterer.method_name();
 
     info!(
@@ -36,22 +231,9 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
     }
 
     if cluster_contigs {
-        if preclusterer_name == "finch" {
-            panic!("{} does not support contig comparisons.", preclusterer_name);
-        }
         info!("Clustering contigs using {} ..", preclusterer_name);
         skip_clusterer = true;
     }
-
-    // Preclusterer all the genomes together
-    let preclusterer_cache = if let Some(ref_genomes) = reference_genomes {
-        // For reference-based clustering, we need to compare genomes with ref_genomes
-        preclusterer.distances_with_references(genomes, ref_genomes)
-    } else if cluster_contigs {
-        preclusterer.distances_contigs(genomes, contig_names.unwrap())
-    } else {
-        preclusterer.distances(genomes)
-    };
 
     info!("Preclustering ..");
     let single_linkage_preclusters = if cluster_contigs {
@@ -558,6 +740,7 @@ mod tests {
             false,
             None,
             None,
+            true,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -589,6 +772,7 @@ mod tests {
             false,
             None,
             None,
+            true,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -620,6 +804,7 @@ mod tests {
             false,
             None,
             None,
+            true,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -647,10 +832,12 @@ mod tests {
                 threshold: 95.0,
                 min_aligned_threshold: 0.2,
                 small_genomes: false,
+                skip_sanitize_headers: false,
             },
             false,
             None,
             None,
+            true,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -678,10 +865,12 @@ mod tests {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
                 small_genomes: false,
+                skip_sanitize_headers: false,
             },
             false,
             None,
             None,
+            true,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -705,15 +894,18 @@ mod tests {
                 small_genomes: false,
                 threads: 1,
                 low_memory: false,
+                skip_sanitize_headers: false,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
                 small_genomes: false,
+                skip_sanitize_headers: false,
             },
             false,
             None,
             None,
+            true,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -738,15 +930,18 @@ mod tests {
                 small_genomes: false,
                 threads: 1,
                 low_memory: false,
+                skip_sanitize_headers: false,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
                 small_genomes: false,
+                skip_sanitize_headers: false,
             },
             false,
             None,
             None,
+            true,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -772,15 +967,18 @@ mod tests {
                 small_genomes: false,
                 threads: 1,
                 low_memory: true,
+                skip_sanitize_headers: false,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
                 small_genomes: false,
+                skip_sanitize_headers: false,
             },
             false,
             None,
             None,
+            true,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();
@@ -800,11 +998,13 @@ mod tests {
                 small_genomes: false,
                 threads: 1,
                 low_memory: false,
+                skip_sanitize_headers: false,
             },
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
                 small_genomes: false,
+                skip_sanitize_headers: false,
             },
             true,
             Some(&[
@@ -814,6 +1014,7 @@ mod tests {
                 "73.20110600_S2D.10_contig_37820",
             ]),
             None,
+            true,
         );
         for cluster in clusters.iter_mut() {
             cluster.sort_unstable();

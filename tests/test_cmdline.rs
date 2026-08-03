@@ -384,6 +384,43 @@ mod tests {
     }
 
     #[test]
+    fn test_skani_skani_clusterer_skip_sanitize_headers() {
+        // Same genomes/thresholds as test_skani_skani_clusterer, but with
+        // header sanitizing skipped entirely (--skip-sanitise-headers). None
+        // of these genomes have tabs in their headers, so the result should
+        // be identical.
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120700_S3X.12.fna",
+                "tests/data/abisko4/73.20110800_S2D.13.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "99",
+                "--ani",
+                "95",
+                "--skip-sanitise-headers",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm-tab-table",
+                "tests/data/abisko4/abisko4.csv"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20120800_S1X.13.fna\n\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20110800_S2D.13.fna\n\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20120600_S2D.19.fna\n\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20120700_S3X.12.fna\n")
+                .unwrap();
+    }
+
+    #[test]
     fn test_skani_with_low_ani() {
         Assert::main_binary()
             .with_args(&[
@@ -1004,6 +1041,73 @@ mod tests {
                 tests/data/set1/1mbp.fna	tests/data/set1/500kb.fna\n\
                 tests/data/abisko4/73.20120600_S2D.19.fna	tests/data/abisko4/73.20120600_S2D.19.fna\n\
                 tests/data/abisko4/73.20120600_S2D.19.fna	tests/data/abisko4/73.20120800_S1X.13.fna\n")
+                .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_dereplicates_input_genomes_first() {
+        // Two near-identical input (non-reference) genomes that match no reference genome
+        // should collapse into a single cluster before being matched against references,
+        // rather than each independently failing to match the reference and becoming its own
+        // singleton cluster.
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "--reference-genomes",
+                "tests/data/set1/1mbp.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "90",
+                "--ani",
+                "95",
+                "--output-cluster-definition",
+                "/dev/stdout"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/set1/1mbp.fna	tests/data/set1/1mbp.fna\n\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20120800_S1X.13.fna\n\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20120600_S2D.19.fna\n")
+                .unwrap();
+    }
+
+    #[test]
+    fn test_reference_genomes_skip_input_dereplication_restores_old_behaviour() {
+        // Same scenario as test_reference_genomes_dereplicates_input_genomes_first, but with
+        // --skip-input-dereplication: each near-identical input genome is compared directly
+        // against the reference set and neither matches it, so each becomes its own singleton
+        // cluster instead of collapsing into one - restoring the pre-existing behaviour.
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "--reference-genomes",
+                "tests/data/set1/1mbp.fna",
+                "--skip-input-dereplication",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--precluster-ani",
+                "90",
+                "--ani",
+                "95",
+                "--output-cluster-definition",
+                "/dev/stdout"])
+                .succeeds()
+                .stdout()
+                .is("\
+                tests/data/set1/1mbp.fna	tests/data/set1/1mbp.fna\n\
+                tests/data/abisko4/73.20120800_S1X.13.fna	tests/data/abisko4/73.20120800_S1X.13.fna\n\
+                tests/data/abisko4/73.20120600_S2D.19.fna	tests/data/abisko4/73.20120600_S2D.19.fna\n")
                 .unwrap();
     }
 
