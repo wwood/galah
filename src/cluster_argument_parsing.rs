@@ -1231,18 +1231,23 @@ pub fn generate_galah_clusterer<'a>(
     reference_genomes: Option<&[&str]>,
     injected_quality_report: Option<String>,
 ) -> std::result::Result<GalahClusterer<'a>, String> {
-    crate::external_command_checker::check_for_fastani();
+    let precluster_method = clap_matches
+        .get_one::<String>(&argument_definition.dereplication_precluster_method_argument)
+        .unwrap()
+        .as_str();
+    let cluster_method = clap_matches
+        .get_one::<String>(&argument_definition.dereplication_cluster_method_argument)
+        .unwrap()
+        .as_str();
 
-    let skip_clusterer = {
-        clap_matches
-            .get_one::<String>(&argument_definition.dereplication_precluster_method_argument)
-            .unwrap()
-            .as_str()
-            == clap_matches
-                .get_one::<String>(&argument_definition.dereplication_cluster_method_argument)
-                .unwrap()
-                .as_str()
-    };
+    // Only require the tools which are actually going to be used e.g. fastANI
+    // need not be installed when clustering with skani.
+    crate::external_command_checker::check_for_clustering_dependencies(
+        precluster_method,
+        cluster_method,
+    );
+
+    let skip_clusterer = precluster_method == cluster_method;
 
     match filter_genomes_through_checkm(
         genome_fasta_paths,
