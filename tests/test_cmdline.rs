@@ -377,6 +377,50 @@ mod tests {
     }
 
     #[test]
+    fn test_fastani_not_required_when_clustering_with_skani() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--output-cluster-definition",
+                "/dev/null",
+            ])
+            .succeeds()
+            .stderr()
+            .contains("Found skani version")
+            .stderr()
+            .doesnt_contain("fastANI")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_fastani_required_when_clustering_with_fastani() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "fastani",
+                "--output-cluster-definition",
+                "/dev/null",
+            ])
+            .succeeds()
+            .stderr()
+            .contains("Found fastANI version")
+            .unwrap();
+    }
+
+    #[test]
     fn test_skani_skani_clusterer() {
         Assert::main_binary()
             .with_args(&[
