@@ -1151,6 +1151,9 @@ pub fn filter_genomes_through_checkm<'a>(
                 },
                 sorted_thresholded_genomes.len()
             );
+            if sorted_thresholded_genomes.is_empty() {
+                warn!("No genomes passed the quality thresholds, so no clusters will be found");
+            }
             Ok(sorted_thresholded_genomes)
         }
     }

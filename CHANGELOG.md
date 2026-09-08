@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- Clustering no longer panics when no genomes pass the quality thresholds, instead warning and generating empty output ([#75](https://github.com/wwood/galah/issues/75), reported by [@erikrikarddaniel](https://github.com/erikrikarddaniel))
+
 ## Version 0.5.2
 
 ### Changed
