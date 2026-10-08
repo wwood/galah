@@ -74,5 +74,3 @@ Galah's `process` subcommand runs both steps together: it determines MIMAG quali
 ## Integration with CoverM
 
 Galah's clustering is also available through [CoverM](https://github.com/wwood/CoverM)'s `cluster` subcommand, so read coverage/relative abundance calculation and genome dereplication can be run from the same toolset.
-
-> Aroney, S.T.N., Camargo, A.P., Tyson, G.W. and Woodcroft B.J. *Galah: More scalable dereplication for metagenome assembled genomes.* Zenodo (2024). <https://doi.org/10.5281/zenodo.13637856>
