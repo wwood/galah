@@ -1,5 +1,6 @@
 use std;
 use std::io::BufReader;
+use std::io::BufWriter;
 use std::io::Write;
 
 use crate::sorted_pair_genome_distance_cache::SortedPairGenomeDistanceCache;
@@ -7,6 +8,7 @@ use crate::ClusterDistanceFinder;
 use crate::PreclusterDistanceFinder;
 
 use bird_tool_utils::command::finish_command_safely;
+use rayon::prelude::*;
 use tempfile;
 
 pub struct SkaniPreclusterer {
@@ -15,6 +17,7 @@ pub struct SkaniPreclusterer {
     pub small_genomes: bool,
     pub threads: u16,
     pub low_memory: bool,
+    pub skip_sanitize_headers: bool,
 }
 
 impl PreclusterDistanceFinder for SkaniPreclusterer {
@@ -26,6 +29,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
                 self.min_aligned_threshold,
                 self.small_genomes,
                 self.threads,
+                self.skip_sanitize_headers,
             )
         } else {
             precluster_skani(
@@ -34,6 +38,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
                 self.min_aligned_threshold,
                 self.small_genomes,
                 self.threads,
+                self.skip_sanitize_headers,
             )
         }
     }
@@ -50,6 +55,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
             self.small_genomes,
             self.threads,
             contig_names,
+            self.skip_sanitize_headers,
         )
     }
 
@@ -65,6 +71,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
             self.min_aligned_threshold,
             self.small_genomes,
             self.threads,
+            self.skip_sanitize_headers,
         )
     }
 
@@ -87,17 +94,29 @@ fn sanitize_fasta_headers(fasta_path: &str) -> tempfile::TempPath {
     let mut reader = needletail::parse_fastx_file(fasta_path)
         .unwrap_or_else(|e| panic!("Failed to open fasta file {}: {}", fasta_path, e));
 
+    // Buffer writes so each contig doesn't cost 3 raw write() syscalls - with
+    // tens of thousands of (often contig-fragmented) genomes to sanitize, the
+    // syscall overhead otherwise dominates.
+    let mut writer = BufWriter::new(&mut tf);
+
     while let Some(record) = reader.next() {
         let record =
             record.unwrap_or_else(|e| panic!("Failed to parse record in {}: {}", fasta_path, e));
         let header = std::str::from_utf8(record.id())
             .unwrap_or_else(|e| panic!("Non-UTF8 header in {}: {}", fasta_path, e))
             .replace('\t', " ");
-        writeln!(tf, ">{}", header).expect("Failed to write header to sanitized fasta tempfile");
-        tf.write_all(&record.seq())
+        writeln!(writer, ">{}", header)
+            .expect("Failed to write header to sanitized fasta tempfile");
+        writer
+            .write_all(&record.seq())
             .expect("Failed to write sequence to sanitized fasta tempfile");
-        writeln!(tf).expect("Failed to write newline to sanitized fasta tempfile");
+        writeln!(writer).expect("Failed to write newline to sanitized fasta tempfile");
     }
+
+    writer
+        .flush()
+        .expect("Failed to flush sanitized fasta tempfile writer");
+    drop(writer);
 
     // Close the file handle (but keep the file on disk) to avoid exhausting
     // the OS file descriptor limit when sanitizing tens of thousands of genomes.
@@ -106,12 +125,76 @@ fn sanitize_fasta_headers(fasta_path: &str) -> tempfile::TempPath {
     tf.into_temp_path()
 }
 
+/// Check whether any header line in a FASTA file contains a tab character,
+/// without paying the cost of rewriting the file. Lets callers skip
+/// `sanitize_fasta_headers` (a full parse + rewrite of every contig) for the
+/// overwhelmingly common case where no sanitizing is actually needed.
+fn fasta_headers_contain_tab(fasta_path: &str) -> bool {
+    let mut reader = needletail::parse_fastx_file(fasta_path)
+        .unwrap_or_else(|e| panic!("Failed to open fasta file {}: {}", fasta_path, e));
+
+    while let Some(record) = reader.next() {
+        let record =
+            record.unwrap_or_else(|e| panic!("Failed to parse record in {}: {}", fasta_path, e));
+        if record.id().contains(&b'\t') {
+            return true;
+        }
+    }
+    false
+}
+
+/// A genome fasta path that either needed no sanitizing (so the original path
+/// is used directly, avoiding a redundant copy) or was rewritten to a
+/// tempfile with sanitized headers.
+enum SanitizedFasta<'a> {
+    Original(&'a str),
+    Rewritten(tempfile::TempPath),
+}
+
+impl<'a> SanitizedFasta<'a> {
+    fn path(&self) -> &str {
+        match self {
+            SanitizedFasta::Original(p) => p,
+            SanitizedFasta::Rewritten(tp) => tp.to_str().unwrap(),
+        }
+    }
+}
+
+/// Only pay for `sanitize_fasta_headers`'s full parse + rewrite when the
+/// fasta file actually has a tab in a header line.
+fn sanitize_fasta_headers_if_needed(fasta_path: &str) -> SanitizedFasta<'_> {
+    if fasta_headers_contain_tab(fasta_path) {
+        SanitizedFasta::Rewritten(sanitize_fasta_headers(fasta_path))
+    } else {
+        SanitizedFasta::Original(fasta_path)
+    }
+}
+
+/// As `sanitize_fasta_headers_if_needed`, but when `skip_sanitize_headers` is
+/// set, skip even the tab-detection scan and pass the genome path straight
+/// through unchanged. This exists for benchmarking against tools (e.g.
+/// skDER) which perform no such sanitizing themselves - if any input genome
+/// actually has a tab character in a header line, skani's TSV output will be
+/// silently corrupted, so this should not be used on untrusted/unchecked
+/// genome sets.
+fn maybe_sanitize_fasta_headers(
+    fasta_path: &str,
+    skip_sanitize_headers: bool,
+) -> SanitizedFasta<'_> {
+    if skip_sanitize_headers {
+        SanitizedFasta::Original(fasta_path)
+    } else {
+        sanitize_fasta_headers_if_needed(fasta_path)
+    }
+}
+
 fn precluster_skani(
     genome_fasta_paths: &[&str],
     threshold: f32,
     min_aligned_threshold: f32,
     small_genomes: bool,
     threads: u16,
+    skip_sanitize_headers: bool,
 ) -> SortedPairGenomeDistanceCache {
     if threshold < 85.0 {
         panic!(
@@ -120,10 +203,11 @@ fn precluster_skani(
         );
     }
 
-    // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output
-    let sanitized: Vec<tempfile::TempPath> = genome_fasta_paths
-        .iter()
-        .map(|p| sanitize_fasta_headers(p))
+    // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output.
+    // Genomes whose headers have no tabs are used as-is (no copy needed).
+    let sanitized: Vec<SanitizedFasta> = genome_fasta_paths
+        .par_iter()
+        .map(|p| maybe_sanitize_fasta_headers(p, skip_sanitize_headers))
         .collect();
 
     // Create a tempfile to list all the sanitized fasta file paths
@@ -134,7 +218,7 @@ fn precluster_skani(
         .expect("Failed to open temporary file to run skani");
 
     for sf in &sanitized {
-        writeln!(tf, "{}", sf.to_str().unwrap())
+        writeln!(tf, "{}", sf.path())
             .expect("Failed to write sanitized genome fasta paths to tempfile for skani");
     }
 
@@ -183,7 +267,7 @@ fn precluster_skani(
                 // Match sanitized path back to original index
                 let genome_id1 = sanitized
                     .iter()
-                    .position(|sf| sf.to_str().unwrap() == &record[0])
+                    .position(|sf| sf.path() == &record[0])
                     .unwrap_or_else(|| {
                         panic!(
                             "Failed to find sanitized genome path in sanitized list: {}",
@@ -192,7 +276,7 @@ fn precluster_skani(
                     });
                 let genome_id2 = sanitized
                     .iter()
-                    .position(|sf| sf.to_str().unwrap() == &record[1])
+                    .position(|sf| sf.path() == &record[1])
                     .unwrap_or_else(|| {
                         panic!(
                             "Failed to find sanitized genome path in sanitized list: {}",
@@ -232,6 +316,7 @@ fn precluster_skani_lowmem(
     min_aligned_threshold: f32,
     small_genomes: bool,
     threads: u16,
+    skip_sanitize_headers: bool,
 ) -> SortedPairGenomeDistanceCache {
     if threshold < 85.0 {
         panic!(
@@ -244,10 +329,11 @@ fn precluster_skani_lowmem(
         panic!("Error: skani does not support small genomes with low-memory preclustering");
     }
 
-    // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output
-    let sanitized: Vec<tempfile::TempPath> = genome_fasta_paths
-        .iter()
-        .map(|p| sanitize_fasta_headers(p))
+    // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output.
+    // Genomes whose headers have no tabs are used as-is (no copy needed).
+    let sanitized: Vec<SanitizedFasta> = genome_fasta_paths
+        .par_iter()
+        .map(|p| maybe_sanitize_fasta_headers(p, skip_sanitize_headers))
         .collect();
 
     // Create a tempfile to list all the sanitized fasta file paths
@@ -258,7 +344,7 @@ fn precluster_skani_lowmem(
         .expect("Failed to open temporary file to run skani");
 
     for sf in &sanitized {
-        writeln!(tf, "{}", sf.to_str().unwrap())
+        writeln!(tf, "{}", sf.path())
             .expect("Failed to write sanitized genome fasta paths to tempfile for skani");
     }
 
@@ -334,7 +420,7 @@ fn precluster_skani_lowmem(
                 // Match sanitized path back to original index
                 let genome_id1 = sanitized
                     .iter()
-                    .position(|sf| sf.to_str().unwrap() == &record[0])
+                    .position(|sf| sf.path() == &record[0])
                     .unwrap_or_else(|| {
                         panic!(
                             "Failed to find sanitized genome path in sanitized list: {}",
@@ -343,7 +429,7 @@ fn precluster_skani_lowmem(
                     });
                 let genome_id2 = sanitized
                     .iter()
-                    .position(|sf| sf.to_str().unwrap() == &record[1])
+                    .position(|sf| sf.path() == &record[1])
                     .unwrap_or_else(|| {
                         panic!(
                             "Failed to find sanitized genome path in sanitized list: {}",
@@ -383,6 +469,7 @@ fn precluster_skani_contigs(
     small_genomes: bool,
     threads: u16,
     contig_names: &[&str],
+    skip_sanitize_headers: bool,
 ) -> SortedPairGenomeDistanceCache {
     if threshold < 85.0 {
         panic!(
@@ -391,10 +478,11 @@ fn precluster_skani_contigs(
         );
     }
 
-    // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output
-    let sanitized: Vec<tempfile::TempPath> = genome_fasta_paths
-        .iter()
-        .map(|p| sanitize_fasta_headers(p))
+    // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output.
+    // Genomes whose headers have no tabs are used as-is (no copy needed).
+    let sanitized: Vec<SanitizedFasta> = genome_fasta_paths
+        .par_iter()
+        .map(|p| maybe_sanitize_fasta_headers(p, skip_sanitize_headers))
         .collect();
 
     // Create a tempfile to list all the sanitized fasta file paths
@@ -405,7 +493,7 @@ fn precluster_skani_contigs(
         .expect("Failed to open temporary file to run skani");
 
     for sf in &sanitized {
-        writeln!(tf, "{}", sf.to_str().unwrap())
+        writeln!(tf, "{}", sf.path())
             .expect("Failed to write sanitized genome fasta paths to tempfile for skani");
     }
 
@@ -506,6 +594,7 @@ fn precluster_skani_with_references(
     min_aligned_threshold: f32,
     small_genomes: bool,
     threads: u16,
+    skip_sanitize_headers: bool,
 ) -> SortedPairGenomeDistanceCache {
     if threshold < 85.0 {
         panic!(
@@ -518,10 +607,11 @@ fn precluster_skani_with_references(
         panic!("Error: skani does not support small genomes with reference genome preclustering");
     }
 
-    // Sanitize reference FASTA headers to remove tabs, which corrupt skani's TSV output
-    let sanitized_refs: Vec<tempfile::TempPath> = reference_genomes
-        .iter()
-        .map(|p| sanitize_fasta_headers(p))
+    // Sanitize reference FASTA headers to remove tabs, which corrupt skani's TSV output.
+    // Genomes whose headers have no tabs are used as-is (no copy needed).
+    let sanitized_refs: Vec<SanitizedFasta> = reference_genomes
+        .par_iter()
+        .map(|p| maybe_sanitize_fasta_headers(p, skip_sanitize_headers))
         .collect();
 
     // Create a tempfile to list all the reference file paths
@@ -532,7 +622,7 @@ fn precluster_skani_with_references(
         .expect("Failed to open temporary file to run skani");
 
     for sf in &sanitized_refs {
-        writeln!(tf_ref, "{}", sf.to_str().unwrap())
+        writeln!(tf_ref, "{}", sf.path())
             .expect("Failed to write sanitized reference genome fasta paths to tempfile for skani");
     }
 
@@ -563,11 +653,12 @@ fn precluster_skani_with_references(
         .wait()
         .expect("Failed to wait for skani sketch");
 
-    // Sanitize non-reference combined genome FASTA headers
-    let sanitized_combined: Vec<(&&str, tempfile::TempPath)> = combined_genomes
-        .iter()
+    // Sanitize non-reference combined genome FASTA headers.
+    // Genomes whose headers have no tabs are used as-is (no copy needed).
+    let sanitized_combined: Vec<(&&str, SanitizedFasta)> = combined_genomes
+        .par_iter()
         .filter(|fasta| !reference_genomes.contains(fasta))
-        .map(|p| (p, sanitize_fasta_headers(p)))
+        .map(|p| (p, maybe_sanitize_fasta_headers(p, skip_sanitize_headers)))
         .collect();
 
     // Create a tempfile to list all the non-reference genome file paths
@@ -578,7 +669,7 @@ fn precluster_skani_with_references(
         .expect("Failed to open temporary file to run skani");
 
     for (_, sf) in &sanitized_combined {
-        writeln!(tf, "{}", sf.to_str().unwrap())
+        writeln!(tf, "{}", sf.path())
             .expect("Failed to write sanitized genome fasta paths to tempfile for skani");
     }
 
@@ -622,7 +713,7 @@ fn precluster_skani_with_references(
                 // record[0] is a reference (sanitized), record[1] is a query (sanitized)
                 let genome_id1 = sanitized_refs
                     .iter()
-                    .position(|sf| sf.to_str().unwrap() == &record[0])
+                    .position(|sf| sf.path() == &record[0])
                     .map(|i| {
                         combined_genomes
                             .iter()
@@ -643,7 +734,7 @@ fn precluster_skani_with_references(
 
                 let genome_id2 = sanitized_combined
                     .iter()
-                    .position(|(_, sf)| sf.to_str().unwrap() == &record[1])
+                    .position(|(_, sf)| sf.path() == &record[1])
                     .map(|i| {
                         combined_genomes
                             .iter()
@@ -690,6 +781,7 @@ pub struct SkaniClusterer {
     pub threshold: f32,
     pub min_aligned_threshold: f32,
     pub small_genomes: bool,
+    pub skip_sanitize_headers: bool,
 }
 
 impl ClusterDistanceFinder for SkaniClusterer {
@@ -711,6 +803,7 @@ impl ClusterDistanceFinder for SkaniClusterer {
             fasta2,
             self.small_genomes,
             self.min_aligned_threshold,
+            self.skip_sanitize_headers,
         ))
     }
 }
@@ -720,10 +813,12 @@ pub fn calculate_skani(
     fasta2: &str,
     small_genomes: bool,
     min_aligned_threshold: f32,
+    skip_sanitize_headers: bool,
 ) -> f32 {
-    // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output
-    let sf1 = sanitize_fasta_headers(fasta1);
-    let sf2 = sanitize_fasta_headers(fasta2);
+    // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output.
+    // Genomes whose headers have no tabs are used as-is (no copy needed).
+    let sf1 = maybe_sanitize_fasta_headers(fasta1, skip_sanitize_headers);
+    let sf2 = maybe_sanitize_fasta_headers(fasta2, skip_sanitize_headers);
 
     // --sparse only outputs non-zero entries in an edge-list output
     // Ref_file Query_file ANI Align_fraction_ref Align_fraction_query Ref_name Query_name
@@ -737,9 +832,9 @@ pub fn calculate_skani(
     }
 
     cmd.arg("-q")
-        .arg(&sf1)
+        .arg(sf1.path())
         .arg("-r")
-        .arg(&sf2)
+        .arg(sf2.path())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
     debug!("Running skani command: {:?}", &cmd);
@@ -812,6 +907,7 @@ mod tests {
             0.2,
             false,
             1,
+            false,
         );
     }
 
@@ -829,6 +925,7 @@ mod tests {
             0.2,
             false,
             1,
+            false,
         );
     }
 
@@ -845,6 +942,82 @@ mod tests {
             0.2,
             false,
             1,
+            false,
         );
+    }
+
+    #[test]
+    fn test_fasta_headers_contain_tab_false_when_no_tabs() {
+        init();
+        assert!(!fasta_headers_contain_tab(
+            "tests/data/abisko4/73.20120800_S1X.13.fna"
+        ));
+    }
+
+    #[test]
+    fn test_fasta_headers_contain_tab_true_when_tabs_present() {
+        init();
+        assert!(fasta_headers_contain_tab(
+            "tests/data/abisko_tabs/73.20120800_S1D.21.fna"
+        ));
+    }
+
+    #[test]
+    fn test_sanitize_fasta_headers_if_needed_reuses_original_path() {
+        init();
+        let fasta_path = "tests/data/abisko4/73.20120800_S1X.13.fna";
+        match sanitize_fasta_headers_if_needed(fasta_path) {
+            SanitizedFasta::Original(p) => assert_eq!(p, fasta_path),
+            SanitizedFasta::Rewritten(_) => {
+                panic!("Expected original path to be reused when no tabs are present")
+            }
+        }
+    }
+
+    #[test]
+    fn test_sanitize_fasta_headers_if_needed_rewrites_when_tabs_present() {
+        init();
+        let fasta_path = "tests/data/abisko_tabs/73.20120800_S1D.21.fna";
+        match sanitize_fasta_headers_if_needed(fasta_path) {
+            SanitizedFasta::Original(_) => {
+                panic!("Expected a rewritten tempfile when tabs are present in headers")
+            }
+            SanitizedFasta::Rewritten(_) => {}
+        }
+    }
+
+    #[test]
+    fn test_maybe_sanitize_fasta_headers_skip_flag_bypasses_tab_check() {
+        init();
+        // Even a genome with tabs in its headers is passed straight through
+        // unchanged when skip_sanitize_headers is set.
+        let fasta_path = "tests/data/abisko_tabs/73.20120800_S1D.21.fna";
+        match maybe_sanitize_fasta_headers(fasta_path, true) {
+            SanitizedFasta::Original(p) => assert_eq!(p, fasta_path),
+            SanitizedFasta::Rewritten(_) => {
+                panic!("Expected original path to be reused when skip_sanitize_headers is set")
+            }
+        }
+    }
+
+    #[test]
+    fn test_precluster_skani_with_skip_sanitize_headers() {
+        init();
+        // With no tabs in headers, skipping sanitizing should give the same
+        // result as the normal path.
+        let distances = precluster_skani(
+            &[
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120700_S3X.12.fna",
+                "tests/data/abisko4/73.20110800_S2D.13.fna",
+            ],
+            95.0,
+            0.2,
+            false,
+            1,
+            true,
+        );
+        assert!(distances.contains_key(&(0, 1)));
     }
 }

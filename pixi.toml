@@ -8,28 +8,42 @@ channels = [
 ]
 platforms = ["linux-64"]
 
-# Core dependencies that work across all platforms
-[feature.common.dependencies]
-  # These depedencies are spelled out in the README.md too, so changes need to be synced manually.
+# Core ANI comparison tools
+[feature.core.dependencies]
 skani = ">=0.2.2"
 fastani = ">=1.3"
-"barrnap" = ">=0.9"
+
+# rRNA/tRNA tools for genome quality scoring
+[feature.barrnap.dependencies]
+barrnap = ">=0.9"
 "trnascan-se" = ">=2.0.12"
+
+# Prokaryote quality assessment
+[feature.checkm2.dependencies]
 checkm2 = ">=1.1.0"
+
+# Domain classification (conflicts with eukcc due to diamond/zlib incompatibility)
+[feature.isiteuk.dependencies]
+isiteuk = "*"
+
+# Eukaryote quality assessment (conflicts with isiteuk due to diamond/zlib incompatibility)
+[feature.eukcc.dependencies]
+eukcc = ">=2.1.3"
 
 # x86_64-specific dependencies
 [feature.main.dependencies]
-  # These depedencies are spelled out in the README.md too, so changes need to be synced manually.
 
 [feature.dev.dependencies]
 extern = "*"
 pandoc = "*"
 
-# Define environments
 [environments]
-default = ["main","common"]  # Environment with x86_64-specific tools
-osx = ["common"]  # Environment with common tools only
-dev = ["dev","main","common"]
+default = ["main", "core", "barrnap", "isiteuk"]
+checkm2 = ["checkm2"]
+eukcc = ["eukcc"]
+isiteuk = ["isiteuk"]
+osx = ["core", "barrnap", "isiteuk"]
+dev = ["dev", "main", "core", "barrnap", "isiteuk"]
 
 [tasks.release-base]
 cmd = "python3 admin/release.py"

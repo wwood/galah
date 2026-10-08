@@ -12,7 +12,7 @@ pub fn check_for_clustering_dependencies(precluster_method: &str, cluster_method
 }
 
 pub fn check_for_fastani() {
-    self::check_for_external_command_presence_with_which("fastANI")
+    self::check_for_external_command_presence("fastaANI", "command -v fastANI")
         .expect("Failed to find installed fastANI");
     self::default_version_check("fastANI", "1.31", false, None)
         .expect("Failed to find sufficient version of fastANI");

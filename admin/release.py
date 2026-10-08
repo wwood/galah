@@ -20,7 +20,10 @@ def get_version(relpath):
 if __name__ == "__main__":
     yes_no = input(
         "Did you run the non-CI tests first, to make sure everything is OK (y/n)? \n\n"
-        "CHECKM2DB=/work/microbiome/db/CheckM2_database/uniref100.KO.1.dmnd pixi run cargo test -- --ignored\n\n"
+        "CHECKM2DB=/work/microbiome/db/CheckM2_database/uniref100.KO.1.dmnd "
+        "ISITEUK_METAPACKAGE_PATH=/work/microbiome/db/isiteuk/isiteuk-0.0.1.smpkg "
+        "EUKCC2_DB=~/db/eukccdb/eukcc2_db_ver_1.1 "
+        "pixi run cargo test -- --ignored\n\n"
     )
     if yes_no != "y":
         raise Exception("Please run the non-CI tests first")

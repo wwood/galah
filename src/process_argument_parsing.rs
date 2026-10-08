@@ -9,6 +9,45 @@ use bird_tool_utils::clap_utils::*;
 use bird_tool_utils_man::prelude::{Author, Flag, Manual, Opt, Section};
 use clap::*;
 
+/// Argument names for the analyse-related flags in the `process` subcommand.
+pub struct ProcessAnalyseCommandDefinition {
+    pub domain_choice_argument: String,
+    pub isiteuk_output_argument: String,
+    pub isiteuk_metapackage_argument: String,
+    pub isiteuk_bacteria_cutoff_argument: String,
+    pub isiteuk_archaea_cutoff_argument: String,
+    pub isiteuk_eukaryota_cutoff_argument: String,
+    pub eukcc_db_path_argument: String,
+    pub eukcc_quality_report_argument: String,
+    pub checkm2_db_path_argument: String,
+    pub checkm2_quality_report_argument: String,
+    pub checkm_tab_table_argument: String,
+    pub barrnap_gff_list_argument: String,
+    pub trnascan_out_list_argument: String,
+    pub working_dir_argument: String,
+}
+
+lazy_static! {
+    pub static ref PROCESS_ANALYSE_DEF: ProcessAnalyseCommandDefinition = {
+        ProcessAnalyseCommandDefinition {
+            domain_choice_argument: "domain-choice".to_string(),
+            isiteuk_output_argument: "isiteuk-output".to_string(),
+            isiteuk_metapackage_argument: "isiteuk-metapackage".to_string(),
+            isiteuk_bacteria_cutoff_argument: "isiteuk-bacteria-cutoff".to_string(),
+            isiteuk_archaea_cutoff_argument: "isiteuk-archaea-cutoff".to_string(),
+            isiteuk_eukaryota_cutoff_argument: "isiteuk-eukaryota-cutoff".to_string(),
+            eukcc_db_path_argument: "eukcc-db-path".to_string(),
+            eukcc_quality_report_argument: "eukcc-quality-report".to_string(),
+            checkm2_db_path_argument: "checkm2-db-path".to_string(),
+            checkm2_quality_report_argument: "checkm2-quality-report".to_string(),
+            checkm_tab_table_argument: "checkm-tab-table".to_string(),
+            barrnap_gff_list_argument: "barrnap-gff-list".to_string(),
+            trnascan_out_list_argument: "trnascan-out-list".to_string(),
+            working_dir_argument: "working-dir".to_string(),
+        }
+    };
+}
+
 lazy_static! {
     pub static ref PROCESS_CLUSTER_COMMAND_DEFINITION: GalahClustererCommandDefinition = {
         GalahClustererCommandDefinition {
@@ -16,7 +55,7 @@ lazy_static! {
             dereplication_prethreshold_ani_argument: "precluster-ani".to_string(),
             dereplication_quality_formula_argument: "quality-formula".to_string(),
             dereplication_run_checkm2_argument: "run-checkm2".to_string(),
-            dereplication_checkm2_db_path_argument: "checkm2-db-path".to_string(),  // Shared with analyse
+            dereplication_checkm2_db_path_argument: "checkm2-db-path".to_string(),
             dereplication_precluster_method_argument: "precluster-method".to_string(),
             dereplication_cluster_method_argument: "cluster-method".to_string(),
             dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
@@ -26,16 +65,16 @@ lazy_static! {
             dereplication_large_contigs_argument: "large-contigs".to_string(),
             dereplication_fraglen_argument: "fragment-length".to_string(),
             dereplication_low_memory_argument: "low-memory".to_string(),
+            dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
             dereplication_reference_genomes_argument: "reference-genomes".to_string(),
             dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
-            dereplication_output_cluster_definition_file: "output-cluster-definition"
-                .to_string(),
+            dereplication_skip_input_dereplication_argument: "skip-input-dereplication".to_string(),
+            dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
             dereplication_output_representative_fasta_directory:
                 "output-representative-fasta-directory".to_string(),
             dereplication_output_representative_fasta_directory_copy:
                 "output-representative-fasta-directory-copy".to_string(),
-            dereplication_output_representative_list: "output-representative-list"
-                .to_string(),
+            dereplication_output_representative_list: "output-representative-list".to_string(),
         }
     };
 }
@@ -48,11 +87,20 @@ lazy_static! {
             trna_method_argument: "trna-method".to_string(),
             output_mimag_summary_argument: "output-mimag-summary".to_string(),
             output_quality_report_argument: "output-quality-report".to_string(),
-            checkm2_db_path_argument: "checkm2-db-path".to_string(),  // Shared with cluster
-            checkm2_quality_report_argument: "checkm2-quality-report".to_string(),  // Shared with cluster
-            checkm_tab_table_argument: "checkm-tab-table".to_string(),  // Shared with cluster
+            checkm2_db_path_argument: "checkm2-db-path".to_string(),
+            checkm2_quality_report_argument: "checkm2-quality-report".to_string(),
+            checkm_tab_table_argument: "checkm-tab-table".to_string(),
             barrnap_gff_list_argument: "barrnap-gff-list".to_string(),
             trnascan_out_list_argument: "trnascan-out-list".to_string(),
+            domain_choice_argument: "domain-choice".to_string(),
+            isiteuk_output_argument: "isiteuk-output".to_string(),
+            isiteuk_metapackage_argument: "isiteuk-metapackage".to_string(),
+            isiteuk_bacteria_cutoff_argument: "isiteuk-bacteria-cutoff".to_string(),
+            isiteuk_archaea_cutoff_argument: "isiteuk-archaea-cutoff".to_string(),
+            isiteuk_eukaryota_cutoff_argument: "isiteuk-eukaryota-cutoff".to_string(),
+            eukcc_db_path_argument: "eukcc-db-path".to_string(),
+            eukcc_quality_report_argument: "eukcc-quality-report".to_string(),
+            working_dir_argument: "working-dir".to_string(),
         }
     };
 }
@@ -119,7 +167,7 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
                 .action(clap::ArgAction::SetTrue),
         );
 
-    // Add cluster-related arguments (ids are prefixed with cluster- to avoid collisions)
+    // Add cluster-related arguments
     process_subcommand = process_subcommand
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_ani_argument)
             .long("ani")
@@ -140,10 +188,10 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
             .help("Min aligned fraction of two genomes for clustering")
             .value_parser(clap::value_parser!(f32))
             .default_value(crate::DEFAULT_ALIGNED_FRACTION))
-        .arg(Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.checkm_tab_table_argument)
+        .arg(Arg::new(&*PROCESS_ANALYSE_DEF.checkm_tab_table_argument)
             .long("checkm-tab-table")
             .help("Output of CheckM lineage_wf/taxonomy_wf/qa with --tab_table specified"))
-        .arg(Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.checkm2_quality_report_argument)
+        .arg(Arg::new(&*PROCESS_ANALYSE_DEF.checkm2_quality_report_argument)
             .long("checkm2-quality-report")
             .help("Output of CheckM2 predict"))
         .arg(Arg::new("genome-info")
@@ -171,7 +219,7 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
             .long("run-checkm2")
             .help("Run CheckM2 for genome quality scoring during clustering")
             .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.checkm2_db_path_argument)
+        .arg(Arg::new(&*PROCESS_ANALYSE_DEF.checkm2_db_path_argument)
             .long("checkm2-db-path")
             .help("Path to CheckM2 database. If not specified, will use $CHECKM2DB environment variable if set."))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_prethreshold_ani_argument)
@@ -209,18 +257,26 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
+        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
+            .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
+            .help("Skip checking/rewriting FASTA headers containing tabs before running skani, using genome paths as-is. Mainly for benchmarking against tools which do not sanitize headers. If any input genome has a tab in a header line, skani's TSV output will be silently corrupted, so only use this when input genomes are known not to have tabs in their headers.")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .long("reference-genomes")
-            .help("Reference genomes to cluster against. These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
+            .help("Reference genomes to cluster against. These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes.")
             .value_delimiter(' ')
             .num_args(1..)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
             .long("reference-genomes-list")
-            .help("File containing paths to reference genomes (one per line). These should be representatives already clustered. Galah will only form clusters across the two groups, never within. Uses less memory than clustering together.")
+            .help("File containing paths to reference genomes (one per line). These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes.")
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument))
+        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_input_dereplication_argument)
+            .long("skip-input-dereplication")
+            .help("When used with --reference-genomes/--reference-genomes-list, skip dereplicating input genomes amongst themselves first: compare every input genome directly against the reference set instead, so near-duplicate input genomes are not merged before matching (restores the behaviour prior to this flag's introduction). Has no effect unless reference genomes are given.")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
@@ -265,7 +321,7 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
                 "full-help",
                 "full-help-roff",]));
 
-    // Add analyse-related arguments (ids are prefixed with analyse- to avoid collisions)
+    // Add analyse-related arguments
     process_subcommand = process_subcommand
         .arg(
             Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.rrna_method_argument)
@@ -319,6 +375,69 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
                 .long("trnascan-out-list")
                 .value_name("FILE")
                 .help("Two-column TSV mapping genome paths to tRNAscan-SE outputs (no headers). Prevents tRNA method being run"),
+        )
+        .arg(
+            Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.domain_choice_argument)
+                .long("domain-choice")
+                .value_name("CHOICE")
+                .value_parser(crate::DOMAIN_CHOICES)
+                .default_value(crate::DEFAULT_DOMAIN_CHOICE)
+                .help("Method for determining genome domain. 'isiteuk' runs isiteuk first; 'bac', 'arc', 'euk' fix domain; 'completeness' runs CheckM2+EukCC and keeps whichever has higher completeness. 'all' is not supported by process (see `analyse --domain-choice all`)"),
+        )
+        .arg(
+            Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.isiteuk_output_argument)
+                .long("isiteuk-output")
+                .value_name("FILE")
+                .help("Pre-computed isiteuk output TSV. Prevents isiteuk being run"),
+        )
+        .arg(
+            Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.isiteuk_metapackage_argument)
+                .long("isiteuk-metapackage")
+                .value_name("PATH")
+                .help("Path to isiteuk metapackage. If not specified, uses ISITEUK_METAPACKAGE_PATH environment variable"),
+        )
+        .arg(
+            Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.isiteuk_bacteria_cutoff_argument)
+                .long("isiteuk-bacteria-cutoff")
+                .value_name("FLOAT")
+                .help("Minimum isiteuk num_in_target_domain for Bacteria domain assignment")
+                .default_value(crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF)
+                .value_parser(clap::value_parser!(f64)),
+        )
+        .arg(
+            Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.isiteuk_archaea_cutoff_argument)
+                .long("isiteuk-archaea-cutoff")
+                .value_name("FLOAT")
+                .help("Minimum isiteuk num_in_target_domain for Archaea domain assignment")
+                .default_value(crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF)
+                .value_parser(clap::value_parser!(f64)),
+        )
+        .arg(
+            Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.isiteuk_eukaryota_cutoff_argument)
+                .long("isiteuk-eukaryota-cutoff")
+                .value_name("FLOAT")
+                .help("Minimum isiteuk num_in_target_domain for Eukaryota domain assignment")
+                .default_value(crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF)
+                .value_parser(clap::value_parser!(f64)),
+        )
+        .arg(
+            Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.eukcc_db_path_argument)
+                .long("eukcc-db-path")
+                .value_name("PATH")
+                .help("Path to EukCC database. If not specified, uses EUKCC2_DB environment variable"),
+        )
+        .arg(
+            Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.eukcc_quality_report_argument)
+                .long("eukcc-quality-report")
+                .value_name("FILE")
+                .help("Pre-computed merged EukCC TSV. Prevents EukCC being run for eukaryotic genomes"),
+        )
+        .arg(
+            Arg::new(&*PROCESS_ANALYSE_COMMAND_DEFINITION.working_dir_argument)
+                .long("working-dir")
+                .value_name("DIR")
+                .help("Directory for intermediate outputs. Outputs are reused on re-run if present. If not given, a temporary directory is used and deleted on exit.")
+                .required(false),
         );
 
     process_subcommand =
@@ -328,7 +447,6 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
 }
 
 pub fn process_full_help(program_basename: &str, program_version: &str) -> Manual {
-    // Build a full manual similar to analyse and cluster, using the same long option names
     let mut manual = Manual::new(&format!("{program_basename} process"))
         .about(format!("Process genomes: analyse and cluster (version {program_version})"))
         .author(Author::new(crate::AUTHOR).email("benjwoodcroft near gmail.com"))
@@ -343,7 +461,6 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         )),
     );
 
-    // Analyse: quality parameters (using same structure as PROCESS_ANALYSE_COMMAND_DEFINITION for consistency)
     let analyse_def_for_manual = GalahAnalyserCommandDefinition {
         quality_method_argument: "quality-method".to_string(),
         rrna_method_argument: "rrna-method".to_string(),
@@ -355,15 +472,29 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         checkm_tab_table_argument: "checkm-tab-table".to_string(),
         barrnap_gff_list_argument: "barrnap-gff-list".to_string(),
         trnascan_out_list_argument: "trnascan-out-list".to_string(),
+        domain_choice_argument: "domain-choice".to_string(),
+        isiteuk_output_argument: "isiteuk-output".to_string(),
+        isiteuk_metapackage_argument: "isiteuk-metapackage".to_string(),
+        isiteuk_bacteria_cutoff_argument: "isiteuk-bacteria-cutoff".to_string(),
+        isiteuk_archaea_cutoff_argument: "isiteuk-archaea-cutoff".to_string(),
+        isiteuk_eukaryota_cutoff_argument: "isiteuk-eukaryota-cutoff".to_string(),
+        eukcc_db_path_argument: "eukcc-db-path".to_string(),
+        eukcc_quality_report_argument: "eukcc-quality-report".to_string(),
+        working_dir_argument: "working-dir".to_string(),
     };
+
+    manual = manual.custom(
+        crate::analyse_argument_parsing::add_analyse_domain_parameters_to_section(
+            Section::new("Domain parameters"),
+            &analyse_def_for_manual,
+        ),
+    );
     manual = manual.custom(
         crate::analyse_argument_parsing::add_analyse_quality_parameters_to_section(
             Section::new("Quality parameters"),
             &analyse_def_for_manual,
         ),
     );
-
-    // Analyse: RNA parameters
     manual = manual.custom(
         crate::analyse_argument_parsing::add_analyse_rna_parameters_to_section(
             Section::new("RNA parameters"),
@@ -371,14 +502,12 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         ),
     );
 
-    // Cluster: filtering parameters (shared long names)
     manual = manual.custom(
         crate::cluster_argument_parsing::add_dereplication_filtering_parameters_to_section(
             Section::new("Filtering parameters"),
         ),
     );
 
-    // Cluster: clustering parameters (using same structure as cluster for consistency)
     let cluster_def_for_manual = GalahClustererCommandDefinition {
         dereplication_ani_argument: "ani".to_string(),
         dereplication_prethreshold_ani_argument: "precluster-ani".to_string(),
@@ -394,8 +523,10 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         dereplication_fraglen_argument: "fragment-length".to_string(),
         dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
         dereplication_low_memory_argument: "low-memory".to_string(),
+        dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
         dereplication_reference_genomes_argument: "reference-genomes".to_string(),
         dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
+        dereplication_skip_input_dereplication_argument: "skip-input-dereplication".to_string(),
         dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
         dereplication_output_representative_fasta_directory:
             "output-representative-fasta-directory".to_string(),
@@ -410,7 +541,6 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         ),
     );
 
-    // Output
     let output_section = Section::new("Output");
     let output_section = crate::analyse_argument_parsing::add_analyse_output_parameters_to_section(
         output_section,
@@ -423,7 +553,6 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         );
     manual = manual.custom(output_section);
 
-    // General parameters
     manual = manual.custom(
         Section::new("General parameters")
             .option(
@@ -486,9 +615,7 @@ pub fn run_process_subcommand(
 
     info!("Processing {} genomes ..", genome_fasta_files.len());
 
-    // Open file handles here so errors are caught before CPU-heavy commands
     let analyse_output_definitions = setup_analyse_outputs(m, &PROCESS_ANALYSE_COMMAND_DEFINITION);
-
     let output_definitions: GalahOutput =
         setup_galah_outputs(m, &PROCESS_CLUSTER_COMMAND_DEFINITION);
 
@@ -500,12 +627,12 @@ pub fn run_process_subcommand(
         analyse_output_definitions
             .output_quality_report_path
             .clone(),
+        &PROCESS_ANALYSE_DEF,
     )
     .expect("Failed to process genomes");
 
     write_analyse_outputs(analyse_output_definitions, &analysis, &genome_fasta_files);
 
-    // Convert Vec<String> to Vec<&str> for write_galah_outputs
     let passed_genomes_refs: Vec<&str> = passed_genomes.iter().map(|s| s.as_str()).collect();
     write_galah_outputs(output_definitions, &clusters, &passed_genomes_refs, None);
 

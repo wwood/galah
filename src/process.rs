@@ -4,8 +4,32 @@ use crate::checkm2::CheckM2Analyser;
 use crate::cluster_argument_parsing;
 use crate::trnascan::TrnascanAnalyser;
 use std::collections::HashMap;
+use std::io::Write;
+use std::path::Path;
 
-type ProcessResult = Result<(HashMap<String, GenomeOutput>, Vec<Vec<usize>>, Vec<String>), String>;
+/// Double-strip a genome path down to its bare name, matching the convention used by the
+/// `checkm` crate's `retrieve_via_fasta_path` (strips `.gz` then the remaining extension).
+fn genome_name_stem(genome_path: &str) -> String {
+    let stem1 = Path::new(genome_path).file_stem().unwrap();
+    if genome_path.ends_with(".gz") {
+        Path::new(stem1)
+            .file_stem()
+            .unwrap_or(stem1)
+            .to_string_lossy()
+            .into_owned()
+    } else {
+        stem1.to_string_lossy().into_owned()
+    }
+}
+
+type ProcessResult = Result<
+    (
+        HashMap<String, Vec<GenomeOutput>>,
+        Vec<Vec<usize>>,
+        Vec<String>,
+    ),
+    String,
+>;
 
 pub fn process_command(
     genomes: &[String],
@@ -13,23 +37,45 @@ pub fn process_command(
     cluster_args: &clap::ArgMatches,
     cluster_def: &cluster_argument_parsing::GalahClustererCommandDefinition,
     output_quality_report_path: Option<String>,
+    process_analyse_def: &crate::process_argument_parsing::ProcessAnalyseCommandDefinition,
 ) -> ProcessResult {
+    // Domain choice
+    let domain_choice_str = cluster_args
+        .get_one::<String>(&process_analyse_def.domain_choice_argument)
+        .map(|s| s.as_str())
+        .unwrap_or(crate::DEFAULT_DOMAIN_CHOICE);
+    let domain_choice = domain_choice_str
+        .parse::<crate::DomainChoice>()
+        .unwrap_or(crate::DomainChoice::Isiteuk);
+
+    // --domain-choice all produces multiple rows per genome (one per domain), which has no
+    // single quality value to cluster on - reject rather than guess which row to rank by.
+    if matches!(domain_choice, crate::DomainChoice::All) {
+        eprintln!(
+            "Error: --domain-choice all is not supported by `process` (produces multiple\n\
+             rows per genome, but clustering needs one quality value per genome).\n\
+             Use `analyse --domain-choice all`, or `process --domain-choice completeness`."
+        );
+        std::process::exit(1);
+    }
+
     // Quality analyser (CheckM2) input directly or with DB path from arg or env
     let checkm2_quality_report = cluster_args
-        .get_one::<String>("checkm2-quality-report")
+        .get_one::<String>(&process_analyse_def.checkm2_quality_report_argument)
         .map(|s| s.to_string());
     let checkm_tab_table = cluster_args
-        .get_one::<String>("checkm-tab-table")
+        .get_one::<String>(&process_analyse_def.checkm_tab_table_argument)
         .map(|s| s.to_string());
 
-    let checkm2_db_path = if checkm2_quality_report.is_none() && checkm_tab_table.is_none() {
+    let checkm2_db_path = if checkm2_quality_report.is_none()
+        && checkm_tab_table.is_none()
+        && !matches!(domain_choice, crate::DomainChoice::Eukaryota)
+    {
         cluster_args
-            .get_one::<String>("checkm2-db-path")
+            .get_one::<String>(&process_analyse_def.checkm2_db_path_argument)
             .map(|s| s.to_string())
             .or_else(|| std::env::var("CHECKM2DB").ok())
-            .expect(
-                "CheckM2 database path must be provided via --checkm2-db-path or CHECKM2DB env var",
-            )
+            .unwrap_or_default()
     } else {
         String::new()
     };
@@ -43,10 +89,39 @@ pub fn process_command(
 
     // Input overrides for analyse (allow pre-generated files)
     let barrnap_gff_list = cluster_args
-        .get_one::<String>("barrnap-gff-list")
+        .get_one::<String>(&process_analyse_def.barrnap_gff_list_argument)
         .map(|s| s.to_string());
     let trnascan_out_list = cluster_args
-        .get_one::<String>("trnascan-out-list")
+        .get_one::<String>(&process_analyse_def.trnascan_out_list_argument)
+        .map(|s| s.to_string());
+
+    // Domain / eukaryote args
+    let isiteuk_output = cluster_args
+        .get_one::<String>(&process_analyse_def.isiteuk_output_argument)
+        .map(|s| s.to_string());
+    let isiteuk_metapackage = cluster_args
+        .get_one::<String>(&process_analyse_def.isiteuk_metapackage_argument)
+        .map(|s| s.to_string());
+    let bacteria_domain_cutoff = cluster_args
+        .get_one::<f64>(&process_analyse_def.isiteuk_bacteria_cutoff_argument)
+        .copied()
+        .unwrap_or_else(|| crate::DEFAULT_ISITEUK_BACTERIA_CUTOFF.parse().unwrap());
+    let archaea_domain_cutoff = cluster_args
+        .get_one::<f64>(&process_analyse_def.isiteuk_archaea_cutoff_argument)
+        .copied()
+        .unwrap_or_else(|| crate::DEFAULT_ISITEUK_ARCHAEA_CUTOFF.parse().unwrap());
+    let eukaryota_domain_cutoff = cluster_args
+        .get_one::<f64>(&process_analyse_def.isiteuk_eukaryota_cutoff_argument)
+        .copied()
+        .unwrap_or_else(|| crate::DEFAULT_ISITEUK_EUKARYOTA_CUTOFF.parse().unwrap());
+    let eukcc_db_path = cluster_args
+        .get_one::<String>(&process_analyse_def.eukcc_db_path_argument)
+        .map(|s| s.to_string());
+    let eukcc_quality_report = cluster_args
+        .get_one::<String>(&process_analyse_def.eukcc_quality_report_argument)
+        .map(|s| s.to_string());
+    let working_dir = cluster_args
+        .get_one::<String>(&process_analyse_def.working_dir_argument)
         .map(|s| s.to_string());
 
     // Run analyse
@@ -61,6 +136,15 @@ pub fn process_command(
         &checkm_tab_table,
         &barrnap_gff_list,
         &trnascan_out_list,
+        &domain_choice,
+        &isiteuk_output,
+        isiteuk_metapackage,
+        eukcc_db_path,
+        &eukcc_quality_report,
+        bacteria_domain_cutoff,
+        archaea_domain_cutoff,
+        eukaryota_domain_cutoff,
+        working_dir.as_deref(),
     )?;
 
     // Set up clustering context similar to cluster subcommand
@@ -124,7 +208,56 @@ pub fn process_command(
             (genomes.to_vec(), None)
         };
 
-    // Build clusterer, injecting the CheckM2 quality report path from analyse (if produced)
+    // Build clusterer, injecting quality for representative ranking.
+    //
+    // `analysis` already merges CheckM2 (Bacteria/Archaea) and EukCC (Eukaryota) completeness/
+    // contamination for every genome in `genomes`, regardless of domain. Write that combined
+    // table out as a genome-info-style report so representative selection can use it directly,
+    // rather than relying on the CheckM2-only report (which has no entry for eukaryotes, and
+    // would panic when one is looked up).
+    //
+    // Reference genomes are not covered by `analysis` (analyse() only runs on `genomes`), so
+    // when reference genomes are in play, fall back to the pre-existing behaviour of only
+    // injecting quality when the user explicitly requested a CheckM2 report be written out.
+    // Kept alive until the end of this function so the path below stays valid for
+    // `generate_galah_clusterer` to read; cleaned up automatically on drop.
+    let mut _combined_quality_guard: Option<tempfile::NamedTempFile> = None;
+    let combined_quality_report = if reference_genomes.is_none() {
+        let mut combined_quality_file = tempfile::Builder::new()
+            .prefix("galah-process-combined-quality")
+            .suffix(".csv")
+            .tempfile()
+            .expect("Failed to create combined quality report tempfile");
+        writeln!(combined_quality_file, "genome,completeness,contamination")
+            .expect("Failed to write combined quality report header");
+        for (genome_path, outputs) in &analysis {
+            // `--domain-choice all` is rejected above, so every genome has exactly one row here.
+            let output = outputs
+                .first()
+                .expect("Analysis produced no rows for genome");
+            writeln!(
+                combined_quality_file,
+                "{},{},{}",
+                genome_name_stem(genome_path),
+                output.completeness,
+                output.contamination
+            )
+            .expect("Failed to write combined quality report row");
+        }
+        combined_quality_file
+            .flush()
+            .expect("Failed to flush combined quality report");
+        let path = combined_quality_file.path().to_string_lossy().into_owned();
+        _combined_quality_guard = Some(combined_quality_file);
+        Some(cluster_argument_parsing::InjectedQualityReport::GenomeInfo(
+            path,
+        ))
+    } else {
+        output_quality_report_path
+            .clone()
+            .map(cluster_argument_parsing::InjectedQualityReport::CheckM2)
+    };
+
     let galah = cluster_argument_parsing::generate_galah_clusterer(
         &combined_genomes,
         &None,
@@ -132,7 +265,7 @@ pub fn process_command(
         cluster_args,
         cluster_def,
         ref_genomes_for_clusterer.as_deref(),
-        output_quality_report_path.clone(),
+        combined_quality_report,
     )
     .expect("Failed to parse galah clustering arguments correctly");
 
