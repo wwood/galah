@@ -24,6 +24,8 @@
 
 ### Fixed
 - `.gz` genome inputs built from multiple concatenated gzip streams (e.g. `cat a.fna.gz b.fna.gz > combined.fna.gz`) were silently truncated to just the first stream before being passed to isiteuk, CheckM2, EukCC or tRNAscan-SE, since decompression used `GzDecoder` (single-member) instead of `MultiGzDecoder` (multi-member, per RFC 1952)
+- Clustering no longer panics when no genomes pass the quality thresholds, instead warning and generating empty output ([#75](https://github.com/wwood/galah/issues/75), reported by [@erikrikarddaniel](https://github.com/erikrikarddaniel))
+- fastANI is no longer required to be installed when clustering with skani, and skani's presence is now verified when it is used
 
 ## Version 0.5.2
 

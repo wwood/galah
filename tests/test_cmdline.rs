@@ -352,6 +352,75 @@ mod tests {
     }
 
     #[test]
+    fn test_no_genomes_pass_quality_thresholds() {
+        // https://github.com/wwood/galah/issues/75 - previously panicked with an
+        // index out of bounds error rather than returning no clusters.
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--min-completeness",
+                "99",
+                "--max-contamination",
+                "10",
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--checkm2-quality-report",
+                "tests/data/abisko4/abisko4_quality_report.tsv",
+            ])
+            .succeeds()
+            .stdout()
+            .is("")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_fastani_not_required_when_clustering_with_skani() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "skani",
+                "--output-cluster-definition",
+                "/dev/null",
+            ])
+            .succeeds()
+            .stderr()
+            .contains("Found skani version")
+            .stderr()
+            .doesnt_contain("fastANI")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_fastani_required_when_clustering_with_fastani() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "tests/data/abisko4/73.20110800_S2M.16.fna",
+                "--precluster-method",
+                "skani",
+                "--cluster-method",
+                "fastani",
+                "--output-cluster-definition",
+                "/dev/null",
+            ])
+            .succeeds()
+            .stderr()
+            .contains("Found fastANI version")
+            .unwrap();
+    }
+
+    #[test]
     fn test_skani_skani_clusterer() {
         Assert::main_binary()
             .with_args(&[

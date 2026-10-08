@@ -31,6 +31,26 @@ pub fn cluster<P: PreclusterDistanceFinder, C: ClusterDistanceFinder + std::mark
 ) -> Vec<Vec<usize>> {
     clusterer.initialise();
 
+    // There may be nothing to cluster e.g. when no genomes passed the quality
+    // thresholds. Return early rather than doing pointless work and then
+    // failing when there are no preclusters.
+    let num_to_cluster = if cluster_contigs {
+        contig_names.map_or(0, |c| c.len())
+    } else {
+        genomes.len()
+    };
+    if num_to_cluster == 0 {
+        warn!(
+            "No {} to cluster, so no clusters will be output",
+            if cluster_contigs {
+                "contigs"
+            } else {
+                "genomes"
+            }
+        );
+        return vec![];
+    }
+
     match reference_genomes {
         Some(ref_genomes) if !ref_genomes.is_empty() => {
             let preclusterer_name = preclusterer.method_name();
