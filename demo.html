@@ -1,0 +1,297 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>demo</title>
+    <meta name="description" content="Documentation for Galah">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Sans+Pro:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" type="text/css" href="/galah/assets/normalize.css?v=1791510651"
+        media="screen" />
+    <link rel="stylesheet" type="text/css" href="/galah/assets/doctave-style.css?v=1791510651"
+        media="screen" />
+    <link rel="stylesheet" type="text/css" href="/galah/assets/katex.css?v=1791510651" media="screen" />
+    <link rel="stylesheet" type="text/css" href="/galah/assets/prism-ghcolors.css?v=1791510651"
+        media="screen" />
+
+    <script>
+        var DOCTAVE_TIMESTAMP = "1791510651";
+        var BASE_PATH = "/galah/";
+        var color = localStorage.getItem('doctave-color')
+
+        if (color === 'dark') {
+            document.getElementsByTagName('html')[0].classList.remove('light');
+            document.getElementsByTagName('html')[0].classList.add('dark');
+        } else {
+            document.getElementsByTagName('html')[0].classList.remove('dark');
+            document.getElementsByTagName('html')[0].classList.add('light');
+        }
+    </script>
+
+    
+</head>
+
+<body>
+    <label for='menu-toggle-switch' class='menu-toggle-button'>
+        ☰
+    </label>
+    <input type="checkbox" id="menu-toggle-switch" value='0' />
+    <div class='page'>
+        <div class='header'>
+            <div class='logo'>
+                
+                <a href="/galah/">
+                    <img src="/galah/galah_logo.png" alt='Galah logo'></img>
+                </a>
+                
+                <h2 class='project-name'>
+                    <a href="/galah/">
+                        Galah
+                    </a>
+                </h2>
+            </div>
+            <div class='search'>
+                <form id='search-form'>
+    <input type='text' id='search-box' autocomplete="off" placeholder="Search..."></input>
+    <span class='search-icon'>S</span>
+    <ul id='search-results'></ul>
+</form>
+
+            </div>
+            <div class='header-dummy-right'>
+            </div>
+        </div>
+        <div class='container'>
+            <div class='sidebar-left'>
+                <nav class='site-nav'>
+    <ul>
+        
+            <li><a href="/galah/why">why</a></li>
+            
+        
+            <li><a href="/galah/installation">installation</a></li>
+            
+        
+            <li><a class="active" href="/galah/demo">demo</a></li>
+            
+        
+            <li><a href="/galah/tools">tools</a></li>
+            
+                <ul>
+    
+        <li><a href="/galah/tools/process">Galah process</a></li>
+        
+    
+        <li><a href="/galah/tools/cluster">Galah cluster</a></li>
+        
+    
+        <li><a href="/galah/tools/analyse">Galah analyse</a></li>
+        
+    
+</ul>
+
+            
+        
+    </ul>
+    <span id='light-dark-mode-switch'>
+        <svg xmlns="http://www.w3.org/2000/svg" id="dark-mode-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+        </svg>
+
+        <svg xmlns="http://www.w3.org/2000/svg" id="light-mode-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />
+        </svg>
+    </span>
+</nav>
+
+            </div>
+            <div class='doctave-content'>
+                <h1 id="demo">Demo</h1>
+<p>This demo will guide you through running <code>galah process</code> on a small, mixed-domain set of genomes: from one bacterium, one archaeon, and one eukaryote.
+The only prerequisite is that Galah is fully installed and set up as per the <a href="/galah/installation">installation</a> instructions, including the CheckM2 database, isiteuk metapackage, and EukCC database.</p>
+<h2 id="download-the-demo-genomes">Download the demo genomes</h2>
+<p>We will use three real genomes, taken from Galah's own test suite: a bacterial genome (<a href="https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_002008365.1/">GCF_002008365.1</a>), an archaeal genome (<a href="https://www.ncbi.nlm.nih.gov/datasets/genome/GCA_003139855.1/">GCA_003139855.1</a>), and a eukaryotic genome recovered by coassembly (<a href="https://github.com/aroneys/binchicken">binchicken_co8412.34</a>).</p>
+<pre><code class="language-bash">mkdir galah_demo
+cd galah_demo
+
+wget https://raw.githubusercontent.com/wwood/galah/refs/heads/main/tests/data/domain_examples/GCF_002008365.1_genomic.fna.gz
+wget https://raw.githubusercontent.com/wwood/galah/refs/heads/main/tests/data/domain_examples/GCA_003139855.1_genomic.fna.gz
+wget https://raw.githubusercontent.com/wwood/galah/refs/heads/main/tests/data/domain_examples/binchicken_co8412.34_euk.fna.gz
+</code></pre>
+<p>To demonstrate clustering (rather than just quality assessment), we also make 5 duplicate copies of the bacterial genome, to simulate multiple near-identical strains recovered from different samples:</p>
+<pre><code class="language-bash">for i in 1 2 3 4 5; do
+  cp GCF_002008365.1_genomic.fna.gz GCF_002008365.1_genomic.dup${i}.fna.gz
+done
+</code></pre>
+<p>To see how Galah handles a genome that genuinely contains sequence from two domains at once, we make a synthetic "chimera" genome by concatenating the archaeal and eukaryotic genomes together:</p>
+<pre><code class="language-bash">cat GCA_003139855.1_genomic.fna.gz binchicken_co8412.34_euk.fna.gz &gt; chimera_arc_euk.fna.gz
+</code></pre>
+<p>We now have 9 genome files in total: 6 (near-)identical copies of the bacterial genome, 1 archaeal genome, 1 eukaryotic genome, and 1 synthetic archaeal/eukaryotic chimera.</p>
+<h2 id="run-galah-process">Run <code>galah process</code></h2>
+<p><code>galah process</code> runs both quality assessment and clustering in one command.
+Set the paths to the CheckM2, isiteuk, and EukCC databases (see <a href="/galah/installation">installation</a>), then run:</p>
+<pre><code class="language-bash">export CHECKM2DB=/path/to/CheckM2_database/uniref100.KO.1.dmnd
+export ISITEUK_METAPACKAGE_PATH=/path/to/isiteuk.smpkg
+export EUKCC2_DB=/path/to/eukcc2_db_ver_1.1
+
+galah process \
+  --genome-fasta-files \
+    GCF_002008365.1_genomic.fna.gz GCF_002008365.1_genomic.dup1.fna.gz \
+    GCF_002008365.1_genomic.dup2.fna.gz GCF_002008365.1_genomic.dup3.fna.gz \
+    GCF_002008365.1_genomic.dup4.fna.gz GCF_002008365.1_genomic.dup5.fna.gz \
+    GCA_003139855.1_genomic.fna.gz \
+    binchicken_co8412.34_euk.fna.gz \
+    chimera_arc_euk.fna.gz \
+  --threads 8 \
+  --output-mimag-summary mimag_summary.tsv \
+  --output-cluster-definition clusters.tsv
+</code></pre>
+<p>By default, Galah runs <a href="https://github.com/wwood/isiteuk">isiteuk</a> to classify each genome by domain (based on marker gene content), then assesses quality with the tool appropriate to that domain: CheckM2, Barrnap and tRNAscan-SE for Bacteria/Archaea, and EukCC (with eukaryotic rRNA/tRNA criteria) for Eukaryota.
+No domain needs to be specified manually — each genome is classified and routed automatically.</p>
+<h2 id="understanding-the-output">Understanding the output</h2>
+<h3 id="--output-mimag-summary"><code>--output-mimag-summary</code></h3>
+<p><code>mimag_summary.tsv</code> reports one row per input genome, with its assigned domain, completeness, contamination, rRNA/tRNA gene counts, and overall MIMAG quality category:</p>
+<pre><code class="language-tsv">genome	domain	completeness	contamination	rRNA_5S	rRNA_16S	rRNA_23S	rRNA_18S	rRNA_28S	rRNA_5.8S	tRNAs	MIMAG_quality	notes
+GCF_002008365.1_genomic.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCF_002008365.1_genomic.dup1.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCF_002008365.1_genomic.dup2.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCF_002008365.1_genomic.dup3.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCF_002008365.1_genomic.dup4.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCF_002008365.1_genomic.dup5.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+GCA_003139855.1_genomic.fna.gz	Archaea	84.95	0.03	1	1	1	0	0	1	20	Medium quality	
+binchicken_co8412.34_euk.fna.gz	Eukaryota	99.25	1.88	7	0	0	0	0	0	17	Medium quality	
+chimera_arc_euk.fna.gz	Archaea	100.00	34.26	8	1	1	0	0	1	20	Low quality	isiteuk assigned multiple domains: Eukaryota, Archaea; domain resolved to Archaea via higher completeness (CheckM2 100.00% vs EukCC 99.25%)
+</code></pre>
+<ul>
+<li><code>domain</code>: the domain assigned by isiteuk (<code>Bacteria</code>, <code>Archaea</code>, or <code>Eukaryota</code>).</li>
+<li><code>completeness</code>/<code>contamination</code>: from CheckM2 (Bacteria/Archaea) or EukCC (Eukaryota).</li>
+<li><code>rRNA_*</code>/<code>tRNAs</code>: counts of the rRNA genes relevant to the assigned domain (5S/16S/23S for prokaryotes; 18S/28S/5.8S/5S for eukaryotes) and the total number of distinct standard tRNAs found, from Barrnap and tRNAscan-SE respectively.</li>
+<li><code>MIMAG_quality</code>: the overall <a href="https://doi.org/10.1038/nbt.3893">MIMAG</a> quality category determined from the above.</li>
+<li><code>notes</code>: empty unless isiteuk's domain call was multi-domain/ambiguous (no cutoff passed, or several passed at once). When ambiguous, both CheckM2 and EukCC are run and whichever reports higher completeness wins; this column then records that the domain was ambiguous and, if resolved, which tool's result (and completeness scores) won.</li>
+</ul>
+<p>The bacterial genome reaches High quality (completeness ≥ 90%, contamination &lt; 5%, all of 5S/16S/23S present, ≥ 18 tRNA types).
+The archaeal and eukaryotic genomes both land at Medium quality instead: the archaeal genome's completeness (84.95%) is just under the 90% High-quality threshold, and the eukaryotic genome is one tRNA type short of the ≥ 18 required (17 found).</p>
+<p>The chimera genome is exactly the case <code>--domain-choice isiteuk</code>'s ambiguity handling is for: isiteuk finds marker genes for both Eukaryota and Archaea in the same file (unsurprising, since it's literally the concatenation of an archaeal and a eukaryotic genome), so Galah falls back to running both CheckM2 and EukCC and keeping whichever reports higher completeness. Here CheckM2 calls it 100.00% complete against the Archaea/Bacteria marker set (the archaeal contigs plus the eukaryote contigs are enough to convince CheckM2 that the genome is complete) versus EukCC's 99.25% (which is actually just the completeness of the embedded eukaryotic genome), so the row is reported as Archaea, but with contamination inflated to 34.26% by the eukaryotic contigs CheckM2 doesn't expect to see — dragging its MIMAG quality down to Low despite the high completeness. The <code>notes</code> column records exactly what happened so this isn't mistaken for a straightforward domain call.</p>
+<h3 id="--output-cluster-definition"><code>--output-cluster-definition</code></h3>
+<p><code>clusters.tsv</code> reports one <code>representative&lt;TAB&gt;member</code> line per input genome, clustered by ANI (95% by default) using the MIMAG quality scores above to pick the best representative of each cluster:</p>
+<pre><code class="language-tsv">GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.fna.gz
+GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup1.fna.gz
+GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup3.fna.gz
+GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup2.fna.gz
+GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup4.fna.gz
+GCF_002008365.1_genomic.fna.gz	GCF_002008365.1_genomic.dup5.fna.gz
+GCA_003139855.1_genomic.fna.gz	GCA_003139855.1_genomic.fna.gz
+GCA_003139855.1_genomic.fna.gz	chimera_arc_euk.fna.gz
+binchicken_co8412.34_euk.fna.gz	binchicken_co8412.34_euk.fna.gz
+</code></pre>
+<p>The 6 (near-)identical bacterial genomes collapse into a single cluster, and the eukaryotic genome forms its own singleton — but the chimera genome clusters <em>with</em> the archaeal genome rather than forming a new cluster: its file contains the archaeal genome's contigs unmodified, so skani finds them close enough (well within 95% ANI over the aligned region) to group together, with <code>GCA_003139855.1_genomic.fna.gz</code> chosen as representative over the chimera itself since it has much lower contamination.
+So even with the chimera added, <code>galah process</code> still reports <strong>3 representative genomes</strong> from the 9 input genomes — one per distinct organism.</p>
+<h2 id="domain-choice-options">Domain choice options</h2>
+<p><code>--domain-choice</code> controls how each genome's domain is decided, and defaults to <code>isiteuk</code> (used throughout this demo). Two other values are useful when a genome's domain is uncertain or you want to double-check isiteuk's call:</p>
+<ul>
+<li><code>--domain-choice completeness</code> skips isiteuk and instead runs <em>both</em> CheckM2 and EukCC on every genome, keeping whichever reports the higher completeness as a single row. If CheckM2 wins, the domain is reported as <code>Bacteria,Archaea</code> (CheckM2 doesn't distinguish the two); rRNA and tRNA are then searched under Bacteria and Archaea kingdoms/modes and the <em>pair</em> from whichever single one scores higher overall is kept. This is also what happens automatically to any genome isiteuk can't confidently classify. Works with both <code>analyse</code> and <code>process</code>.</li>
+<li><code>--domain-choice all</code> also runs both CheckM2 and EukCC on every genome, but reports <strong>all three domains as separate rows</strong> instead of picking a winner — useful for inspecting how a genome scores under every domain's criteria. Since this produces multiple rows per genome, there's no single quality value left to cluster on, so it's supported by <code>analyse</code> only; <code>process --domain-choice all</code> is rejected with an error.</li>
+</ul>
+<p>For example, running <code>analyse --domain-choice all</code> on just the archaeal genome from this demo:</p>
+<pre><code class="language-bash">galah analyse \
+  --genome-fasta-files GCA_003139855.1_genomic.fna.gz \
+  --domain-choice all \
+  --output-mimag-summary mimag_summary_all.tsv
+</code></pre>
+<p>produces three rows for that one genome, one per domain:</p>
+<pre><code class="language-tsv">genome	domain	completeness	contamination	rRNA_5S	rRNA_16S	rRNA_23S	rRNA_18S	rRNA_28S	rRNA_5.8S	tRNAs	MIMAG_quality	notes
+GCA_003139855.1_genomic.fna.gz	Archaea	84.95	0.03	1	1	1	0	0	1	20	Medium quality	
+GCA_003139855.1_genomic.fna.gz	Bacteria	84.95	0.03	1	1	1	0	0	0	18	Medium quality	
+GCA_003139855.1_genomic.fna.gz	Eukaryota	10.60	0.92	1	0	0	1	0	0	19	Low quality	
+</code></pre>
+<p>The Bacteria and Archaea rows share the same completeness/contamination (CheckM2 doesn't distinguish between them), but their rRNA/tRNA counts differ since each row's Barrnap/tRNAscan-SE search is restricted to that row's own kingdom/mode.
+The Eukaryota row shows EukCC finding almost no real eukaryotic signal, correctly landing at Low quality.
+The exact Eukaryota-row numbers can vary a little between EukCC/database versions: since this genome isn't actually eukaryotic, EukCC's phylogenetic placement step has no confident clade to land on (expect something like <code>Genome belongs to clade: protozoa (Best TaxID: protist_common)</code> in its log).</p>
+<h2 id="dereplicating-against-a-reference-catalogue-(e.g.-globdb)">Dereplicating against a reference catalogue (e.g. GlobDB)</h2>
+<p>Rather than re-dereplicating an entire growing genome catalogue from scratch every time new genomes arrive, <code>--reference-genomes</code>/<code>--reference-genomes-list</code> let you cluster only the new genomes against an already-dereplicated reference set (see <a href="/galah/why#dereplicating-against-an-existing-catalogue">Why use Galah?</a> for benchmarking against <a href="https://globdb.org/">GlobDB</a>, a public catalogue of hundreds of thousands of dereplicated prokaryotic genomes).</p>
+<p>The new genomes given via <code>--genome-fasta-files</code>/<code>--genome-fasta-directory</code>/<code>--genome-fasta-list</code> do <strong>not</strong> need to be dereplicated amongst themselves first, Galah does that automatically before comparing against the reference set. The reference genomes themselves must already be dereplicated at the chosen ANI, since reference-vs-reference comparisons are never made.</p>
+<pre><code class="language-bash"># reference_genomes.txt: one path per line to an already-dereplicated reference catalogue,
+# e.g. downloaded from https://globdb.org/
+galah cluster \
+  --genome-fasta-directory new_genomes/ \
+  --reference-genomes-list reference_genomes.txt \
+  --precluster-ani 90 --ani 95 \
+  --threads 8 \
+  --output-cluster-definition clusters.tsv
+</code></pre>
+<p>Any of <code>new_genomes/</code>'s genomes within 95% ANI of each other collapse into one representative first; each resulting representative is then compared only against the reference catalogue (not against every other reference), so the cost scales with the number of <em>new</em> genomes rather than the size of the reference catalogue. A <code>new_genomes/</code> genome that doesn't match anything in the reference catalogue becomes a new representative of its own.</p>
+
+            </div>
+            <div class='sidebar-right'>
+                <div class='page-nav' id='page-nav'>
+                    <p class='page-nav-header'>On this page</p>
+                    <ul>
+                        
+                        <li class='page-nav-level-1'>
+                            <a href='#demo'>Demo</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#download-the-demo-genomes'>Download the demo genomes</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#run-galah-process'>Run galah process</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#understanding-the-output'>Understanding the output</a>
+                        </li>
+                        
+                        <li class='page-nav-level-3'>
+                            <a href='#--output-mimag-summary'>--output-mimag-summary</a>
+                        </li>
+                        
+                        <li class='page-nav-level-3'>
+                            <a href='#--output-cluster-definition'>--output-cluster-definition</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#domain-choice-options'>Domain choice options</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#dereplicating-against-a-reference-catalogue-(e.g.-globdb)'>Dereplicating against a reference catalogue (e.g. GlobDB)</a>
+                        </li>
+                        
+                    </ul>
+                </div>
+            </div>
+            <div class='wave-container'>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320">
+                    <path fill-opacity="0.35"
+                        d="M0,192L60,213.3C120,235,240,277,360,277.3C480,277,600,235,720,192C840,149,960,107,1080,122.7C1200,139,1320,213,1380,250.7L1440,288L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z">
+                    </path>
+                    <path fill-opacity="0.5"
+                        d="M0,160L60,181.3C120,203,240,245,360,229.3C480,213,600,139,720,138.7C840,139,960,213,1080,229.3C1200,245,1320,203,1380,181.3L1440,160L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z">
+                    </path>
+                    <path fill-opacity="0.2"
+                        d="M0,224L60,197.3C120,171,240,117,360,117.3C480,117,600,171,720,186.7C840,203,960,181,1080,186.7C1200,192,1320,224,1380,240L1440,256L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z">
+                    </path>
+                </svg>
+                <p>Powered by <a href='https://cli.doctave.com' target='_blank'>Doctave</a></p>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript" src="/galah/assets/katex.js?v=1791510651"></script>
+    <script type="text/javascript" src="/galah/assets/mermaid.js?v=1791510651"></script>
+    <script type="text/javascript" src="/galah/assets/elasticlunr.js?v=1791510651"></script>
+    <script type="text/javascript" src="/galah/assets/prism.js?v=1791510651"></script>
+    <script type="text/javascript" src="/galah/assets/doctave-app.js?v=1791510651"></script>
+
+    
+</body>
+
+</html>

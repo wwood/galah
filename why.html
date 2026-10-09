@@ -1,0 +1,232 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>why</title>
+    <meta name="description" content="Documentation for Galah">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Source+Sans+Pro:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" type="text/css" href="/galah/assets/normalize.css?v=1791510651"
+        media="screen" />
+    <link rel="stylesheet" type="text/css" href="/galah/assets/doctave-style.css?v=1791510651"
+        media="screen" />
+    <link rel="stylesheet" type="text/css" href="/galah/assets/katex.css?v=1791510651" media="screen" />
+    <link rel="stylesheet" type="text/css" href="/galah/assets/prism-ghcolors.css?v=1791510651"
+        media="screen" />
+
+    <script>
+        var DOCTAVE_TIMESTAMP = "1791510651";
+        var BASE_PATH = "/galah/";
+        var color = localStorage.getItem('doctave-color')
+
+        if (color === 'dark') {
+            document.getElementsByTagName('html')[0].classList.remove('light');
+            document.getElementsByTagName('html')[0].classList.add('dark');
+        } else {
+            document.getElementsByTagName('html')[0].classList.remove('dark');
+            document.getElementsByTagName('html')[0].classList.add('light');
+        }
+    </script>
+
+    
+</head>
+
+<body>
+    <label for='menu-toggle-switch' class='menu-toggle-button'>
+        ☰
+    </label>
+    <input type="checkbox" id="menu-toggle-switch" value='0' />
+    <div class='page'>
+        <div class='header'>
+            <div class='logo'>
+                
+                <a href="/galah/">
+                    <img src="/galah/galah_logo.png" alt='Galah logo'></img>
+                </a>
+                
+                <h2 class='project-name'>
+                    <a href="/galah/">
+                        Galah
+                    </a>
+                </h2>
+            </div>
+            <div class='search'>
+                <form id='search-form'>
+    <input type='text' id='search-box' autocomplete="off" placeholder="Search..."></input>
+    <span class='search-icon'>S</span>
+    <ul id='search-results'></ul>
+</form>
+
+            </div>
+            <div class='header-dummy-right'>
+            </div>
+        </div>
+        <div class='container'>
+            <div class='sidebar-left'>
+                <nav class='site-nav'>
+    <ul>
+        
+            <li><a class="active" href="/galah/why">why</a></li>
+            
+        
+            <li><a href="/galah/installation">installation</a></li>
+            
+        
+            <li><a href="/galah/demo">demo</a></li>
+            
+        
+            <li><a href="/galah/tools">tools</a></li>
+            
+                <ul>
+    
+        <li><a href="/galah/tools/process">Galah process</a></li>
+        
+    
+        <li><a href="/galah/tools/cluster">Galah cluster</a></li>
+        
+    
+        <li><a href="/galah/tools/analyse">Galah analyse</a></li>
+        
+    
+</ul>
+
+            
+        
+    </ul>
+    <span id='light-dark-mode-switch'>
+        <svg xmlns="http://www.w3.org/2000/svg" id="dark-mode-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+        </svg>
+
+        <svg xmlns="http://www.w3.org/2000/svg" id="light-mode-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd" />
+        </svg>
+    </span>
+</nav>
+
+            </div>
+            <div class='doctave-content'>
+                <h1 id="why">Why</h1>
+<h1 id="why-use-galah?">Why use Galah?</h1>
+<p>Metagenome-assembled genome (MAG) catalogues have grown from hundreds to hundreds of thousands of genomes.
+Dereplicating a catalogue of this size (clustering genomes by average nucleotide identity (ANI) and picking one representative per cluster) is normally an all-vs-all comparison, which becomes impractical well before six-figure genome counts are reached.
+Galah solves this issue through either a low-memory mode that avoids storing all pairwise comparisons in memory, solving the memory bottleneck, or by clustering against reference genomes instead of all-vs-all, avoiding the quadratic time complexity of pairwise comparisons entirely.</p>
+<h2 id="well-defined-clusters">Well-defined clusters</h2>
+<p>Generated cluster representatives have well-defined properties. If clustering at 95% ANI:</p>
+<ol>
+<li>Each representative is &lt;95% ANI to every other representative.</li>
+<li>Every member is &gt;=95% ANI to its representative.</li>
+<li>If genome quality is available (e.g. from CheckM2), each representative has a better quality score than the other members of its cluster.</li>
+</ol>
+<p>See the <a href="/galah/#clustering">Clustering</a> section of the docs for the full algorithm description.</p>
+<h2 id="benchmarking">Benchmarking</h2>
+<p>We benchmarked galah against <a href="https://github.com/raufs/skDER">skDER</a> (greedy clustering with skani), <a href="https://drep.readthedocs.io/">dRep</a> (using skani), and <a href="https://github.com/widdowquinn/pyani">pyani</a> (ANIm) at 100, 500, 1,000, 5,000, 10,000 and 50,000 genomes, using 32 CPUs, 250GB memory, and a 48-hour walltime limit.</p>
+<p><img src="/galah/benchmarking_summary_figure.png" alt="Benchmarking of galah against skDER, dRep and pyani across genome catalogue sizes"></p>
+<p><strong>Wall-clock time (a), CPU time (b) and peak memory (c) across catalogue sizes.</strong></p>
+<p>pyani (ANIm) is dramatically slower than the other tools even at small scale, 1,000 genomes alone took over 20 hours wall-clock time, so it did not complete the larger benchmarks.
+dRep also becomes comparatively slow at larger scale, and was unable to complete within the resource limits at 50,000 genomes.
+galah, galah's low-memory mode, and skDER remain fast across the full range tested.
+At 50,000 genomes, galah's low-memory mode uses substantially less peak memory than either galah's default mode or skDER, at some cost to wall-clock/CPU time.</p>
+<p>Note that galah's preclustering step (grouping genomes roughly by ANI before fine-grained comparison) was previously important for performance with the older FastANI backend, but is no longer necessary now that skani is the default comparison method — skani itself is fast enough that comparing all genome pairs directly is practical at these scales.</p>
+<h2 id="dereplicating-against-an-existing-catalogue">Dereplicating against an existing catalogue</h2>
+<p>Growing a genome catalogue over time usually means re-dereplicating everything from scratch against the new batch of genomes.
+Galah's <code>--reference-genomes</code> option instead lets new genomes be clustered directly against an already-dereplicated reference set: the new genomes are first dereplicated amongst themselves (so they don't need to be pre-dereplicated by the caller), and only the resulting representative(s) are then compared against the reference set - reference-vs-reference comparisons are never made, so only a small number of input-vs-reference comparisons are needed, rather than all-vs-all.</p>
+<p>We benchmarked this by clustering 100 to 50,000 input genomes against all 346,233 genomes in <a href="https://globdb.org/">GlobDB</a> r232 as reference genomes, comparing galah's low-memory mode (clustering the input genomes together with all reference genomes) against galah's <code>--reference-genomes</code> mode (clustering the new genomes against the pre-existing reference set). No other tool benchmarked above was able to complete this comparison under the same resource limits.</p>
+<p><img src="/galah/benchmarking_summary_figure_globdb.png" alt="Benchmarking galah low-memory mode against galah --reference-genomes mode with 346,233 GlobDB r232 reference genomes"></p>
+<p><strong>Wall-clock time (a), CPU time (b) and peak memory (c) when clustering against 346,233 reference genomes.</strong>
+<code>--reference-genomes</code> is several-fold faster in both wall-clock and CPU time than clustering all genomes together, and uses substantially less peak memory, since it avoids repeating comparisons among the reference genomes themselves.</p>
+<h2 id="consistency-of-cluster-assignments">Consistency of cluster assignments</h2>
+<p>Despite the large resource differences, cluster assignments are highly consistent between tools across both benchmarks, with the exception of pyani which uses a different clustering method:</p>
+<p><img src="/galah/benchmarking_clusters_summary_figure.png" alt="Normalised cluster counts relative to the mean across tools"></p>
+<p><strong>Cluster counts, normalised as (n − mean) / mean across tools, for (a) the benchmark above and (b) the reference-genome benchmark below.</strong>
+galah, galah (low memory), skDER and dRep all agree to within a fraction of a percent. pyani is the outlier, consistently producing more clusters than the ANI/skani-based tools. galah (low memory) and galah (reference genomes) are also highly consistent, with only a few clusters differing between the two methods.</p>
+<h2 id="eukaryotic-genomes">Eukaryotic genomes</h2>
+<p>Metagenomes increasingly yield eukaryotic MAGs (primarily microeukaryotes like protists and fungi) alongside bacterial and archaeal ones, but dereplication and quality-assessment pipelines are typically built around prokaryotes only: completeness/contamination models trained on bacterial/archaeal marker genes, and MIMAG rRNA/tRNA criteria (5S/16S/23S) that don't apply to eukaryotic genomes.
+Mixed-domain catalogues have generally had to be split by domain and run through separate tools before being recombined.</p>
+<p>Galah instead classifies each genome's domain automatically with <a href="https://github.com/wwood/isiteuk">isiteuk</a>, then routes it to the appropriate tools: CheckM2, Barrnap and tRNAscan-SE (bacterial/archaeal mode) for Bacteria/Archaea, and <a href="https://github.com/EBI-Metagenomics/EukCC">EukCC</a> with eukaryotic rRNA (18S/28S/5.8S) and tRNA criteria for Eukaryota.
+Genomes with no confident domain assignment are assessed under all applicable domains, and the <code>--domain-choice</code> flag can override automatic classification when the domain is already known.
+This means a single <code>galah process</code> run can dereplicate and quality-assess a catalogue spanning all three domains together, using one cluster ranking based on each genome's domain-appropriate quality score.</p>
+<h2 id="one-tool-for-dereplication-and-genome-quality">One tool for dereplication and genome quality</h2>
+<p>MIMAG quality (completeness, contamination, rRNA and tRNA presence) is normally assessed with a separate set of tools before or after dereplication.
+Galah's <code>process</code> subcommand runs both steps together: it determines MIMAG quality and uses it to choose the best representative of each cluster, then reports both the cluster definition and the MIMAG summary from a single invocation.</p>
+<h2 id="integration-with-coverm">Integration with CoverM</h2>
+<p>Galah's clustering is also available through <a href="https://github.com/wwood/CoverM">CoverM</a>'s <code>cluster</code> subcommand, so read coverage/relative abundance calculation and genome dereplication can be run from the same toolset.</p>
+
+            </div>
+            <div class='sidebar-right'>
+                <div class='page-nav' id='page-nav'>
+                    <p class='page-nav-header'>On this page</p>
+                    <ul>
+                        
+                        <li class='page-nav-level-1'>
+                            <a href='#why'>Why</a>
+                        </li>
+                        
+                        <li class='page-nav-level-1'>
+                            <a href='#why-use-galah?'>Why use Galah?</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#well-defined-clusters'>Well-defined clusters</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#benchmarking'>Benchmarking</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#dereplicating-against-an-existing-catalogue'>Dereplicating against an existing catalogue</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#consistency-of-cluster-assignments'>Consistency of cluster assignments</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#eukaryotic-genomes'>Eukaryotic genomes</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#one-tool-for-dereplication-and-genome-quality'>One tool for dereplication and genome quality</a>
+                        </li>
+                        
+                        <li class='page-nav-level-2'>
+                            <a href='#integration-with-coverm'>Integration with CoverM</a>
+                        </li>
+                        
+                    </ul>
+                </div>
+            </div>
+            <div class='wave-container'>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320">
+                    <path fill-opacity="0.35"
+                        d="M0,192L60,213.3C120,235,240,277,360,277.3C480,277,600,235,720,192C840,149,960,107,1080,122.7C1200,139,1320,213,1380,250.7L1440,288L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z">
+                    </path>
+                    <path fill-opacity="0.5"
+                        d="M0,160L60,181.3C120,203,240,245,360,229.3C480,213,600,139,720,138.7C840,139,960,213,1080,229.3C1200,245,1320,203,1380,181.3L1440,160L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z">
+                    </path>
+                    <path fill-opacity="0.2"
+                        d="M0,224L60,197.3C120,171,240,117,360,117.3C480,117,600,171,720,186.7C840,203,960,181,1080,186.7C1200,192,1320,224,1380,240L1440,256L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z">
+                    </path>
+                </svg>
+                <p>Powered by <a href='https://cli.doctave.com' target='_blank'>Doctave</a></p>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript" src="/galah/assets/katex.js?v=1791510651"></script>
+    <script type="text/javascript" src="/galah/assets/mermaid.js?v=1791510651"></script>
+    <script type="text/javascript" src="/galah/assets/elasticlunr.js?v=1791510651"></script>
+    <script type="text/javascript" src="/galah/assets/prism.js?v=1791510651"></script>
+    <script type="text/javascript" src="/galah/assets/doctave-app.js?v=1791510651"></script>
+
+    
+</body>
+
+</html>
