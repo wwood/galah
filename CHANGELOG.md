@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-09
+
 ### Added
 - Multi-domain genome quality assessment: `galah analyse` and `galah process` now non-exclusively classify each genome by domain (Bacteria, Archaea, or Eukaryota) before choosing the appropriate quality tool and RNA criteria
 - `--domain-choice isiteuk` (default): runs [isiteuk](https://github.com/wwood/isiteuk) to classify genomes by domain; genomes with no confident domain assignment are assessed under all three domains
