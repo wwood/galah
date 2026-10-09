@@ -48,6 +48,26 @@ conda create -n galah -c bioconda -c conda-forge galah
 conda activate galah
 ```
 
+The bioconda package includes isiteuk and EukCC on Linux. CheckM2 is not included on Linux,
+since it cannot be installed in the same environment as isiteuk, so it is installed automatically
+via pixi the first time it is needed (see [Dependencies](#dependencies)).
+
+### macOS (Apple Silicon)
+
+isiteuk and EukCC are not available for macOS (osx-arm64), so on this platform only prokaryotic
+genome quality assessment is supported. The bioconda package instead includes CheckM2, along with
+Barrnap and tRNAscan-SE, so `galah cluster` works as normal, and `galah analyse` / `galah process`
+work when the domain is fixed to Bacteria or Archaea:
+
+```bash
+galah process --domain-choice bac ...
+```
+
+The default `--domain-choice isiteuk` and the eukaryote-dependent choices (`euk`, `completeness`
+and `all`) are not supported on macOS. Alternatively, isiteuk can be run separately on a Linux
+machine and its output supplied with `--isiteuk-output`, although genomes classified as Eukaryota
+still cannot be assessed on macOS.
+
 ### Pre-compiled binary
 
 Galah can be installed by downloading statically compiled binaries, available on
@@ -95,14 +115,15 @@ Most of these tools can be installed via pixi, using the `pixi.toml` file within
 pixi install
 ```
 
-**Note:** `checkm2`, `isiteuk`, and `eukcc` cannot all be installed in the same conda environment
-due to incompatible `diamond` and `zlib` dependency constraints between them.
+**Note:** `checkm2` and `isiteuk` cannot be installed in the same conda environment due to
+incompatible Python version constraints (CheckM2 requires Python 3.12 or later).
 
 Galah locates each tool using the following priority order:
 
 1. `GALAH_CHECKM2_CMD` / `GALAH_ISITEUK_CMD` / `GALAH_EUKCC_CMD` environment variable (if set)
 2. Tool found on `PATH`
-3. Automatic installation via `pixi exec` (requires [pixi](https://pixi.sh) to be installed)
+3. Automatic installation via `pixi run`, using a pixi manifest bundled with galah (requires
+   [pixi](https://pixi.sh) to be installed, and is only supported on Linux)
 
 With pixi installed, no manual setup is needed — galah will download and cache each tool in an
 isolated environment the first time it is needed.
