@@ -48,9 +48,9 @@ conda create -n galah -c bioconda -c conda-forge galah
 conda activate galah
 ```
 
-The bioconda package includes isiteuk and EukCC on Linux. CheckM2 is not included on Linux,
-since it cannot be installed in the same environment as isiteuk, so it is installed automatically
-via pixi the first time it is needed (see [Dependencies](#dependencies)).
+The bioconda package includes isiteuk on Linux. CheckM2 and EukCC are not included on Linux,
+since neither can be installed in the same environment as isiteuk, so they are installed
+automatically via pixi the first time they are needed (see [Dependencies](#dependencies)).
 
 ### macOS (Apple Silicon)
 
@@ -115,8 +115,10 @@ Most of these tools can be installed via pixi, using the `pixi.toml` file within
 pixi install
 ```
 
-**Note:** `checkm2` and `isiteuk` cannot be installed in the same conda environment due to
-incompatible Python version constraints (CheckM2 requires Python 3.12 or later).
+**Note:** `isiteuk` cannot be installed in the same conda environment as either `checkm2` or
+`eukcc`. CheckM2 requires Python 3.12 or later, which isiteuk does not support, and EukCC pins a
+version of MetaEuk requiring zlib older than 1.3, whereas isiteuk's `diamond` requires zlib 1.3.1
+or later.
 
 Galah locates each tool using the following priority order:
 

@@ -22,11 +22,13 @@ barrnap = ">=0.9"
 [feature.checkm2.dependencies]
 checkm2 = ">=1.1.0"
 
-# Domain classification (conflicts with checkm2, since checkm2 requires python >=3.12)
+# Domain classification (conflicts with checkm2, since checkm2 requires python >=3.12, and with
+# eukcc, since eukcc pins a metaeuk build requiring zlib <1.3 whereas diamond requires libzlib >=1.3.1)
 [feature.isiteuk.dependencies]
 isiteuk = "*"
 
-# Eukaryote quality assessment
+# Eukaryote quality assessment (conflicts with isiteuk, since eukcc pins a metaeuk build requiring
+# zlib <1.3 whereas diamond requires libzlib >=1.3.1)
 [feature.eukcc.dependencies]
 eukcc = ">=2.1.3"
 
