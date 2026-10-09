@@ -50,7 +50,7 @@ conda activate galah
 
 The bioconda package includes isiteuk on Linux. CheckM2 and EukCC are not included on Linux,
 since neither can be installed in the same environment as isiteuk, so they are installed
-automatically via pixi the first time they are needed (see [Dependencies](#dependencies)).
+automatically via pixi the first time they are needed (see [Dependencies](/installation#dependencies)).
 
 ### macOS (Apple Silicon)
 
