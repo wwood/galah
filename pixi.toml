@@ -46,11 +46,13 @@ osx = ["core", "barrnap", "isiteuk"]
 dev = ["dev", "main", "core", "barrnap", "isiteuk"]
 
 [tasks.release-base]
-cmd = "python3 admin/release.py"
+args = ["version"]
+cmd = "python3 admin/release.py --version {{ version }}"
 
 [tasks.release]
+args = ["version"]
 depends-on = [
-    { task = "release-base", environment = "dev" },
+    { task = "release-base", environment = "dev", args = ["{{ version }}"] },
 ]
 
 [activation.env]

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [Unreleased]
 
 ### Added
 - Multi-domain genome quality assessment: `galah analyse` and `galah process` now non-exclusively classify each genome by domain (Bacteria, Archaea, or Eukaryota) before choosing the appropriate quality tool and RNA criteria
@@ -27,7 +27,7 @@
 - Clustering no longer panics when no genomes pass the quality thresholds, instead warning and generating empty output ([#75](https://github.com/wwood/galah/issues/75), reported by [@erikrikarddaniel](https://github.com/erikrikarddaniel))
 - fastANI is no longer required to be installed when clustering with skani, and skani's presence is now verified when it is used
 
-## Version 0.5.2
+## [0.5.2] - 2026-07-07
 
 ### Changed
 - Release procedure
@@ -105,4 +105,5 @@
 
 ## [0.1.0] - 2020-02-20
 
+### Added
 - Initial release
