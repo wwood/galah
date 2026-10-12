@@ -32,7 +32,9 @@ pixi run galah -h
 pixi shell
 ```
 
-One can see [details of the galah recipe](https://bioconda.github.io/recipes/galah/README.html).
+This installs Galah along with the third party tools it needs (see
+[What the Bioconda package includes](/installation#what-the-bioconda-package-includes)). One can
+see [details of the galah recipe](https://bioconda.github.io/recipes/galah/README.html).
 
 Galah cluster can also be used indirectly through
 [CoverM](https://github.com/wwood/CoverM) via its `cluster` subcommand, which is also available on bioconda.
@@ -48,9 +50,18 @@ conda create -n galah -c bioconda -c conda-forge galah
 conda activate galah
 ```
 
-The bioconda package includes isiteuk on Linux. CheckM2 and EukCC are not included on Linux,
-since neither can be installed in the same environment as isiteuk, so they are installed
-automatically via pixi the first time they are needed (see [Dependencies](/installation#dependencies)).
+### What the Bioconda package includes
+
+Whether installed via pixi or conda, the Bioconda package on Linux brings with it all the third
+party tools Galah needs, so **no other tools need to be installed separately**:
+
+* skani, FastANI, Barrnap, tRNAscan-SE and isiteuk are installed into the same environment as Galah.
+* CheckM2 and EukCC cannot be installed in the same environment as isiteuk (see
+  [Dependencies](/installation#dependencies)), so Galah installs each of them automatically into
+  its own isolated environment, via pixi (also included), the first time it is needed.
+
+The only setup required is downloading the reference databases used by CheckM2, isiteuk and EukCC
+(see [Databases](/installation#databases)).
 
 ### macOS (Apple Silicon)
 
@@ -99,7 +110,12 @@ pixi run cargo run -- cluster ...etc...
 
 ### Dependencies
 
-Some usages of Galah require third party tools, which must be installed separately:
+**If you installed Galah from Bioconda on Linux, these tools are already taken care of** (see
+[What the Bioconda package includes](/installation#what-the-bioconda-package-includes)), so you can
+skip straight to [Databases](/installation#databases).
+
+When installing Galah from a pre-compiled binary or from source, some usages of Galah require third
+party tools, which must be installed separately:
 
 * skani v0.4.0 https://github.com/bluenote-1577/skani
 * FastANI v1.34 https://github.com/ParBLiSS/FastANI
@@ -147,6 +163,12 @@ export GALAH_ISITEUK_CMD="conda run -n galah_isiteuk isiteuk"
 export GALAH_EUKCC_CMD="conda run -n galah_eukcc eukcc"
 ```
 
+### Databases
+
+However Galah is installed, quality assessment with `galah analyse` / `galah process` requires
+reference databases for CheckM2, isiteuk and EukCC to be downloaded. These are not needed for
+`galah cluster`.
+
 #### CheckM2 database
 
 CheckM2 requires a database to be set using the environment variable `CHECKM2DB` or the
@@ -162,9 +184,16 @@ isiteuk uses a SingleM metapackage to classify genomes into biological domains. 
 path using the environment variable `ISITEUK_METAPACKAGE_PATH` or the argument
 `--isiteuk-metapackage`.
 
+The metapackage can be downloaded with isiteuk itself, which is included in the Bioconda package:
+
 ```bash
-export ISITEUK_METAPACKAGE_PATH=/path/to/isiteuk.smpkg
+isiteuk data --output-directory /path/to/isiteuk_data
+# isiteuk prints the path to export once the download finishes, e.g.
+export ISITEUK_METAPACKAGE_PATH=/path/to/isiteuk_data/isiteuk-backpack-0.0.1
 ```
+
+`ISITEUK_METAPACKAGE_PATH` can also point directly to an extracted `.smpkg` metapackage directory
+(e.g. `isiteuk-0.0.1.smpkg`).
 
 #### EukCC database
 
