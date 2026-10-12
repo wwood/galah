@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-13
+
 ### Changed
 - Updated skani dependency to v0.4.0
 
