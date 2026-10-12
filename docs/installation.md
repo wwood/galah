@@ -101,7 +101,7 @@ pixi run cargo run -- cluster ...etc...
 
 Some usages of Galah require third party tools, which must be installed separately:
 
-* skani v0.2.2 https://github.com/bluenote-1577/skani
+* skani v0.4.0 https://github.com/bluenote-1577/skani
 * FastANI v1.34 https://github.com/ParBLiSS/FastANI
 * Barrnap v0.9 https://github.com/tseemann/barrnap
 * tRNAscan-SE v2.0.12 https://github.com/UCSC-LoweLab/tRNAscan-SE

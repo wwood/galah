@@ -166,7 +166,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/linux-64/prodigal-2.6.3-h577a1d6_11.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/pyrodigal-3.7.1-py311h26ae33e_1.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/seqkit-2.13.0-he881be0_0.conda
-      - conda: https://conda.anaconda.org/bioconda/linux-64/skani-0.3.2-h79ce301_0.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-64/skani-0.4.0-hec9b1f2_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/smafa-0.8.0-hfa8f182_2.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/sorted_nearest-0.0.41-py311haab0aaa_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/sra-tools-3.4.1-2_linux_64.conda
@@ -465,7 +465,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/linux-64/prodigal-2.6.3-h577a1d6_11.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/pyrodigal-3.7.1-py311h26ae33e_1.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/seqkit-2.13.0-he881be0_0.conda
-      - conda: https://conda.anaconda.org/bioconda/linux-64/skani-0.3.2-h79ce301_0.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-64/skani-0.4.0-hec9b1f2_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/smafa-0.8.0-hfa8f182_2.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/sorted_nearest-0.0.41-py311haab0aaa_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/sra-tools-3.4.1-2_linux_64.conda
@@ -1192,7 +1192,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/linux-64/prodigal-2.6.3-h577a1d6_11.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/linux-64/pyrodigal-3.7.1-py311h26ae33e_1.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/seqkit-2.13.0-he881be0_0.conda
-      - conda: https://conda.anaconda.org/bioconda/linux-64/skani-0.3.2-h79ce301_0.conda
+      - conda: https://conda.anaconda.org/bioconda/linux-64/skani-0.4.0-hec9b1f2_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/smafa-0.8.0-hfa8f182_2.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/sorted_nearest-0.0.41-py311haab0aaa_0.conda
       - conda: https://conda.anaconda.org/bioconda/linux-64/sra-tools-3.4.1-2_linux_64.conda
@@ -1828,17 +1828,19 @@ packages:
   license_family: MIT
   size: 6910586
   timestamp: 1772198535227
-- conda: https://conda.anaconda.org/bioconda/linux-64/skani-0.3.2-h79ce301_0.conda
-  sha256: 5b030c2b009efb39dee6f22eef930538805dbbf4442aab7ffd475d0a1e24d642
-  md5: e6df8f4baeed8d5f4a301be77b5af25c
+- conda: https://conda.anaconda.org/bioconda/linux-64/skani-0.4.0-hec9b1f2_0.conda
+  sha256: 7c2041a84c20ca903a363f032099dbc9c4443490a84f3b52c1915d15760c326c
+  md5: d229015778df0c1eec388ee9c974a6f8
   depends:
+  - __glibc >=2.17,<3.0.a0
   - libgcc >=14
   - libstdcxx >=14
   constrains:
   - __glibc >=2.17
   license: MIT
-  size: 744595
-  timestamp: 1778698853173
+  license_family: MIT
+  size: 759597
+  timestamp: 1791689997265
 - conda: https://conda.anaconda.org/bioconda/linux-64/smafa-0.8.0-hfa8f182_2.conda
   sha256: 2ec67da69571cb3eb37957477d3839d3f66500cc463c6379a293eeae16ff0bed
   md5: 1cdefee4f39b51e7128c5cae07be42d8
