@@ -6,7 +6,7 @@ Demo
 ========
 
 This demo will guide you through running `galah process` on a small, mixed-domain set of genomes: from one bacterium, one archaeon, and one eukaryote.
-The only prerequisite is that Galah is fully installed and set up as per the [installation](/installation) instructions, including the CheckM2 database, isiteuk metapackage, and EukCC database.
+The only prerequisite is that Galah is installed as per the [installation](/installation) instructions, and that the CheckM2 database, isiteuk metapackage, and EukCC database have been downloaded (see [Databases](/installation#databases)). When Galah is installed from Bioconda on Linux, no other tools (including isiteuk, CheckM2 and EukCC) need to be installed separately: isiteuk is included in the package, and CheckM2 and EukCC are installed automatically the first time they are needed.
 
 ## Download the demo genomes
 
