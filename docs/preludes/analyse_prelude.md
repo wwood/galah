@@ -9,6 +9,8 @@ marker gene search mode for that domain:
   Barrnap in bacterial/archaeal mode; tRNAs found by tRNAscan-SE in bacterial/archaeal mode.
 * **Eukaryota**: completeness and contamination estimated by EukCC; rRNA genes found by Barrnap in
   eukaryotic mode (finds 18S, 28S, 5.8S, 5S); tRNAs found by tRNAscan-SE in eukaryotic mode.
+  If EukCC cannot estimate quality (e.g. no placement marker genes are found), completeness
+  and contamination are recorded as 0.
 
 ```bash
 # Classify genomes by domain automatically with isiteuk (default), then run the appropriate tools
