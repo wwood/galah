@@ -132,14 +132,20 @@ fn run_eukcc_single(
 
     let output = cmd.output().expect("Failed to run EukCC");
     if !output.status.success() {
-        info!(
-            "EukCC run on {} failed with {}.\nstdout:\n{}\nstderr:\n{}",
-            genome_path,
-            output.status,
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-        panic!("EukCC did not run successfully");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        match no_estimate_result(&stderr, &tsv_path, &csv_path, genome_path) {
+            Some(result) => return result,
+            None => {
+                info!(
+                    "EukCC run on {} failed with {}.\nstdout:\n{}\nstderr:\n{}",
+                    genome_path,
+                    output.status,
+                    String::from_utf8_lossy(&output.stdout),
+                    stderr
+                );
+                panic!("EukCC did not run successfully");
+            }
+        }
     }
 
     match [&tsv_path, &csv_path].iter().find(|p| p.is_file()) {
@@ -154,6 +160,33 @@ fn run_eukcc_single(
             (0.0, 0.0)
         }
     }
+}
+
+/// EukCC exits non-zero when it cannot estimate quality, e.g. when no placement marker
+/// genes are found. Newer versions write an NA result table first (exit 201), while
+/// EukCC 2.1.2 exits 1 without writing any output. Treat both as (0.0, 0.0) rather than
+/// a failed run. Returns None if the failure looks like a genuine error.
+fn no_estimate_result(
+    stderr: &str,
+    tsv_path: &Path,
+    csv_path: &Path,
+    genome_path: &str,
+) -> Option<(f64, f64)> {
+    if let Some(existing) = [tsv_path, csv_path].iter().find(|p| p.is_file()) {
+        warn!(
+            "EukCC could not estimate quality for {}. Returning (0.0, 0.0).",
+            genome_path
+        );
+        return Some(parse_eukcc_tsv(existing.to_str().unwrap(), genome_path));
+    }
+    if stderr.contains("No placement marker genes found") {
+        warn!(
+            "EukCC found no placement marker genes for {}. Returning (0.0, 0.0).",
+            genome_path
+        );
+        return Some((0.0, 0.0));
+    }
+    None
 }
 
 fn parse_eukcc_tsv(tsv_path: &str, genome_path: &str) -> (f64, f64) {
@@ -230,4 +263,56 @@ pub fn parse_eukcc_quality_report(
     }
 
     Ok(cache)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_no_estimate_result_with_na_table() {
+        // EukCC >= 2.1.3 writes an NA table before exiting 201
+        let tmpdir = tempfile::tempdir().unwrap();
+        let tsv_path = tmpdir.path().join("eukcc.tsv");
+        let csv_path = tmpdir.path().join("eukcc.csv");
+        std::fs::write(
+            &tsv_path,
+            "fasta\tcompleteness\tcontamination\tncbi_lng\ngenome.fasta\tNA\tNA\tNA\n",
+        )
+        .unwrap();
+        assert_eq!(
+            no_estimate_result("", &tsv_path, &csv_path, "genome.fasta"),
+            Some((0.0, 0.0))
+        );
+    }
+
+    #[test]
+    fn test_no_estimate_result_no_placement_markers_without_output() {
+        // EukCC 2.1.2 exits 1 without writing a table
+        let tmpdir = tempfile::tempdir().unwrap();
+        let tsv_path = tmpdir.path().join("eukcc.tsv");
+        let csv_path = tmpdir.path().join("eukcc.csv");
+        let stderr = "15-10-2026 14:34:04:  Searching for marker genes in base database\n\
+                      15-10-2026 14:34:04:  No placement marker genes found for genome_metaeuk_cleaned.faa.\n";
+        assert_eq!(
+            no_estimate_result(stderr, &tsv_path, &csv_path, "genome.fasta"),
+            Some((0.0, 0.0))
+        );
+    }
+
+    #[test]
+    fn test_no_estimate_result_genuine_failure() {
+        let tmpdir = tempfile::tempdir().unwrap();
+        let tsv_path = tmpdir.path().join("eukcc.tsv");
+        let csv_path = tmpdir.path().join("eukcc.csv");
+        assert_eq!(
+            no_estimate_result(
+                "No database was provided via --db or EUKCC2_DB env variable",
+                &tsv_path,
+                &csv_path,
+                "genome.fasta"
+            ),
+            None
+        );
+    }
 }
