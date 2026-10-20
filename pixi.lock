@@ -179,7 +179,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/noarch/dendropy-5.0.8-pyhdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/fastalite-0.4.1-pyh7cba7a3_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/graftm-0.15.1-pyhdfd78af_0.tar.bz2
-      - conda: https://conda.anaconda.org/bioconda/noarch/isiteuk-0.0.2-pyhdfd78af_0.conda
+      - conda: https://conda.anaconda.org/bioconda/noarch/isiteuk-0.0.3-pyhdfd78af_0.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/krona-2.8.1-pl5321hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/perl-ffi-checklib-0.28-pl5321hdfd78af_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/perl-list-moreutils-0.430-pl5321hdfd78af_0.tar.bz2
@@ -478,7 +478,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/noarch/dendropy-5.0.8-pyhdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/fastalite-0.4.1-pyh7cba7a3_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/graftm-0.15.1-pyhdfd78af_0.tar.bz2
-      - conda: https://conda.anaconda.org/bioconda/noarch/isiteuk-0.0.2-pyhdfd78af_0.conda
+      - conda: https://conda.anaconda.org/bioconda/noarch/isiteuk-0.0.3-pyhdfd78af_0.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/krona-2.8.1-pl5321hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/perl-ffi-checklib-0.28-pl5321hdfd78af_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/perl-list-moreutils-0.430-pl5321hdfd78af_0.tar.bz2
@@ -918,7 +918,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/noarch/dendropy-5.0.8-pyhdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/fastalite-0.4.1-pyh7cba7a3_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/graftm-0.15.1-pyhdfd78af_0.tar.bz2
-      - conda: https://conda.anaconda.org/bioconda/noarch/isiteuk-0.0.2-pyhdfd78af_0.conda
+      - conda: https://conda.anaconda.org/bioconda/noarch/isiteuk-0.0.3-pyhdfd78af_0.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/krona-2.8.1-pl5321hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/perl-ffi-checklib-0.28-pl5321hdfd78af_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/perl-term-table-0.028-pl5321hdfd78af_0.conda
@@ -1205,7 +1205,7 @@ environments:
       - conda: https://conda.anaconda.org/bioconda/noarch/dendropy-5.0.8-pyhdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/fastalite-0.4.1-pyh7cba7a3_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/graftm-0.15.1-pyhdfd78af_0.tar.bz2
-      - conda: https://conda.anaconda.org/bioconda/noarch/isiteuk-0.0.2-pyhdfd78af_0.conda
+      - conda: https://conda.anaconda.org/bioconda/noarch/isiteuk-0.0.3-pyhdfd78af_0.conda
       - conda: https://conda.anaconda.org/bioconda/noarch/krona-2.8.1-pl5321hdfd78af_1.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/perl-ffi-checklib-0.28-pl5321hdfd78af_0.tar.bz2
       - conda: https://conda.anaconda.org/bioconda/noarch/perl-list-moreutils-0.430-pl5321hdfd78af_0.tar.bz2
@@ -2042,9 +2042,9 @@ packages:
   license_family: GPL3
   size: 172543
   timestamp: 1721107076340
-- conda: https://conda.anaconda.org/bioconda/noarch/isiteuk-0.0.2-pyhdfd78af_0.conda
-  sha256: 2d391943f91581ce2b11b5c72920c3ca035adc68f8e59633f1ef325fdf6c012d
-  md5: f63c9fe3e5f5940753edb34db2bf05d6
+- conda: https://conda.anaconda.org/bioconda/noarch/isiteuk-0.0.3-pyhdfd78af_0.conda
+  sha256: ecab9eebc51a49361c2b283dd828cbe052048dc6f79cb4acc39c0bd305021f7b
+  md5: 9368e04e641982dd33853619a71c0aea
   depends:
   - diamond >=2.1.21
   - polars >1.0.0
@@ -2053,8 +2053,8 @@ packages:
   - zenodo_backpack >=0.3
   license: GPL-3.0-or-later
   license_family: GPL3
-  size: 16873
-  timestamp: 1782258487987
+  size: 17872
+  timestamp: 1792468327299
 - conda: https://conda.anaconda.org/bioconda/noarch/krona-2.8.1-pl5321hdfd78af_1.tar.bz2
   sha256: 3e097be66237d44803bb7871029b6961469d1d3887983119fb865b30f7f3b358
   md5: cbffcf9493a67fe1869cd81a50441616

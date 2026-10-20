@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Updated isiteuk dependency to v0.0.3
+
 ## [0.6.1] - 2026-10-13
 
 ### Changed
