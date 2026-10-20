@@ -1,4 +1,5 @@
 use std;
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Mutex;
 
@@ -381,12 +382,12 @@ fn cluster_from_precomputed_distances<C: ClusterDistanceFinder + std::marker::Sy
 //     return to_return;
 // }
 
-fn find_precluster_cluster_representatives(
+fn find_precluster_cluster_representatives<'a>(
     clusterer: &(impl ClusterDistanceFinder + std::marker::Sync),
-    preclusterer_cache: &SortedPairGenomeDistanceCache,
+    preclusterer_cache: &'a SortedPairGenomeDistanceCache,
     genomes: &[&str],
     skip_clusterer: bool,
-) -> (BTreeSet<usize>, SortedPairGenomeDistanceCache) {
+) -> (BTreeSet<usize>, Cow<'a, SortedPairGenomeDistanceCache>) {
     let mut clusters_to_return: BTreeSet<usize> = BTreeSet::new();
     let mut clusterer_cache = SortedPairGenomeDistanceCache::new();
 
@@ -451,12 +452,15 @@ fn find_precluster_cluster_representatives(
         }
     }
 
-    // When skip_clusterer is true, return all ANI in preclusterer_cache
+    // When skip_clusterer is true, return all ANI in preclusterer_cache. Borrow it rather than
+    // cloning - skip_clusterer means the real clusterer is never invoked below, so
+    // find_precluster_cluster_memberships never needs to mutate this cache and the clone would
+    // be pure waste (this cache can be the full genome set, so cloning it is not free).
     // Fixes bug when transitive property is not satisfied (see test_contig_cluster_rep_bug_small)
     if skip_clusterer {
-        (clusters_to_return, preclusterer_cache.clone())
+        (clusters_to_return, Cow::Borrowed(preclusterer_cache))
     } else {
-        (clusters_to_return, clusterer_cache)
+        (clusters_to_return, Cow::Owned(clusterer_cache))
     }
 }
 
@@ -554,7 +558,7 @@ fn find_precluster_cluster_memberships(
     representatives: &BTreeSet<usize>,
     preclusterer_cache: &SortedPairGenomeDistanceCache,
     genomes: &[&str],
-    calculated_clusterer_anis: SortedPairGenomeDistanceCache,
+    calculated_clusterer_anis: Cow<'_, SortedPairGenomeDistanceCache>,
 ) -> Vec<Vec<usize>> {
     let mut rep_to_index = BTreeMap::new();
     for (i, rep) in representatives.iter().enumerate() {
@@ -603,6 +607,7 @@ fn find_precluster_cluster_memberships(
                 calculated_clusterer_anis_lock
                     .lock()
                     .unwrap()
+                    .to_mut()
                     .insert((i, **ref_i), *ani_opt);
             }
 

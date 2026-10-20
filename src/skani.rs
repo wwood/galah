@@ -1,4 +1,5 @@
 use std;
+use std::collections::HashMap;
 use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Write;
@@ -257,32 +258,35 @@ fn precluster_skani(
 
     let mut distances = SortedPairGenomeDistanceCache::new();
 
+    // Map sanitized tempfile paths back to original genome_fasta_paths indices. Built once
+    // up-front rather than scanning `sanitized` linearly for every output row - skani's
+    // --sparse triangle output can have many more rows than genomes, and the original per-row
+    // linear scan made parsing O(rows * genomes).
+    let sanitized_lookup: HashMap<&str, usize> = sanitized
+        .iter()
+        .enumerate()
+        .map(|(i, sf)| (sf.path(), i))
+        .collect();
+
     // Order is likely not conserved, so need to keep track.
-    // Map sanitized tempfile paths back to original genome_fasta_paths indices.
     for record_res in rdr.records() {
         match record_res {
             Ok(record) => {
                 debug!("Found skani record {:?}", record);
 
                 // Match sanitized path back to original index
-                let genome_id1 = sanitized
-                    .iter()
-                    .position(|sf| sf.path() == &record[0])
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Failed to find sanitized genome path in sanitized list: {}",
-                            &record[0]
-                        )
-                    });
-                let genome_id2 = sanitized
-                    .iter()
-                    .position(|sf| sf.path() == &record[1])
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Failed to find sanitized genome path in sanitized list: {}",
-                            &record[1]
-                        )
-                    });
+                let genome_id1 = *sanitized_lookup.get(&record[0]).unwrap_or_else(|| {
+                    panic!(
+                        "Failed to find sanitized genome path in sanitized list: {}",
+                        &record[0]
+                    )
+                });
+                let genome_id2 = *sanitized_lookup.get(&record[1]).unwrap_or_else(|| {
+                    panic!(
+                        "Failed to find sanitized genome path in sanitized list: {}",
+                        &record[1]
+                    )
+                });
 
                 let ani: f32 = record[2].parse().unwrap_or_else(|_| {
                     panic!("Failed to convert skani ANI to float value: {}", &record[2])
@@ -405,8 +409,15 @@ fn precluster_skani_lowmem(
 
     let mut distances = SortedPairGenomeDistanceCache::new();
 
+    // Map sanitized tempfile paths back to original genome_fasta_paths indices. Built once
+    // up-front rather than scanning `sanitized` linearly for every output row.
+    let sanitized_lookup: HashMap<&str, usize> = sanitized
+        .iter()
+        .enumerate()
+        .map(|(i, sf)| (sf.path(), i))
+        .collect();
+
     // Order is likely not conserved, so need to keep track
-    // Map sanitized tempfile paths back to original genome_fasta_paths indices.
     for record_res in rdr.records() {
         match record_res {
             Ok(record) => {
@@ -418,24 +429,18 @@ fn precluster_skani_lowmem(
                 }
 
                 // Match sanitized path back to original index
-                let genome_id1 = sanitized
-                    .iter()
-                    .position(|sf| sf.path() == &record[0])
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Failed to find sanitized genome path in sanitized list: {}",
-                            &record[0]
-                        )
-                    });
-                let genome_id2 = sanitized
-                    .iter()
-                    .position(|sf| sf.path() == &record[1])
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "Failed to find sanitized genome path in sanitized list: {}",
-                            &record[1]
-                        )
-                    });
+                let genome_id1 = *sanitized_lookup.get(&record[0]).unwrap_or_else(|| {
+                    panic!(
+                        "Failed to find sanitized genome path in sanitized list: {}",
+                        &record[0]
+                    )
+                });
+                let genome_id2 = *sanitized_lookup.get(&record[1]).unwrap_or_else(|| {
+                    panic!(
+                        "Failed to find sanitized genome path in sanitized list: {}",
+                        &record[1]
+                    )
+                });
 
                 let ani: f32 = record[2].parse().unwrap_or_else(|_| {
                     panic!("Failed to convert skani ANI to float value: {}", &record[2])
@@ -532,6 +537,14 @@ fn precluster_skani_contigs(
 
     let mut distances = SortedPairGenomeDistanceCache::new();
 
+    // Map sanitized (tab -> space) contig names back to their index in contig_names. Built once
+    // up-front rather than re-sanitizing and linearly scanning contig_names for every output row.
+    let sanitized_contig_lookup: HashMap<String, usize> = contig_names
+        .iter()
+        .enumerate()
+        .map(|(i, &name)| (name.replace('\t', " "), i))
+        .collect();
+
     // Returning contig names from Ref_name and Query_name (columns 5 and 6).
     // These are sanitized (tabs replaced with spaces), matching what was written
     // into the sanitized FASTA headers.
@@ -548,15 +561,14 @@ fn precluster_skani_contigs(
                 let sanitized_ref = record[5].replace('\t', " ");
                 let sanitized_query = record[6].replace('\t', " ");
 
-                let contig_id1 = contig_names
-                    .iter()
-                    .position(|&x| x.replace('\t', " ") == sanitized_ref)
-                    .unwrap_or_else(|| {
-                        panic!("Failed to find contig name in contig_names: {}", &record[5])
-                    });
-                let contig_id2 = contig_names
-                    .iter()
-                    .position(|&x| x.replace('\t', " ") == sanitized_query)
+                let contig_id1 =
+                    *sanitized_contig_lookup
+                        .get(&sanitized_ref)
+                        .unwrap_or_else(|| {
+                            panic!("Failed to find contig name in contig_names: {}", &record[5])
+                        });
+                let contig_id2 = *sanitized_contig_lookup
+                    .get(&sanitized_query)
                     .unwrap_or_else(|| {
                         panic!("Failed to find contig name in contig_names: {}", &record[6])
                     });
@@ -703,28 +715,45 @@ fn precluster_skani_with_references(
 
     let mut distances = SortedPairGenomeDistanceCache::new();
 
+    // Map sanitized paths straight to indices in combined_genomes. Built once up-front rather
+    // than, for every output row, linearly scanning sanitized_refs/sanitized_combined and then
+    // linearly scanning combined_genomes again to resolve the index - this parsing loop runs
+    // over every skani search hit (e.g. all query x nearby-reference pairs above --min-af), so
+    // the old O(rows * (genomes + references)) scan dominated wall-clock time at GlobDB scale.
+    let combined_genome_index: HashMap<&str, usize> = combined_genomes
+        .iter()
+        .enumerate()
+        .map(|(i, &g)| (g, i))
+        .collect();
+    let ref_sanitized_to_combined_index: HashMap<&str, usize> = sanitized_refs
+        .iter()
+        .zip(reference_genomes.iter())
+        .map(|(sf, &g)| {
+            let combined_index = *combined_genome_index.get(g).unwrap_or_else(|| {
+                panic!("Failed to find reference genome in combined_genomes: {}", g)
+            });
+            (sf.path(), combined_index)
+        })
+        .collect();
+    let combined_sanitized_to_combined_index: HashMap<&str, usize> = sanitized_combined
+        .iter()
+        .map(|(g, sf)| {
+            let combined_index = *combined_genome_index
+                .get(**g)
+                .unwrap_or_else(|| panic!("Failed to find genome in combined_genomes: {}", g));
+            (sf.path(), combined_index)
+        })
+        .collect();
+
     // Order is likely not conserved, so need to keep track.
-    // Map sanitized paths back to indices in combined_genomes.
     for record_res in rdr.records() {
         match record_res {
             Ok(record) => {
                 debug!("Found skani record {:?}", record);
 
                 // record[0] is a reference (sanitized), record[1] is a query (sanitized)
-                let genome_id1 = sanitized_refs
-                    .iter()
-                    .position(|sf| sf.path() == &record[0])
-                    .map(|i| {
-                        combined_genomes
-                            .iter()
-                            .position(|&g| g == reference_genomes[i])
-                            .unwrap_or_else(|| {
-                                panic!(
-                                    "Failed to find reference genome in combined_genomes: {}",
-                                    reference_genomes[i]
-                                )
-                            })
-                    })
+                let genome_id1 = *ref_sanitized_to_combined_index
+                    .get(&record[0])
                     .unwrap_or_else(|| {
                         panic!(
                             "Failed to find sanitized reference path in sanitized_refs: {}",
@@ -732,20 +761,8 @@ fn precluster_skani_with_references(
                         )
                     });
 
-                let genome_id2 = sanitized_combined
-                    .iter()
-                    .position(|(_, sf)| sf.path() == &record[1])
-                    .map(|i| {
-                        combined_genomes
-                            .iter()
-                            .position(|&g| g == *sanitized_combined[i].0)
-                            .unwrap_or_else(|| {
-                                panic!(
-                                    "Failed to find genome in combined_genomes: {}",
-                                    sanitized_combined[i].0
-                                )
-                            })
-                    })
+                let genome_id2 = *combined_sanitized_to_combined_index
+                    .get(&record[1])
                     .unwrap_or_else(|| {
                         panic!(
                             "Failed to find sanitized genome path in sanitized_combined: {}",

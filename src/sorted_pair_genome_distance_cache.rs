@@ -1,9 +1,9 @@
 use std;
 
-/// Like a BTreeMap except the keys are sorted before insertion / get etc.
+/// Like a HashMap except the keys are sorted before insertion / get etc.
 #[derive(Debug, PartialEq, Clone)]
 pub struct SortedPairGenomeDistanceCache {
-    internal: std::collections::BTreeMap<(usize, usize), Option<f32>>,
+    internal: std::collections::HashMap<(usize, usize), Option<f32>>,
 }
 
 impl Default for SortedPairGenomeDistanceCache {
@@ -15,7 +15,7 @@ impl Default for SortedPairGenomeDistanceCache {
 impl SortedPairGenomeDistanceCache {
     pub fn new() -> SortedPairGenomeDistanceCache {
         SortedPairGenomeDistanceCache {
-            internal: std::collections::BTreeMap::new(),
+            internal: std::collections::HashMap::new(),
         }
     }
 
@@ -66,6 +66,14 @@ mod tests {
         let _ = env_logger::builder().is_test(true).try_init();
     }
 
+    /// HashMap iteration order is not deterministic, so compare contents via a
+    /// sorted Vec rather than relying on Debug output order.
+    fn sorted_entries(cache: &SortedPairGenomeDistanceCache) -> Vec<((usize, usize), Option<f32>)> {
+        let mut entries: Vec<_> = cache.internal.iter().map(|(k, v)| (*k, *v)).collect();
+        entries.sort_unstable_by_key(|(k, _)| *k);
+        entries
+    }
+
     #[test]
     fn test_transform_hello_world() {
         init();
@@ -74,16 +82,16 @@ mod tests {
         cache.insert((1, 2), Some(0.99));
 
         assert_eq!(
-            "SortedPairGenomeDistanceCache { internal: {} }",
-            format!("{:?}", cache.transform_ids(&[0, 3]))
+            Vec::<((usize, usize), Option<f32>)>::new(),
+            sorted_entries(&cache.transform_ids(&[0, 3]))
         );
         assert_eq!(
-            "SortedPairGenomeDistanceCache { internal: {(0, 1): Some(0.99)} }",
-            format!("{:?}", cache.transform_ids(&[1, 2]))
+            vec![((0, 1), Some(0.99))],
+            sorted_entries(&cache.transform_ids(&[1, 2]))
         );
         assert_eq!(
-            "SortedPairGenomeDistanceCache { internal: {} }",
-            format!("{:?}", cache.transform_ids(&[1, 3]))
+            Vec::<((usize, usize), Option<f32>)>::new(),
+            sorted_entries(&cache.transform_ids(&[1, 3]))
         );
     }
 
@@ -96,20 +104,20 @@ mod tests {
         cache.insert((1, 4), Some(0.98));
 
         assert_eq!(
-            "SortedPairGenomeDistanceCache { internal: {} }",
-            format!("{:?}", cache.transform_ids(&[0, 3]))
+            Vec::<((usize, usize), Option<f32>)>::new(),
+            sorted_entries(&cache.transform_ids(&[0, 3]))
         );
         assert_eq!(
-            "SortedPairGenomeDistanceCache { internal: {(0, 1): Some(0.99)} }",
-            format!("{:?}", cache.transform_ids(&[1, 2]))
+            vec![((0, 1), Some(0.99))],
+            sorted_entries(&cache.transform_ids(&[1, 2]))
         );
         assert_eq!(
-            "SortedPairGenomeDistanceCache { internal: {(0, 1): Some(0.98)} }",
-            format!("{:?}", cache.transform_ids(&[1, 4]))
+            vec![((0, 1), Some(0.98))],
+            sorted_entries(&cache.transform_ids(&[1, 4]))
         );
         assert_eq!(
-            "SortedPairGenomeDistanceCache { internal: {(0, 1): Some(0.99), (0, 2): Some(0.98)} }",
-            format!("{:?}", cache.transform_ids(&[1, 2, 4]))
+            vec![((0, 1), Some(0.99)), ((0, 2), Some(0.98))],
+            sorted_entries(&cache.transform_ids(&[1, 2, 4]))
         );
     }
 }
