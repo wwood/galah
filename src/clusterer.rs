@@ -665,28 +665,12 @@ fn partition_sketches(
         to_return.push(i);
     }
 
-    // Collect all pairs that need to be joined in parallel
-    let pairs_to_join: Vec<(usize, usize)> = genomes
-        .par_iter()
-        .enumerate()
-        .flat_map(|(i, _)| {
-            (0..i).into_par_iter().filter_map(move |j| {
-                trace!("Testing precluster between {} and {}", i, j);
-                if preclusterer_cache.contains_key(&(i, j)) {
-                    debug!(
-                        "During preclustering, found a match between genomes {} and {}",
-                        i, j
-                    );
-                    Some((i, j))
-                } else {
-                    None
-                }
-            })
-        })
-        .collect();
-
-    // Join all pairs sequentially
-    for (i, j) in pairs_to_join {
+    // Join only the pairs actually stored, rather than testing all n^2/2 index pairs.
+    for &(i, j) in preclusterer_cache.keys() {
+        debug!(
+            "During preclustering, found a match between genomes {} and {}",
+            i, j
+        );
         to_return.join(i, j);
     }
 
@@ -1046,5 +1030,29 @@ mod tests {
         }
         clusters.sort_unstable();
         assert_eq!(vec![vec![0, 1], vec![2], vec![3]], clusters)
+    }
+
+    #[test]
+    fn test_partition_sketches_single_linkage() {
+        init();
+        let genomes = ["g0", "g1", "g2", "g3", "g4", "g5"];
+        let mut cache = SortedPairGenomeDistanceCache::new();
+        // Chain 0-2-3 transitively, 4-5 directly (inserted in reverse order), 1 alone
+        cache.insert((0, 2), Some(96.0));
+        cache.insert((3, 2), Some(97.0));
+        cache.insert((5, 4), Some(98.0));
+
+        let mut sets: Vec<Vec<usize>> = partition_sketches(&genomes, &cache)
+            .indices()
+            .sets()
+            .iter()
+            .map(|s| {
+                let mut v = s.to_vec();
+                v.sort_unstable();
+                v
+            })
+            .collect();
+        sets.sort_unstable();
+        assert_eq!(vec![vec![0, 2, 3], vec![1], vec![4, 5]], sets);
     }
 }

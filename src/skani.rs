@@ -1,5 +1,5 @@
 use std;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Write;
@@ -667,9 +667,10 @@ fn precluster_skani_with_references(
 
     // Sanitize non-reference combined genome FASTA headers.
     // Genomes whose headers have no tabs are used as-is (no copy needed).
+    let reference_set: HashSet<&str> = reference_genomes.iter().copied().collect();
     let sanitized_combined: Vec<(&&str, SanitizedFasta)> = combined_genomes
         .par_iter()
-        .filter(|fasta| !reference_genomes.contains(fasta))
+        .filter(|fasta| !reference_set.contains(**fasta))
         .map(|p| (p, maybe_sanitize_fasta_headers(p, skip_sanitize_headers)))
         .collect();
 

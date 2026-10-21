@@ -1336,8 +1336,9 @@ pub fn generate_galah_clusterer<'a>(
 
             // Filter reference genomes to only include those that passed quality filtering
             let reference_genomes = reference_genomes.map(|refs| {
+                let passed_genomes: std::collections::HashSet<&str> = v2.iter().copied().collect();
                 refs.iter()
-                    .filter(|ref_genome| v2.contains(ref_genome))
+                    .filter(|ref_genome| passed_genomes.contains(**ref_genome))
                     .map(|s| s.to_string())
                     .collect::<Vec<String>>()
             });
