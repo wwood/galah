@@ -5,6 +5,7 @@
 ### Changed
 - Updated isiteuk dependency to v0.0.3
 - Sped up `cluster`/`process` with `--reference-genomes`/`--reference-genomes-list` against large reference sets: skani's output is now matched back to genome indices via hash-map lookups instead of linear scans, and the precluster distance cache is borrowed rather than cloned when preclustering and clustering with the same method (e.g. skani+skani)
+- Further sped up clustering against large reference sets by removing three steps that scaled quadratically with the number of reference genomes: filtering reference genomes against those passing quality thresholds, separating reference from non-reference genomes before skani search, and single-linkage preclustering (which now only visits genome pairs with a stored ANI, rather than every possible pair)
 
 ## [0.6.1] - 2026-10-13
 

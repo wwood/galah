@@ -43,6 +43,11 @@ impl SortedPairGenomeDistanceCache {
         }
     }
 
+    /// All stored genome pairs, each as (lower index, higher index).
+    pub fn keys(&self) -> impl Iterator<Item = &(usize, usize)> {
+        self.internal.keys()
+    }
+
     /// Create a new cache containing a subset of distances.
     pub fn transform_ids(&self, input_ids: &[usize]) -> SortedPairGenomeDistanceCache {
         let mut to_return = SortedPairGenomeDistanceCache::new();
