@@ -66,9 +66,16 @@ pub fn process_command(
     let checkm_tab_table = cluster_args
         .get_one::<String>(&process_analyse_def.checkm_tab_table_argument)
         .map(|s| s.to_string());
+    // When provided, galah already has completeness/contamination for every genome, so CheckM2
+    // should not be run either here (quality for the MIMAG summary) or during clustering
+    // (rep-selection already honours --genome-info directly, see filter_genomes_through_checkm).
+    let genome_info = cluster_args
+        .get_one::<String>(&process_analyse_def.genome_info_argument)
+        .map(|s| s.to_string());
 
     let checkm2_db_path = if checkm2_quality_report.is_none()
         && checkm_tab_table.is_none()
+        && genome_info.is_none()
         && !matches!(domain_choice, crate::DomainChoice::Eukaryota)
     {
         cluster_args
@@ -134,6 +141,7 @@ pub fn process_command(
         &checkm2_quality_report,
         &output_quality_report_path,
         &checkm_tab_table,
+        &genome_info,
         &barrnap_gff_list,
         &trnascan_out_list,
         &domain_choice,
