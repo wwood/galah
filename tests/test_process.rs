@@ -335,6 +335,73 @@ fi
         assert!(output_quality.exists());
     }
 
+    /// Regression test for https://github.com/wwood/galah/issues/89: `process` ran CheckM2
+    /// (and failed on a missing DIAMOND database) even when the user had already supplied
+    /// completeness/contamination via `--genome-info`. The mock `checkm2` binary here exits
+    /// non-zero, matching that real-world failure mode - if `process` still invokes it, this
+    /// test fails rather than silently masking the bug.
+    #[test]
+    fn test_process_mock_with_genome_info_skips_checkm2() {
+        let tmpdir = tempdir().unwrap();
+        let output_mimag = tmpdir.path().join("mimag_summary.tsv");
+
+        setup_mock_bin(
+            tmpdir.path(),
+            &[
+                (String::from("73.20120800_S1D.21"), 95.0, 2.0, 1, 1, 1, 20),
+                (String::from("1mbp"), 85.0, 3.0, 1, 1, 1, 15),
+            ],
+        );
+        // Overwrite the working CheckM2 mock written above with one that fails loudly.
+        let checkm2 = tmpdir.path().join("checkm2");
+        fs::write(
+            &checkm2,
+            "#!/bin/bash\necho 'CheckM2 should not have been invoked when --genome-info is given' >&2\nexit 1\n",
+        )
+        .unwrap();
+        let _ = std::process::Command::new("chmod")
+            .arg("+x")
+            .arg(&checkm2)
+            .status();
+
+        let genome_info = tmpdir.path().join("genomeInfo.csv");
+        fs::write(
+            &genome_info,
+            "genome,completeness,contamination\n\
+             73.20120800_S1D.21,95.0,2.0\n\
+             1mbp,85.0,3.0\n",
+        )
+        .unwrap();
+
+        let path = env::var("PATH").unwrap();
+        let new_path = format!("{}:{}", tmpdir.path().display(), path);
+
+        Assert::main_binary()
+            .with_env(&[("PATH", new_path)])
+            .with_args(&[
+                "process",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "tests/data/abisko4/73.20120800_S1D.21.fna",
+                "--genome-info",
+                genome_info.to_str().unwrap(),
+                "--output-cluster-definition",
+                "/dev/stdout",
+                "--output-mimag-summary",
+                output_mimag.to_str().unwrap(),
+            ])
+            .succeeds()
+            .unwrap();
+
+        assert!(output_mimag.exists());
+        let content = fs::read_to_string(&output_mimag).unwrap();
+        let expected = "\
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t85.00\t3.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\t\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n";
+        assert_eq!(content, expected);
+    }
+
     #[test]
     fn test_process_mock_low_memory() {
         let tmpdir = tempdir().unwrap();

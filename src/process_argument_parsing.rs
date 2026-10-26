@@ -22,6 +22,7 @@ pub struct ProcessAnalyseCommandDefinition {
     pub checkm2_db_path_argument: String,
     pub checkm2_quality_report_argument: String,
     pub checkm_tab_table_argument: String,
+    pub genome_info_argument: String,
     pub barrnap_gff_list_argument: String,
     pub trnascan_out_list_argument: String,
     pub working_dir_argument: String,
@@ -41,6 +42,7 @@ lazy_static! {
             checkm2_db_path_argument: "checkm2-db-path".to_string(),
             checkm2_quality_report_argument: "checkm2-quality-report".to_string(),
             checkm_tab_table_argument: "checkm-tab-table".to_string(),
+            genome_info_argument: "genome-info".to_string(),
             barrnap_gff_list_argument: "barrnap-gff-list".to_string(),
             trnascan_out_list_argument: "trnascan-out-list".to_string(),
             working_dir_argument: "working-dir".to_string(),
@@ -194,9 +196,9 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
         .arg(Arg::new(&*PROCESS_ANALYSE_DEF.checkm2_quality_report_argument)
             .long("checkm2-quality-report")
             .help("Output of CheckM2 predict"))
-        .arg(Arg::new("genome-info")
+        .arg(Arg::new(&*PROCESS_ANALYSE_DEF.genome_info_argument)
             .long("genome-info")
-            .help("genomeInfo file in same format as dRep i.e. a CSV with three header columns, first line 'genome,completeness,contamination'."))
+            .help("genomeInfo file in same format as dRep i.e. a CSV with three header columns, first line 'genome,completeness,contamination'. When provided, CheckM2 is not run for prokaryotic genome quality - these values are used instead."))
         .arg(Arg::new("min-completeness")
             .long("min-completeness")
             .help("Genomes with less than this percentage of completeness are excluded")

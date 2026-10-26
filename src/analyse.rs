@@ -1,5 +1,6 @@
 use crate::barrnap;
 use crate::eukcc::{parse_eukcc_quality_report, EukccAnalyser};
+use crate::genome_info_file;
 use crate::isiteuk::{parse_isiteuk_tsv, IsiTeukAnalyser};
 use crate::trnascan;
 use crate::Domain;
@@ -41,6 +42,7 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
     checkm2_quality_report: &Option<String>,
     output_quality_report_path: &Option<String>,
     checkm_tab_table: &Option<String>,
+    genome_info: &Option<String>,
     barrnap_gff_list: &Option<String>,
     trnascan_out_list: &Option<String>,
     domain_choice: &DomainChoice,
@@ -222,6 +224,37 @@ pub fn analyse<Q: QualityFinder, R: RrnaFinder, T: TrnaFinder>(
                         ),
                     );
                 } else if let Some((_, q)) = checkm1_result
+                    .genome_to_quality
+                    .iter()
+                    .find(|(k, _)| **k == genome_stem)
+                {
+                    checkm_quality_cache.insert(
+                        (*genome_path).clone(),
+                        (
+                            q.completeness() as f64 * 100.0,
+                            q.contamination() as f64 * 100.0,
+                        ),
+                    );
+                }
+            }
+        } else if let Some(genome_info_path) = genome_info {
+            info!("Using pre-generated genome info file: {genome_info_path}");
+            let genome_info_result = genome_info_file::read_genome_info_file(genome_info_path)
+                .map_err(|e| format!("Failed to parse genome info file {genome_info_path}: {e}"))?;
+            for genome_path in &prok_genomes {
+                let genome_stem = Path::new(genome_path.as_str())
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy();
+                if let Ok(q) = genome_info_result.retrieve_via_fasta_path(genome_path) {
+                    checkm_quality_cache.insert(
+                        (*genome_path).clone(),
+                        (
+                            q.completeness() as f64 * 100.0,
+                            q.contamination() as f64 * 100.0,
+                        ),
+                    );
+                } else if let Some((_, q)) = genome_info_result
                     .genome_to_quality
                     .iter()
                     .find(|(k, _)| **k == genome_stem)

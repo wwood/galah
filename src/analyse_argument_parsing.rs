@@ -114,6 +114,7 @@ impl GalahAnalyser<'_> {
             &self.checkm2_quality_report,
             output_quality_report_path,
             &self.checkm_tab_table,
+            &None, // `analyse` has no --genome-info flag; only `process` does.
             &self.barrnap_gff_list,
             &self.trnascan_out_list,
             &self.domain_choice,
