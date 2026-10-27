@@ -163,9 +163,11 @@ fn run_eukcc_single(
 }
 
 /// EukCC exits non-zero when it cannot estimate quality, e.g. when no placement marker
-/// genes are found. Newer versions write an NA result table first (exit 201), while
-/// EukCC 2.1.2 exits 1 without writing any output. Treat both as (0.0, 0.0) rather than
-/// a failed run. Returns None if the failure looks like a genuine error.
+/// genes are found, or when some markers are found but not enough to identify a suitable
+/// marker gene set (see https://github.com/wwood/galah/issues/90). Newer versions write an
+/// NA result table first (exit 201), while EukCC 2.1.2 exits 1 without writing any output.
+/// Treat both as (0.0, 0.0) rather than a failed run. Returns None if the failure looks like
+/// a genuine error.
 fn no_estimate_result(
     stderr: &str,
     tsv_path: &Path,
@@ -179,9 +181,11 @@ fn no_estimate_result(
         );
         return Some(parse_eukcc_tsv(existing.to_str().unwrap(), genome_path));
     }
-    if stderr.contains("No placement marker genes found") {
+    if stderr.contains("No placement marker genes found")
+        || stderr.contains("No marker gene set could be found")
+    {
         warn!(
-            "EukCC found no placement marker genes for {}. Returning (0.0, 0.0).",
+            "EukCC found no suitable marker gene set for {}. Returning (0.0, 0.0).",
             genome_path
         );
         return Some((0.0, 0.0));
@@ -294,6 +298,24 @@ mod tests {
         let csv_path = tmpdir.path().join("eukcc.csv");
         let stderr = "15-10-2026 14:34:04:  Searching for marker genes in base database\n\
                       15-10-2026 14:34:04:  No placement marker genes found for genome_metaeuk_cleaned.faa.\n";
+        assert_eq!(
+            no_estimate_result(stderr, &tsv_path, &csv_path, "genome.fasta"),
+            Some((0.0, 0.0))
+        );
+    }
+
+    #[test]
+    fn test_no_estimate_result_no_suitable_marker_set_without_output() {
+        // https://github.com/wwood/galah/issues/90: EukCC 2.1.2 finds some marker genes
+        // (unlike issue #83's zero-marker case) but can't assemble a suitable set from them,
+        // and exits 1 without writing a table.
+        let tmpdir = tempfile::tempdir().unwrap();
+        let tsv_path = tmpdir.path().join("eukcc.tsv");
+        let csv_path = tmpdir.path().join("eukcc.csv");
+        let stderr = "Found 1 marker genes, placing them in the tree using epa-ng\n\
+                      23-10-2026 12:20:56:  Automatically locating best SCMG set\n\
+                      23-10-2026 12:20:58:  Could not identify a single suitable marker gene set\n\
+                      23-10-2026 12:20:58:  No marker gene set could be found with these settings\n";
         assert_eq!(
             no_estimate_result(stderr, &tsv_path, &csv_path, "genome.fasta"),
             Some((0.0, 0.0))
