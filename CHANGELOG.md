@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-11-02
+
 ### Fixed
 - `process` no longer runs CheckM2 when `--genome-info` is provided. Previously `--genome-info` was only honoured during clustering (representative selection); the analyse stage (used for the MIMAG quality summary) ignored it and ran CheckM2 regardless, which could fail if no CheckM2 database was configured ([#89](https://github.com/wwood/galah/issues/89))
 - EukCC 2.1.2 exiting non-zero with "No marker gene set could be found with these settings" (distinct from the already-handled "No placement marker genes found" case) no longer crashes `analyse`/`process`; the genome is now treated as completeness/contamination (0.0, 0.0) like the existing no-marker-genes case ([#90](https://github.com/wwood/galah/issues/90))
