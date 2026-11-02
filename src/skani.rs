@@ -12,6 +12,13 @@ use bird_tool_utils::command::finish_command_safely;
 use rayon::prelude::*;
 use tempfile;
 
+// skani's `--small-genomes` flag (available on `dist`/`triangle`) is an alias for
+// `-c 30 -m 200 --faster-small`. `skani sketch`/`search` have no `--small-genomes`
+// flag, but `-c`/`-m` are sketch-time parameters that get baked into the sketch
+// database, so applying them when sketching reproduces equivalent results.
+const SMALL_GENOMES_SKETCH_COMPRESSION_FACTOR: &str = "30";
+const SMALL_GENOMES_SKETCH_MARKER_COMPRESSION_FACTOR: &str = "200";
+
 pub struct SkaniPreclusterer {
     pub threshold: f32,
     pub min_aligned_threshold: f32,
@@ -329,10 +336,6 @@ fn precluster_skani_lowmem(
         );
     }
 
-    if small_genomes {
-        panic!("Error: skani does not support small genomes with low-memory preclustering");
-    }
-
     // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output.
     // Genomes whose headers have no tabs are used as-is (no copy needed).
     let sanitized: Vec<SanitizedFasta> = genome_fasta_paths
@@ -368,6 +371,13 @@ fn precluster_skani_lowmem(
         .arg(db_dir.path().join("galah-skani").to_str().unwrap())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
+    if small_genomes {
+        cmd_sketch
+            .arg("-c")
+            .arg(SMALL_GENOMES_SKETCH_COMPRESSION_FACTOR)
+            .arg("-m")
+            .arg(SMALL_GENOMES_SKETCH_MARKER_COMPRESSION_FACTOR);
+    }
     debug!("Running skani command: {:?}", &cmd_sketch);
 
     let mut process_sketch = cmd_sketch
@@ -615,10 +625,6 @@ fn precluster_skani_with_references(
         );
     }
 
-    if small_genomes {
-        panic!("Error: skani does not support small genomes with reference genome preclustering");
-    }
-
     // Sanitize reference FASTA headers to remove tabs, which corrupt skani's TSV output.
     // Genomes whose headers have no tabs are used as-is (no copy needed).
     let sanitized_refs: Vec<SanitizedFasta> = reference_genomes
@@ -654,6 +660,13 @@ fn precluster_skani_with_references(
         .arg(ref_db.path().join("galah-skani").to_str().unwrap())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
+    if small_genomes {
+        cmd_sketch
+            .arg("-c")
+            .arg(SMALL_GENOMES_SKETCH_COMPRESSION_FACTOR)
+            .arg("-m")
+            .arg(SMALL_GENOMES_SKETCH_MARKER_COMPRESSION_FACTOR);
+    }
     debug!("Running skani command: {:?}", &cmd_sketch);
 
     let mut process_sketch = cmd_sketch
@@ -1037,5 +1050,55 @@ mod tests {
             true,
         );
         assert!(distances.contains_key(&(0, 1)));
+    }
+
+    #[test]
+    fn test_precluster_skani_lowmem_with_small_genomes() {
+        init();
+        // skani's sketch/search pipeline has no --small-genomes flag, but applying
+        // its underlying -c/-m parameters when sketching should reproduce equivalent
+        // results rather than panicking.
+        let distances = precluster_skani_lowmem(
+            &[
+                "tests/data/abisko4/73.20120800_S1X.13.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+                "tests/data/abisko4/73.20120700_S3X.12.fna",
+                "tests/data/abisko4/73.20110800_S2D.13.fna",
+            ],
+            95.0,
+            0.2,
+            true,
+            1,
+            false,
+        );
+        assert!(distances.contains_key(&(0, 1)));
+    }
+
+    #[test]
+    fn test_precluster_skani_with_references_with_small_genomes() {
+        init();
+        // skani's sketch/search pipeline has no --small-genomes flag, but applying
+        // its underlying -c/-m parameters when sketching the reference genomes
+        // should reproduce equivalent results rather than panicking.
+        let combined_genomes = [
+            "tests/data/abisko4/73.20120800_S1X.13.fna",
+            "tests/data/set1/500kb.fna",
+            "tests/data/set1/1mbp.fna",
+            "tests/data/abisko4/73.20120600_S2D.19.fna",
+        ];
+        let distances = precluster_skani_with_references(
+            &combined_genomes,
+            &[
+                "tests/data/set1/1mbp.fna",
+                "tests/data/abisko4/73.20120600_S2D.19.fna",
+            ],
+            90.0,
+            0.2,
+            true,
+            1,
+            false,
+        );
+        assert!(distances.contains_key(&(1, 2)));
+        assert!(distances.contains_key(&(0, 3)));
     }
 }
