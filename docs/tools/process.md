@@ -263,7 +263,8 @@ Overall ANI level to dereplicate at with the primary clusterer.
 
 **\--min-aligned-fraction** *FLOAT*
 
-Min aligned fraction of two genomes for clustering. [default: `15`]
+Min aligned fraction of two genomes for clustering. Specify as a
+  percentage (1-100) or a fraction (0-1). [default: `15`]
 
 **\--small-genomes**
 
@@ -383,7 +384,9 @@ Output a CheckM2-format quality report TSV file.
 
 **\--output-cluster-definition** *PATH*
 
-Output a file of representative\<TAB\>member lines.
+Output a file of representative\<TAB\>member lines. Genomes that do
+  not cluster with any other genome are listed as their own
+  representative.
 
 **\--output-representative-fasta-directory** *PATH*
 

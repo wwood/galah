@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+- Clarified `--min-aligned-fraction` help/docs to state it accepts either a percentage (1-100) or a fraction (0-1) ([#13](https://github.com/wwood/galah/issues/13))
+- Clarified `--output-cluster-definition` help/docs to state that genomes which do not cluster with any other genome are listed as their own representative ([#17](https://github.com/wwood/galah/issues/17))
+
 ## [0.6.3] - 2026-11-02
 
 ### Fixed
