@@ -329,7 +329,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 ))
                 .help(&format!(
                     "Min aligned fraction of two genomes for \
-                clustering. {}",
+                clustering. Specify as a percentage (1-100) or a fraction (0-1). {}",
                     default_roff(crate::DEFAULT_ALIGNED_FRACTION)
                 )),
         )
@@ -520,7 +520,7 @@ pub fn add_dereplication_output_parameters_to_section(
                     "--{}",
                     definition.dereplication_output_cluster_definition_file
                 ))
-                .help("Output a file of representative<TAB>member lines."),
+                .help("Output a file of representative<TAB>member lines. Genomes that do not cluster with any other genome are listed as their own representative."),
         )
         .option(
             Opt::new("PATH")
@@ -1704,7 +1704,7 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .default_value(crate::DEFAULT_FRAGMENT_LENGTH))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_aligned_fraction_argument)
             .long("min-aligned-fraction")
-            .help("Min aligned fraction of two genomes for clustering")
+            .help("Min aligned fraction of two genomes for clustering. Specify as a percentage (1-100) or a fraction (0-1)")
             .value_parser(clap::value_parser!(f32))
             .default_value(crate::DEFAULT_ALIGNED_FRACTION))
         .arg(Arg::new("checkm-tab-table")
@@ -1805,7 +1805,7 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
         .arg(Arg::new("output-cluster-definition")
             .short('o')
             .long("output-cluster-definition")
-            .help("Output a file of representative<TAB>member lines")
+            .help("Output a file of representative<TAB>member lines. Genomes that do not cluster with any other genome are listed as their own representative")
             .required_unless_present_any([
                 "output-representative-fasta-directory",
                 "output-representative-fasta-directory-copy",
