@@ -263,7 +263,7 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
             .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
-            .help("Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. Only affects the skani precluster/cluster methods.")
+            .help("Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. Requires the skani cluster method.")
             .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
             .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)

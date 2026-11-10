@@ -300,6 +300,56 @@ mod tests {
     }
 
     #[test]
+    fn test_both_min_aligned_fraction_requires_skani_clusterer() {
+        for (pre, clu) in [("skani", "fastani"), ("finch", "fastani")] {
+            Assert::main_binary()
+                .with_args(&[
+                    "cluster",
+                    "--genome-fasta-files",
+                    "tests/data/set1/1mbp.fna",
+                    "tests/data/set1/500kb.fna",
+                    "--precluster-method",
+                    pre,
+                    "--cluster-method",
+                    clu,
+                    "--both-min-aligned-fraction",
+                    "--output-cluster-definition",
+                    "/dev/stdout",
+                ])
+                .fails()
+                .stderr()
+                .contains("--both-min-aligned-fraction is only supported when the cluster method is skani")
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn test_both_min_aligned_fraction_finch_precluster_skani_cluster() {
+        // finch ignores aligned fraction; skani then applies it at the clustering step
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "tests/data/set1/500kb.fna",
+                "--precluster-method",
+                "finch",
+                "--cluster-method",
+                "skani",
+                "--min-aligned-fraction",
+                "0.8",
+                "--both-min-aligned-fraction",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("tests/data/set1/1mbp.fna\ttests/data/set1/1mbp.fna\n\
+                 tests/data/set1/500kb.fna\ttests/data/set1/500kb.fna\n")
+            .unwrap();
+    }
+
+    #[test]
     fn test_min_aligned_fraction() {
         Assert::main_binary()
             .with_args(&[

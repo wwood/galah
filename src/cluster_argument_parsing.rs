@@ -456,7 +456,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
                 .help(
                     "Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. \
                     Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. \
-                    Only affects the skani precluster/cluster methods.",
+                    Requires the skani cluster method.",
                 ),
         )
         .flag(
@@ -1314,6 +1314,17 @@ pub fn generate_galah_clusterer<'a>(
         .unwrap()
         .as_str();
 
+    if clap_matches.get_flag(&argument_definition.dereplication_both_min_aligned_fraction_argument)
+        && cluster_method != "skani"
+    {
+        return Err(format!(
+            "--{} is only supported when the cluster method is skani (got --{} {})",
+            argument_definition.dereplication_both_min_aligned_fraction_argument,
+            argument_definition.dereplication_cluster_method_argument,
+            cluster_method,
+        ));
+    }
+
     // Only require the tools which are actually going to be used e.g. fastANI
     // need not be installed when clustering with skani.
     crate::external_command_checker::check_for_clustering_dependencies(
@@ -1793,7 +1804,7 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
             .long(&*GALAH_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
-            .help("Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. Only affects the skani precluster/cluster methods.")
+            .help("Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. Requires the skani cluster method.")
             .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
             .long(&*GALAH_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)

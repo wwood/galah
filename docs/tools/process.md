@@ -271,7 +271,7 @@ Min aligned fraction of two genomes for clustering. Specify as a
 Require \--min-aligned-fraction to be met by both genomes (skani
   \--both-min-af) rather than by either. Useful for e.g. plasmids, to
   avoid clustering a small sequence with a much larger one that
-  contains it. Only affects the skani precluster/cluster methods.
+  contains it. Requires the skani cluster method.
 
 **\--small-genomes**
 
