@@ -266,13 +266,6 @@ Overall ANI level to dereplicate at with the primary clusterer.
 Min aligned fraction of two genomes for clustering. Specify as a
   percentage (1-100) or a fraction (0-1). [default: `15`]
 
-**\--both-min-aligned-fraction**
-
-Require \--min-aligned-fraction to be met by both genomes (skani
-  \--both-min-af) rather than by either. Useful for e.g. plasmids, to
-  avoid clustering a small sequence with a much larger one that
-  contains it. Requires the skani cluster method.
-
 **\--small-genomes**
 
 Use small-genomes settings in skani calculation. Recommended for
@@ -331,6 +324,13 @@ Do not use small-genomes settings in skani when clustering contigs.
 **\--low-memory**
 
 Reduce memory use by sketching to file and searching it instead.
+
+**\--both-min-aligned-fraction**
+
+Require \--min-aligned-fraction to be met by both genomes (skani
+  \--both-min-af) rather than either. Useful for e.g. plasmids, to avoid
+  clustering a small sequence with a much larger one that contains it.
+  Requires the skani cluster method.
 
 **\--skip-sanitise-headers**
 

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-11-10
+
 ### Added
 - `--both-min-aligned-fraction` flag (`cluster` and `process`) requiring `--min-aligned-fraction` to be met by both genomes (skani `--both-min-af`) rather than either, e.g. to avoid clustering a small plasmid with a larger one that contains it
 
