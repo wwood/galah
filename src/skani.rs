@@ -19,9 +19,20 @@ use tempfile;
 const SMALL_GENOMES_SKETCH_COMPRESSION_FACTOR: &str = "30";
 const SMALL_GENOMES_SKETCH_MARKER_COMPRESSION_FACTOR: &str = "200";
 
+/// skani arguments applying the minimum aligned fraction (given as a fraction, 0-1).
+/// With `both` set, the threshold must be met by both genomes (`--both-min-af`);
+/// otherwise by either (`--min-af`).
+fn min_af_args(min_aligned_threshold: f32, both: bool) -> [String; 2] {
+    [
+        if both { "--both-min-af" } else { "--min-af" }.to_string(),
+        format!("{}", min_aligned_threshold * 100.0),
+    ]
+}
+
 pub struct SkaniPreclusterer {
     pub threshold: f32,
     pub min_aligned_threshold: f32,
+    pub both_min_af: bool,
     pub small_genomes: bool,
     pub threads: u16,
     pub low_memory: bool,
@@ -35,6 +46,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
                 genome_fasta_paths,
                 self.threshold,
                 self.min_aligned_threshold,
+                self.both_min_af,
                 self.small_genomes,
                 self.threads,
                 self.skip_sanitize_headers,
@@ -44,6 +56,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
                 genome_fasta_paths,
                 self.threshold,
                 self.min_aligned_threshold,
+                self.both_min_af,
                 self.small_genomes,
                 self.threads,
                 self.skip_sanitize_headers,
@@ -60,6 +73,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
             genome_fasta_paths,
             self.threshold,
             self.min_aligned_threshold,
+            self.both_min_af,
             self.small_genomes,
             self.threads,
             contig_names,
@@ -77,6 +91,7 @@ impl PreclusterDistanceFinder for SkaniPreclusterer {
             reference_genomes,
             self.threshold,
             self.min_aligned_threshold,
+            self.both_min_af,
             self.small_genomes,
             self.threads,
             self.skip_sanitize_headers,
@@ -200,6 +215,7 @@ fn precluster_skani(
     genome_fasta_paths: &[&str],
     threshold: f32,
     min_aligned_threshold: f32,
+    both_min_af: bool,
     small_genomes: bool,
     threads: u16,
     skip_sanitize_headers: bool,
@@ -238,8 +254,7 @@ fn precluster_skani(
         .arg("-t")
         .arg(format!("{threads}"))
         .arg("--sparse")
-        .arg("--min-af")
-        .arg(format!("{}", min_aligned_threshold * 100.0));
+        .args(min_af_args(min_aligned_threshold, both_min_af));
 
     if small_genomes {
         cmd.arg("--small-genomes");
@@ -325,6 +340,7 @@ fn precluster_skani_lowmem(
     genome_fasta_paths: &[&str],
     threshold: f32,
     min_aligned_threshold: f32,
+    both_min_af: bool,
     small_genomes: bool,
     threads: u16,
     skip_sanitize_headers: bool,
@@ -394,8 +410,7 @@ fn precluster_skani_lowmem(
     cmd.arg("search")
         .arg("-t")
         .arg(format!("{threads}"))
-        .arg("--min-af")
-        .arg(format!("{}", min_aligned_threshold * 100.0))
+        .args(min_af_args(min_aligned_threshold, both_min_af))
         .arg("--ql")
         .arg(tf.path().to_str().unwrap())
         .arg("-d")
@@ -477,10 +492,12 @@ fn precluster_skani_lowmem(
     distances
 }
 
+#[allow(clippy::too_many_arguments)]
 fn precluster_skani_contigs(
     genome_fasta_paths: &[&str],
     threshold: f32,
     min_aligned_threshold: f32,
+    both_min_af: bool,
     small_genomes: bool,
     threads: u16,
     contig_names: &[&str],
@@ -520,8 +537,7 @@ fn precluster_skani_contigs(
         .arg("-t")
         .arg(format!("{threads}"))
         .arg("--sparse")
-        .arg("--min-af")
-        .arg(format!("{}", min_aligned_threshold * 100.0));
+        .args(min_af_args(min_aligned_threshold, both_min_af));
 
     if small_genomes {
         cmd.arg("--small-genomes");
@@ -609,11 +625,13 @@ fn precluster_skani_contigs(
 
 /// Create preclusters based on reference genomes using skani
 // Assumes that both genome sets are already independently dereplicated
+#[allow(clippy::too_many_arguments)]
 fn precluster_skani_with_references(
     combined_genomes: &[&str],
     reference_genomes: &[&str],
     threshold: f32,
     min_aligned_threshold: f32,
+    both_min_af: bool,
     small_genomes: bool,
     threads: u16,
     skip_sanitize_headers: bool,
@@ -704,8 +722,7 @@ fn precluster_skani_with_references(
     cmd.arg("search")
         .arg("-t")
         .arg(format!("{threads}"))
-        .arg("--min-af")
-        .arg(format!("{}", min_aligned_threshold * 100.0))
+        .args(min_af_args(min_aligned_threshold, both_min_af))
         .arg("--ql")
         .arg(tf.path().to_str().unwrap())
         .arg("-d")
@@ -811,6 +828,7 @@ fn precluster_skani_with_references(
 pub struct SkaniClusterer {
     pub threshold: f32,
     pub min_aligned_threshold: f32,
+    pub both_min_af: bool,
     pub small_genomes: bool,
     pub skip_sanitize_headers: bool,
 }
@@ -834,6 +852,7 @@ impl ClusterDistanceFinder for SkaniClusterer {
             fasta2,
             self.small_genomes,
             self.min_aligned_threshold,
+            self.both_min_af,
             self.skip_sanitize_headers,
         ))
     }
@@ -844,6 +863,7 @@ pub fn calculate_skani(
     fasta2: &str,
     small_genomes: bool,
     min_aligned_threshold: f32,
+    both_min_af: bool,
     skip_sanitize_headers: bool,
 ) -> f32 {
     // Sanitize FASTA headers to remove tabs, which corrupt skani's TSV output.
@@ -855,8 +875,7 @@ pub fn calculate_skani(
     // Ref_file Query_file ANI Align_fraction_ref Align_fraction_query Ref_name Query_name
     let mut cmd = std::process::Command::new("skani");
     cmd.arg("dist")
-        .arg("--min-af")
-        .arg(format!("{}", min_aligned_threshold * 100.0));
+        .args(min_af_args(min_aligned_threshold, both_min_af));
 
     if small_genomes {
         cmd.arg("--small-genomes");
@@ -937,6 +956,7 @@ mod tests {
             80.0,
             0.2,
             false,
+            false,
             1,
             false,
         );
@@ -955,6 +975,7 @@ mod tests {
             95.0,
             0.2,
             false,
+            false,
             1,
             false,
         );
@@ -971,6 +992,7 @@ mod tests {
             ],
             95.0,
             0.2,
+            false,
             false,
             1,
             false,
@@ -1046,6 +1068,7 @@ mod tests {
             95.0,
             0.2,
             false,
+            false,
             1,
             true,
         );
@@ -1067,6 +1090,7 @@ mod tests {
             ],
             95.0,
             0.2,
+            false,
             true,
             1,
             false,
@@ -1094,11 +1118,33 @@ mod tests {
             ],
             90.0,
             0.2,
+            false,
             true,
             1,
             false,
         );
         assert!(distances.contains_key(&(1, 2)));
         assert!(distances.contains_key(&(0, 3)));
+    }
+
+    #[test]
+    fn test_min_af_args() {
+        assert_eq!(min_af_args(0.85, false), ["--min-af", "85"]);
+        assert_eq!(min_af_args(0.85, true), ["--both-min-af", "85"]);
+    }
+
+    #[test]
+    fn test_precluster_skani_both_min_af() {
+        init();
+        // 500kb.fna is contained in 1mbp.fna: aligned fraction is ~100% in one
+        // direction but only ~50% in the other.
+        let genomes = ["tests/data/set1/1mbp.fna", "tests/data/set1/500kb.fna"];
+        let either = precluster_skani(&genomes, 95.0, 0.8, false, false, 1, false);
+        assert!(either.contains_key(&(0, 1)));
+        let both = precluster_skani(&genomes, 95.0, 0.8, true, false, 1, false);
+        assert!(!both.contains_key(&(0, 1)));
+        // A threshold met in both directions is still accepted
+        let both_low = precluster_skani(&genomes, 95.0, 0.4, true, false, 1, false);
+        assert!(both_low.contains_key(&(0, 1)));
     }
 }

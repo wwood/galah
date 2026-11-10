@@ -260,6 +260,46 @@ mod tests {
     }
 
     #[test]
+    fn test_both_min_aligned_fraction() {
+        // 500kb.fna is contained within 1mbp.fna, so aligned fraction is ~100% one way
+        // but ~50% the other. Without the flag they cluster; with it they do not.
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "tests/data/set1/500kb.fna",
+                "--min-aligned-fraction",
+                "0.8",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("tests/data/set1/1mbp.fna\ttests/data/set1/1mbp.fna\n\
+                 tests/data/set1/1mbp.fna\ttests/data/set1/500kb.fna\n")
+            .unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "tests/data/set1/500kb.fna",
+                "--min-aligned-fraction",
+                "0.8",
+                "--both-min-aligned-fraction",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("tests/data/set1/1mbp.fna\ttests/data/set1/1mbp.fna\n\
+                 tests/data/set1/500kb.fna\ttests/data/set1/500kb.fna\n")
+            .unwrap();
+    }
+
+    #[test]
     fn test_min_aligned_fraction() {
         Assert::main_binary()
             .with_args(&[

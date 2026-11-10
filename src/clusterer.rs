@@ -840,6 +840,7 @@ mod tests {
             &crate::skani::SkaniClusterer {
                 threshold: 95.0,
                 min_aligned_threshold: 0.2,
+                both_min_af: false,
                 small_genomes: false,
                 skip_sanitize_headers: false,
             },
@@ -873,6 +874,7 @@ mod tests {
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
+                both_min_af: false,
                 small_genomes: false,
                 skip_sanitize_headers: false,
             },
@@ -900,6 +902,7 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                both_min_af: false,
                 small_genomes: false,
                 threads: 1,
                 low_memory: false,
@@ -908,6 +911,7 @@ mod tests {
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
+                both_min_af: false,
                 small_genomes: false,
                 skip_sanitize_headers: false,
             },
@@ -936,6 +940,7 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                both_min_af: false,
                 small_genomes: false,
                 threads: 1,
                 low_memory: false,
@@ -944,6 +949,7 @@ mod tests {
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
+                both_min_af: false,
                 small_genomes: false,
                 skip_sanitize_headers: false,
             },
@@ -973,6 +979,7 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                both_min_af: false,
                 small_genomes: false,
                 threads: 1,
                 low_memory: true,
@@ -981,6 +988,7 @@ mod tests {
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
+                both_min_af: false,
                 small_genomes: false,
                 skip_sanitize_headers: false,
             },
@@ -1004,6 +1012,7 @@ mod tests {
             &crate::skani::SkaniPreclusterer {
                 threshold: 90.0,
                 min_aligned_threshold: 0.2,
+                both_min_af: false,
                 small_genomes: false,
                 threads: 1,
                 low_memory: false,
@@ -1012,6 +1021,7 @@ mod tests {
             &crate::skani::SkaniClusterer {
                 threshold: 99.0,
                 min_aligned_threshold: 0.2,
+                both_min_af: false,
                 small_genomes: false,
                 skip_sanitize_headers: false,
             },
