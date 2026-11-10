@@ -68,6 +68,8 @@ lazy_static! {
             dereplication_fraglen_argument: "fragment-length".to_string(),
             dereplication_low_memory_argument: "low-memory".to_string(),
             dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
+            dereplication_both_min_aligned_fraction_argument: "both-min-aligned-fraction"
+                .to_string(),
             dereplication_reference_genomes_argument: "reference-genomes".to_string(),
             dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
             dereplication_skip_input_dereplication_argument: "skip-input-dereplication".to_string(),
@@ -259,6 +261,10 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
+        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
+            .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
+            .help("Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. Requires the skani cluster method.")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
             .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
             .help("Skip checking/rewriting FASTA headers containing tabs before running skani, using genome paths as-is. Mainly for benchmarking against tools which do not sanitize headers. If any input genome has a tab in a header line, skani's TSV output will be silently corrupted, so only use this when input genomes are known not to have tabs in their headers.")
@@ -526,6 +532,7 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
         dereplication_low_memory_argument: "low-memory".to_string(),
         dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
+        dereplication_both_min_aligned_fraction_argument: "both-min-aligned-fraction".to_string(),
         dereplication_reference_genomes_argument: "reference-genomes".to_string(),
         dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
         dereplication_skip_input_dereplication_argument: "skip-input-dereplication".to_string(),

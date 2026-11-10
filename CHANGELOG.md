@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- `--both-min-aligned-fraction` flag (`cluster` and `process`) requiring `--min-aligned-fraction` to be met by both genomes (skani `--both-min-af`) rather than either, e.g. to avoid clustering a small plasmid with a larger one that contains it
+
 ### Changed
 - Clarified `--min-aligned-fraction` help/docs to state it accepts either a percentage (1-100) or a fraction (0-1) ([#13](https://github.com/wwood/galah/issues/13))
 - Clarified `--output-cluster-definition` help/docs to state that genomes which do not cluster with any other genome are listed as their own representative ([#17](https://github.com/wwood/galah/issues/17))

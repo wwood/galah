@@ -131,6 +131,7 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_cluster_contigs_argument: String,
     pub dereplication_low_memory_argument: String,
     pub dereplication_skip_sanitize_headers_argument: String,
+    pub dereplication_both_min_aligned_fraction_argument: String,
     pub dereplication_reference_genomes_argument: String,
     pub dereplication_reference_genomes_list_argument: String,
     pub dereplication_skip_input_dereplication_argument: String,
@@ -159,6 +160,7 @@ lazy_static! {
             dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
             dereplication_low_memory_argument: "low-memory".to_string(),
             dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
+            dereplication_both_min_aligned_fraction_argument: "both-min-aligned-fraction".to_string(),
             dereplication_reference_genomes_argument: "reference-genomes".to_string(),
             dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
             dereplication_skip_input_dereplication_argument: "skip-input-dereplication"
@@ -447,6 +449,15 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     definition.dereplication_low_memory_argument
                 ))
                 .help("Reduce memory use by sketching to file and searching it instead."),
+        )
+        .flag(
+            Flag::new()
+                .long(&format!("--{}", definition.dereplication_both_min_aligned_fraction_argument))
+                .help(
+                    "Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. \
+                    Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. \
+                    Requires the skani cluster method.",
+                ),
         )
         .flag(
             Flag::new()
@@ -1303,6 +1314,17 @@ pub fn generate_galah_clusterer<'a>(
         .unwrap()
         .as_str();
 
+    if clap_matches.get_flag(&argument_definition.dereplication_both_min_aligned_fraction_argument)
+        && cluster_method != "skani"
+    {
+        return Err(format!(
+            "--{} is only supported when the cluster method is skani (got --{} {})",
+            argument_definition.dereplication_both_min_aligned_fraction_argument,
+            argument_definition.dereplication_cluster_method_argument,
+            cluster_method,
+        ));
+    }
+
     // Only require the tools which are actually going to be used e.g. fastANI
     // need not be installed when clustering with skani.
     crate::external_command_checker::check_for_clustering_dependencies(
@@ -1331,6 +1353,8 @@ pub fn generate_galah_clusterer<'a>(
                 cluster_contigs,
             )?;
 
+            let both_min_af = clap_matches
+                .get_flag(&argument_definition.dereplication_both_min_aligned_fraction_argument);
             let skip_sanitize_headers = clap_matches
                 .get_flag(&argument_definition.dereplication_skip_sanitize_headers_argument);
 
@@ -1453,6 +1477,7 @@ pub fn generate_galah_clusterer<'a>(
                         threads,
                         low_memory: clap_matches
                             .get_flag(&argument_definition.dereplication_low_memory_argument),
+                        both_min_af,
                         skip_sanitize_headers,
                     }),
                     _ => panic!("Programming error"),
@@ -1556,6 +1581,7 @@ pub fn generate_galah_clusterer<'a>(
                             )
                         }),
                         small_genomes,
+                        both_min_af,
                         skip_sanitize_headers,
                     }),
                     _ => panic!("Programming error"),
@@ -1776,6 +1802,10 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .action(clap::ArgAction::SetTrue)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
             .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
+        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
+            .long(&*GALAH_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
+            .help("Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. Requires the skani cluster method.")
+            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
             .long(&*GALAH_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
             .help("Skip checking/rewriting FASTA headers containing tabs before running skani, using genome paths as-is. Mainly for benchmarking against tools (e.g. skDER) which do not sanitize headers. If any input genome has a tab in a header line, skani's TSV output will be silently corrupted, so only use this when input genomes are known not to have tabs in their headers.")
