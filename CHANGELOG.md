@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- `GalahClustererCommandDefinition::galah()`, `::with_prefix(prefix)` and `Default`, for embedding galah's arguments in another tool's CLI (e.g. `--dereplication-ani` in CoverM)
+- `add_dereplication_clustering_clap_args` and `add_dereplication_output_clap_args`, building the clap arguments (including requires/conflicts rules) from a definition, so embedding tools no longer need to copy them. `cluster` and `process` now use the former
+
+### Changed
+- (Library API) `add_dereplication_filtering_parameters_to_section` now takes a `&GalahClustererCommandDefinition`
+- Help text and the `--cluster-contigs` error message now refer to other arguments by their names in the supplied definition rather than galah's own, so they are correct when arguments are prefixed. Output for `galah` itself is unchanged
+
 ## [0.6.4] - 2026-11-10
 
 ### Added
