@@ -51,36 +51,8 @@ lazy_static! {
 }
 
 lazy_static! {
-    pub static ref PROCESS_CLUSTER_COMMAND_DEFINITION: GalahClustererCommandDefinition = {
-        GalahClustererCommandDefinition {
-            dereplication_ani_argument: "ani".to_string(),
-            dereplication_prethreshold_ani_argument: "precluster-ani".to_string(),
-            dereplication_quality_formula_argument: "quality-formula".to_string(),
-            dereplication_run_checkm2_argument: "run-checkm2".to_string(),
-            dereplication_checkm2_db_path_argument: "checkm2-db-path".to_string(),
-            dereplication_precluster_method_argument: "precluster-method".to_string(),
-            dereplication_cluster_method_argument: "cluster-method".to_string(),
-            dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
-            dereplication_small_genomes_argument: "small-genomes".to_string(),
-            dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
-            dereplication_small_contigs_argument: "small-contigs".to_string(),
-            dereplication_large_contigs_argument: "large-contigs".to_string(),
-            dereplication_fraglen_argument: "fragment-length".to_string(),
-            dereplication_low_memory_argument: "low-memory".to_string(),
-            dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
-            dereplication_both_min_aligned_fraction_argument: "both-min-aligned-fraction"
-                .to_string(),
-            dereplication_reference_genomes_argument: "reference-genomes".to_string(),
-            dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
-            dereplication_skip_input_dereplication_argument: "skip-input-dereplication".to_string(),
-            dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
-            dereplication_output_representative_fasta_directory:
-                "output-representative-fasta-directory".to_string(),
-            dereplication_output_representative_fasta_directory_copy:
-                "output-representative-fasta-directory-copy".to_string(),
-            dereplication_output_representative_list: "output-representative-list".to_string(),
-        }
-    };
+    pub static ref PROCESS_CLUSTER_COMMAND_DEFINITION: GalahClustererCommandDefinition =
+        GalahClustererCommandDefinition::galah();
 }
 
 lazy_static! {
@@ -173,25 +145,6 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
 
     // Add cluster-related arguments
     process_subcommand = process_subcommand
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_ani_argument)
-            .long("ani")
-            .help("Average nucleotide identity threshold for clustering")
-            .value_parser(clap::value_parser!(f32))
-            .default_value(crate::DEFAULT_ANI))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_small_genomes_argument)
-            .long("small-genomes")
-            .help("Use small-genomes settings in skani calculation. Recommended for sequences < 20kb.")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_fraglen_argument)
-            .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_fraglen_argument)
-            .help("Length of fragment used in FastANI calculation (i.e. --fragLen)")
-            .value_parser(clap::value_parser!(u32))
-            .default_value(crate::DEFAULT_FRAGMENT_LENGTH))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_aligned_fraction_argument)
-            .long("min-aligned-fraction")
-            .help("Min aligned fraction of two genomes for clustering")
-            .value_parser(clap::value_parser!(f32))
-            .default_value(crate::DEFAULT_ALIGNED_FRACTION))
         .arg(Arg::new(&*PROCESS_ANALYSE_DEF.checkm_tab_table_argument)
             .long("checkm-tab-table")
             .help("Output of CheckM lineage_wf/taxonomy_wf/qa with --tab_table specified"))
@@ -211,80 +164,6 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
             .help("Genomes with greater than this percentage of contamination are excluded")
             .value_parser(clap::value_parser!(f32))
             .default_value("100"))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_quality_formula_argument)
-            .long("quality-formula")
-            .value_parser([
-                "completeness-4contamination",
-                "completeness-5contamination",
-                "Parks2020_reduced",
-                "dRep"])
-            .default_value(crate::DEFAULT_QUALITY_FORMULA))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_run_checkm2_argument)
-            .long("run-checkm2")
-            .help("Run CheckM2 for genome quality scoring during clustering")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*PROCESS_ANALYSE_DEF.checkm2_db_path_argument)
-            .long("checkm2-db-path")
-            .help("Path to CheckM2 database. If not specified, will use $CHECKM2DB environment variable if set."))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_prethreshold_ani_argument)
-            .long("precluster-ani")
-            .value_parser(clap::value_parser!(f32))
-            .default_value(crate::DEFAULT_PRETHRESHOLD_ANI))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_precluster_method_argument)
-            .long("precluster-method")
-            .help("method of calculating rough ANI. 'finch' for finch MinHash, 'skani' for skani")
-            .value_parser(crate::PRECLUSTER_METHODS)
-            .default_value(crate::DEFAULT_PRECLUSTER_METHOD))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_cluster_method_argument)
-            .long("cluster-method")
-            .help("method of calculating ANI. 'fastani' for FastANI, 'skani' for skani")
-            .value_parser(crate::CLUSTER_METHODS)
-            .default_value(crate::DEFAULT_CLUSTER_METHOD))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
-            .long("cluster-contigs")
-            .help("Cluster contigs within a fasta file instead of genomes. When used, either --small-contigs or --large-contigs must be specified.")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_small_contigs_argument)
-            .long("small-contigs")
-            .help("Use small-genomes settings in skani calculation when clustering contigs. Recommended for contigs < 20kb.")
-            .action(clap::ArgAction::SetTrue)
-            .requires(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_cluster_contigs_argument))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_large_contigs_argument)
-            .long("large-contigs")
-            .help("Do not use small-genomes settings in skani calculation when clustering contigs. Recommended for contigs >= 20kb.")
-            .action(clap::ArgAction::SetTrue)
-            .requires(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
-            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_small_contigs_argument))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
-            .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
-            .help("Reduce memory by sketching all genomes and searching instead of triangle")
-            .action(clap::ArgAction::SetTrue)
-            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
-            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
-            .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
-            .help("Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. Requires the skani cluster method.")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
-            .long(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
-            .help("Skip checking/rewriting FASTA headers containing tabs before running skani, using genome paths as-is. Mainly for benchmarking against tools which do not sanitize headers. If any input genome has a tab in a header line, skani's TSV output will be silently corrupted, so only use this when input genomes are known not to have tabs in their headers.")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
-            .long("reference-genomes")
-            .help("Reference genomes to cluster against. These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes.")
-            .value_delimiter(' ')
-            .num_args(1..)
-            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
-            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
-            .long("reference-genomes-list")
-            .help("File containing paths to reference genomes (one per line). These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes.")
-            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_low_memory_argument)
-            .conflicts_with(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_reference_genomes_argument))
-        .arg(Arg::new(&*PROCESS_CLUSTER_COMMAND_DEFINITION.dereplication_skip_input_dereplication_argument)
-            .long("skip-input-dereplication")
-            .help("When used with --reference-genomes/--reference-genomes-list, skip dereplicating input genomes amongst themselves first: compare every input genome directly against the reference set instead, so near-duplicate input genomes are not merged before matching (restores the behaviour prior to this flag's introduction). Has no effect unless reference genomes are given.")
-            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
@@ -448,6 +327,10 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
                 .required(false),
         );
 
+    process_subcommand = crate::cluster_argument_parsing::add_dereplication_clustering_clap_args(
+        process_subcommand,
+        &PROCESS_CLUSTER_COMMAND_DEFINITION,
+    );
     process_subcommand =
         bird_tool_utils::clap_utils::add_genome_specification_arguments(process_subcommand);
 
@@ -510,39 +393,13 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         ),
     );
 
+    let cluster_def_for_manual = GalahClustererCommandDefinition::galah();
     manual = manual.custom(
         crate::cluster_argument_parsing::add_dereplication_filtering_parameters_to_section(
             Section::new("Filtering parameters"),
+            &cluster_def_for_manual,
         ),
     );
-
-    let cluster_def_for_manual = GalahClustererCommandDefinition {
-        dereplication_ani_argument: "ani".to_string(),
-        dereplication_prethreshold_ani_argument: "precluster-ani".to_string(),
-        dereplication_quality_formula_argument: "quality-formula".to_string(),
-        dereplication_run_checkm2_argument: "run-checkm2".to_string(),
-        dereplication_checkm2_db_path_argument: "checkm2-db-path".to_string(),
-        dereplication_precluster_method_argument: "precluster-method".to_string(),
-        dereplication_cluster_method_argument: "cluster-method".to_string(),
-        dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
-        dereplication_small_genomes_argument: "small-genomes".to_string(),
-        dereplication_small_contigs_argument: "small-contigs".to_string(),
-        dereplication_large_contigs_argument: "large-contigs".to_string(),
-        dereplication_fraglen_argument: "fragment-length".to_string(),
-        dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
-        dereplication_low_memory_argument: "low-memory".to_string(),
-        dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
-        dereplication_both_min_aligned_fraction_argument: "both-min-aligned-fraction".to_string(),
-        dereplication_reference_genomes_argument: "reference-genomes".to_string(),
-        dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
-        dereplication_skip_input_dereplication_argument: "skip-input-dereplication".to_string(),
-        dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
-        dereplication_output_representative_fasta_directory:
-            "output-representative-fasta-directory".to_string(),
-        dereplication_output_representative_fasta_directory_copy:
-            "output-representative-fasta-directory-copy".to_string(),
-        dereplication_output_representative_list: "output-representative-list".to_string(),
-    };
     manual = manual.custom(
         crate::cluster_argument_parsing::add_dereplication_clustering_parameters_to_section(
             Section::new("Clustering parameters"),

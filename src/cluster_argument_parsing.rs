@@ -135,45 +135,69 @@ pub struct GalahClustererCommandDefinition {
     pub dereplication_reference_genomes_argument: String,
     pub dereplication_reference_genomes_list_argument: String,
     pub dereplication_skip_input_dereplication_argument: String,
-    // pub dereplication_ani_method_argument: String,
     pub dereplication_output_cluster_definition_file: String,
     pub dereplication_output_representative_fasta_directory: String,
     pub dereplication_output_representative_fasta_directory_copy: String,
     pub dereplication_output_representative_list: String,
 }
 
-lazy_static! {
-    static ref GALAH_COMMAND_DEFINITION: GalahClustererCommandDefinition = {
+impl GalahClustererCommandDefinition {
+    /// Galah's own argument names, e.g. `--ani`.
+    pub fn galah() -> Self {
+        Self::with_prefix("")
+    }
+
+    /// Argument names for embedding galah's clustering arguments in another
+    /// tool's CLI, with `prefix` prepended to every clustering and output
+    /// argument, e.g. `with_prefix("dereplication-")` gives
+    /// `--dereplication-ani`. Help text refers to the prefixed names.
+    ///
+    /// CheckM2 execution arguments (`--run-checkm2`, `--checkm2-db-path`) are
+    /// left unprefixed, as they are not dereplication-specific. Fields are
+    /// public so individual names can be overridden afterwards.
+    pub fn with_prefix(prefix: &str) -> Self {
+        let p = |name: &str| format!("{prefix}{name}");
         GalahClustererCommandDefinition {
-            dereplication_ani_argument: "ani".to_string(),
-            dereplication_prethreshold_ani_argument: "precluster-ani".to_string(),
-            dereplication_quality_formula_argument: "quality-formula".to_string(),
+            dereplication_ani_argument: p("ani"),
+            dereplication_prethreshold_ani_argument: p("precluster-ani"),
+            dereplication_quality_formula_argument: p("quality-formula"),
             dereplication_run_checkm2_argument: "run-checkm2".to_string(),
             dereplication_checkm2_db_path_argument: "checkm2-db-path".to_string(),
-            dereplication_precluster_method_argument: "precluster-method".to_string(),
-            dereplication_cluster_method_argument: "cluster-method".to_string(),
-            dereplication_aligned_fraction_argument: "min-aligned-fraction".to_string(),
-            dereplication_small_genomes_argument: "small-genomes".to_string(),
-            dereplication_small_contigs_argument: "small-contigs".to_string(),
-            dereplication_large_contigs_argument: "large-contigs".to_string(),
-            dereplication_fraglen_argument: "fragment-length".to_string(),
-            dereplication_cluster_contigs_argument: "cluster-contigs".to_string(),
-            dereplication_low_memory_argument: "low-memory".to_string(),
-            dereplication_skip_sanitize_headers_argument: "skip-sanitise-headers".to_string(),
-            dereplication_both_min_aligned_fraction_argument: "both-min-aligned-fraction".to_string(),
-            dereplication_reference_genomes_argument: "reference-genomes".to_string(),
-            dereplication_reference_genomes_list_argument: "reference-genomes-list".to_string(),
-            dereplication_skip_input_dereplication_argument: "skip-input-dereplication"
-                .to_string(),
-            // dereplication_ani_method_argument: "ani-method".to_string(),
-            dereplication_output_cluster_definition_file: "output-cluster-definition".to_string(),
-            dereplication_output_representative_fasta_directory:
-                "output-representative-fasta-directory".to_string(),
-            dereplication_output_representative_fasta_directory_copy:
-                "output-representative-fasta-directory-copy".to_string(),
-            dereplication_output_representative_list: "output-representative-list".to_string(),
+            dereplication_precluster_method_argument: p("precluster-method"),
+            dereplication_cluster_method_argument: p("cluster-method"),
+            dereplication_aligned_fraction_argument: p("min-aligned-fraction"),
+            dereplication_small_genomes_argument: p("small-genomes"),
+            dereplication_small_contigs_argument: p("small-contigs"),
+            dereplication_large_contigs_argument: p("large-contigs"),
+            dereplication_fraglen_argument: p("fragment-length"),
+            dereplication_cluster_contigs_argument: p("cluster-contigs"),
+            dereplication_low_memory_argument: p("low-memory"),
+            dereplication_skip_sanitize_headers_argument: p("skip-sanitise-headers"),
+            dereplication_both_min_aligned_fraction_argument: p("both-min-aligned-fraction"),
+            dereplication_reference_genomes_argument: p("reference-genomes"),
+            dereplication_reference_genomes_list_argument: p("reference-genomes-list"),
+            dereplication_skip_input_dereplication_argument: p("skip-input-dereplication"),
+            dereplication_output_cluster_definition_file: p("output-cluster-definition"),
+            dereplication_output_representative_fasta_directory: p(
+                "output-representative-fasta-directory",
+            ),
+            dereplication_output_representative_fasta_directory_copy: p(
+                "output-representative-fasta-directory-copy",
+            ),
+            dereplication_output_representative_list: p("output-representative-list"),
         }
-    };
+    }
+}
+
+impl Default for GalahClustererCommandDefinition {
+    fn default() -> Self {
+        Self::galah()
+    }
+}
+
+lazy_static! {
+    static ref GALAH_COMMAND_DEFINITION: GalahClustererCommandDefinition =
+        GalahClustererCommandDefinition::galah();
 }
 
 lazy_static! {
@@ -275,7 +299,10 @@ See {} cluster --full-help for further options and further detail.
     );
 }
 
-pub fn add_dereplication_filtering_parameters_to_section(section: Section) -> Section {
+pub fn add_dereplication_filtering_parameters_to_section(
+    section: Section,
+    definition: &GalahClustererCommandDefinition,
+) -> Section {
     section
         .option(Opt::new("PATH").long("--checkm2-quality-report").help(&format!(
             "CheckM version 2 quality_report.tsv (i.e. the {} in the output directory output of {}) for defining genome quality, \
@@ -301,15 +328,26 @@ pub fn add_dereplication_filtering_parameters_to_section(section: Section) -> Se
             "Ignore genomes with more contamination than \
         this percentage. [default: not set]",
         ))
-        .flag(Flag::new().long("--run-checkm2").help(
-            "Run CheckM2 to generate quality scoring used for clustering. Requires \
-                --checkm2-db-path or CHECKM2DB env variable to be set.",
-        ))
+        .flag(
+            Flag::new()
+                .long(&format!("--{}", definition.dereplication_run_checkm2_argument))
+                .help(&format!(
+                    "Run CheckM2 to generate quality scoring used for clustering. Requires \
+                    --{} or CHECKM2DB env variable to be set.",
+                    definition.dereplication_checkm2_db_path_argument
+                )),
+        )
         .option(
-            Opt::new("DB_PATH").long("--checkm2-db-path").help(
-                "Path to CheckM2 database (required for running CheckM2) \
-                [default: from CHECKM2DB environment variable]",
-        ))
+            Opt::new("DB_PATH")
+                .long(&format!(
+                    "--{}",
+                    definition.dereplication_checkm2_db_path_argument
+                ))
+                .help(
+                    "Path to CheckM2 database (required for running CheckM2) \
+                    [default: from CHECKM2DB environment variable]",
+                ),
+        )
 }
 
 pub fn add_dereplication_clustering_parameters_to_section(
@@ -421,8 +459,10 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_cluster_contigs_argument
                 ))
-                .help("Cluster contigs within a fasta file instead of genomes. \
-                When used, either --small-contigs or --large-contigs must be specified."),
+                .help(&format!("Cluster contigs within a fasta file instead of genomes. \
+                When used, either --{} or --{} must be specified.",
+                    definition.dereplication_small_contigs_argument,
+                    definition.dereplication_large_contigs_argument)),
         )
         .flag(
             Flag::new()
@@ -430,8 +470,9 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_small_contigs_argument
                 ))
-                .help("Use small-genomes settings in skani when clustering contigs. \
-                Recommended for contigs < 20kb. Mutually exclusive with --large-contigs."),
+                .help(&format!("Use small-genomes settings in skani when clustering contigs. \
+                Recommended for contigs < 20kb. Mutually exclusive with --{}.",
+                    definition.dereplication_large_contigs_argument)),
         )
         .flag(
             Flag::new()
@@ -439,8 +480,9 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_large_contigs_argument
                 ))
-                .help("Do not use small-genomes settings in skani when clustering contigs. \
-                Recommended for contigs >= 20kb. Mutually exclusive with --small-contigs."),
+                .help(&format!("Do not use small-genomes settings in skani when clustering contigs. \
+                Recommended for contigs >= 20kb. Mutually exclusive with --{}.",
+                    definition.dereplication_small_contigs_argument)),
         )
         .flag(
             Flag::new()
@@ -453,11 +495,12 @@ pub fn add_dereplication_clustering_parameters_to_section(
         .flag(
             Flag::new()
                 .long(&format!("--{}", definition.dereplication_both_min_aligned_fraction_argument))
-                .help(
-                    "Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. \
+                .help(&format!(
+                    "Require --{} to be met by both genomes (skani --both-min-af) rather than either. \
                     Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. \
                     Requires the skani cluster method.",
-                ),
+                    definition.dereplication_aligned_fraction_argument
+                )),
         )
         .flag(
             Flag::new()
@@ -480,14 +523,11 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_reference_genomes_argument
                 ))
-                .help("Reference genomes to cluster against. These should be pre-clustered at the chosen %ANI - \
-                reference-vs-reference comparisons are never made, so this is not checked. Input genomes \
-                (--genome-fasta-files etc.) are dereplicated amongst themselves first, as if no reference \
-                genomes were given at all, and only the resulting representative(s) are then compared against \
-                these reference genomes - so input genomes do not need to be pre-dereplicated beforehand. \
-                If quality is provided for representative selection, values for these genomes must also be provided. \
-                Genomes within the precluster ANI cutoff of each reference will be placed in the same precluster. \
-                Mutually exclusive with --reference-genomes-list."),
+                .help(&format!(
+                    "Reference genomes to cluster against. {} Mutually exclusive with --{}.",
+                    reference_genomes_common_help(),
+                    definition.dereplication_reference_genomes_list_argument
+                )),
         )
         .option(
             Opt::new("PATH")
@@ -495,14 +535,11 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_reference_genomes_list_argument
                 ))
-                .help("File containing paths to reference genomes (one per line). These should be pre-clustered at the chosen %ANI - \
-                reference-vs-reference comparisons are never made, so this is not checked. Input genomes \
-                (--genome-fasta-files etc.) are dereplicated amongst themselves first, as if no reference \
-                genomes were given at all, and only the resulting representative(s) are then compared against \
-                these reference genomes - so input genomes do not need to be pre-dereplicated beforehand. \
-                If quality is provided for representative selection, values for these genomes must also be provided. \
-                Genomes within the precluster ANI cutoff of each reference will be placed in the same precluster. \
-                Mutually exclusive with --reference-genomes."),
+                .help(&format!(
+                    "File containing paths to reference genomes (one per line). {} Mutually exclusive with --{}.",
+                    reference_genomes_common_help(),
+                    definition.dereplication_reference_genomes_argument
+                )),
         )
         .flag(
             Flag::new()
@@ -510,14 +547,27 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_skip_input_dereplication_argument
                 ))
-                .help(
-                    "When used with --reference-genomes/--reference-genomes-list, skip dereplicating \
+                .help(&format!(
+                    "When used with --{}/--{}, skip dereplicating \
                     input genomes amongst themselves first: compare every input genome directly against \
                     the reference set instead, so near-duplicate input genomes are not merged before \
                     matching (restores the behaviour prior to this flag's introduction). Has no effect \
                     unless reference genomes are given.",
-                ),
+                    definition.dereplication_reference_genomes_argument,
+                    definition.dereplication_reference_genomes_list_argument
+                )),
         )
+}
+
+/// Help text shared by the reference genome options.
+fn reference_genomes_common_help() -> &'static str {
+    "These should be pre-clustered at the chosen %ANI - \
+    reference-vs-reference comparisons are never made, so this is not checked. Input genomes \
+    (--genome-fasta-files etc.) are dereplicated amongst themselves first, as if no reference \
+    genomes were given at all, and only the resulting representative(s) are then compared against \
+    these reference genomes - so input genomes do not need to be pre-dereplicated beforehand. \
+    If quality is provided for representative selection, values for these genomes must also be provided. \
+    Genomes within the precluster ANI cutoff of each reference will be placed in the same precluster."
 }
 
 pub fn add_dereplication_output_parameters_to_section(
@@ -1656,6 +1706,7 @@ pub fn cluster_full_help(program_basename: &str, program_version: &str) -> Manua
     // filtering
     manual = manual.custom(add_dereplication_filtering_parameters_to_section(
         Section::new("Filtering parameters"),
+        &GALAH_COMMAND_DEFINITION,
     ));
 
     // clustering
@@ -1708,31 +1759,152 @@ pub fn cluster_full_help(program_basename: &str, program_version: &str) -> Manua
     manual
 }
 
+/// Add galah's clustering arguments to a clap command, named according to
+/// `definition` (use `GalahClustererCommandDefinition::with_prefix` to embed
+/// them in another tool's CLI). Includes the CheckM2 execution arguments but
+/// not genome quality file/filter arguments (`--checkm2-quality-report`,
+/// `--min-completeness` etc.), which are not prefixed and which embedding tools
+/// may want to constrain differently.
+///
+/// Argument ids and long names both come from `definition`, so
+/// `ArgMatches` lookups via the definition work for any prefix. `definition`
+/// must be `'static` (e.g. held in a `lazy_static`) as clap argument names are
+/// `&'static str`.
+pub fn add_dereplication_clustering_clap_args(
+    command: clap::Command,
+    definition: &'static GalahClustererCommandDefinition,
+) -> clap::Command {
+    let d = definition;
+    let f = |name: &str| format!("--{name}");
+    command
+        .arg(Arg::new(d.dereplication_ani_argument.as_str())
+            .long(d.dereplication_ani_argument.as_str())
+            .help("Average nucleotide identity threshold for clustering")
+            .value_parser(clap::value_parser!(f32))
+            .default_value(crate::DEFAULT_ANI))
+        .arg(Arg::new(d.dereplication_small_genomes_argument.as_str())
+            .long(d.dereplication_small_genomes_argument.as_str())
+            .help("Use small-genomes settings in skani calculation. Recommended for sequences < 20kb.")
+            .action(clap::ArgAction::SetTrue))
+        .arg(Arg::new(d.dereplication_fraglen_argument.as_str())
+            .long(d.dereplication_fraglen_argument.as_str())
+            .help("Length of fragment used in FastANI calculation (i.e. --fragLen)")
+            .value_parser(clap::value_parser!(u32))
+            .default_value(crate::DEFAULT_FRAGMENT_LENGTH))
+        .arg(Arg::new(d.dereplication_aligned_fraction_argument.as_str())
+            .long(d.dereplication_aligned_fraction_argument.as_str())
+            .help("Min aligned fraction of two genomes for clustering. Specify as a percentage (1-100) or a fraction (0-1)")
+            .value_parser(clap::value_parser!(f32))
+            .default_value(crate::DEFAULT_ALIGNED_FRACTION))
+        .arg(Arg::new(d.dereplication_quality_formula_argument.as_str())
+            .long(d.dereplication_quality_formula_argument.as_str())
+            .value_parser([
+                "completeness-4contamination",
+                "completeness-5contamination",
+                "Parks2020_reduced",
+                "dRep"])
+            .default_value(crate::DEFAULT_QUALITY_FORMULA))
+        .arg(Arg::new(d.dereplication_run_checkm2_argument.as_str())
+            .long(d.dereplication_run_checkm2_argument.as_str())
+            .help("Run CheckM2 for genome quality scoring during clustering")
+            .action(clap::ArgAction::SetTrue))
+        .arg(Arg::new(d.dereplication_checkm2_db_path_argument.as_str())
+            .long(d.dereplication_checkm2_db_path_argument.as_str())
+            .help("Path to CheckM2 database. If not specified, will use $CHECKM2DB environment variable if set."))
+        .arg(Arg::new(d.dereplication_prethreshold_ani_argument.as_str())
+            .long(d.dereplication_prethreshold_ani_argument.as_str())
+            .value_parser(clap::value_parser!(f32))
+            .default_value(crate::DEFAULT_PRETHRESHOLD_ANI))
+        .arg(Arg::new(d.dereplication_precluster_method_argument.as_str())
+            .long(d.dereplication_precluster_method_argument.as_str())
+            .help("method of calculating rough ANI. 'finch' for finch MinHash, 'skani' for skani")
+            .value_parser(crate::PRECLUSTER_METHODS)
+            .default_value(crate::DEFAULT_PRECLUSTER_METHOD))
+        .arg(Arg::new(d.dereplication_cluster_method_argument.as_str())
+            .long(d.dereplication_cluster_method_argument.as_str())
+            .help("method of calculating ANI. 'fastani' for FastANI, 'skani' for skani")
+            .value_parser(crate::CLUSTER_METHODS)
+            .default_value(crate::DEFAULT_CLUSTER_METHOD))
+        .arg(Arg::new(d.dereplication_cluster_contigs_argument.as_str())
+            .long(d.dereplication_cluster_contigs_argument.as_str())
+            .help(format!("Cluster contigs within a fasta file instead of genomes. When used, either {} or {} must be specified.",
+                f(&d.dereplication_small_contigs_argument), f(&d.dereplication_large_contigs_argument)))
+            .action(clap::ArgAction::SetTrue))
+        .arg(Arg::new(d.dereplication_small_contigs_argument.as_str())
+            .long(d.dereplication_small_contigs_argument.as_str())
+            .help("Use small-genomes settings in skani calculation when clustering contigs. Recommended for contigs < 20kb.")
+            .action(clap::ArgAction::SetTrue)
+            .requires(d.dereplication_cluster_contigs_argument.as_str()))
+        .arg(Arg::new(d.dereplication_large_contigs_argument.as_str())
+            .long(d.dereplication_large_contigs_argument.as_str())
+            .help("Do not use small-genomes settings in skani calculation when clustering contigs. Recommended for contigs >= 20kb.")
+            .action(clap::ArgAction::SetTrue)
+            .requires(d.dereplication_cluster_contigs_argument.as_str())
+            .conflicts_with(d.dereplication_small_contigs_argument.as_str()))
+        .arg(Arg::new(d.dereplication_low_memory_argument.as_str())
+            .long(d.dereplication_low_memory_argument.as_str())
+            .help("Reduce memory by sketching all genomes and searching instead of triangle")
+            .action(clap::ArgAction::SetTrue)
+            .conflicts_with(d.dereplication_reference_genomes_argument.as_str())
+            .conflicts_with(d.dereplication_reference_genomes_list_argument.as_str()))
+        .arg(Arg::new(d.dereplication_both_min_aligned_fraction_argument.as_str())
+            .long(d.dereplication_both_min_aligned_fraction_argument.as_str())
+            .help(format!("Require {} to be met by both genomes (skani --both-min-af) rather than either. Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. Requires the skani cluster method.",
+                f(&d.dereplication_aligned_fraction_argument)))
+            .action(clap::ArgAction::SetTrue))
+        .arg(Arg::new(d.dereplication_skip_sanitize_headers_argument.as_str())
+            .long(d.dereplication_skip_sanitize_headers_argument.as_str())
+            .help("Skip checking/rewriting FASTA headers containing tabs before running skani, using genome paths as-is. Mainly for benchmarking against tools (e.g. skDER) which do not sanitize headers. If any input genome has a tab in a header line, skani's TSV output will be silently corrupted, so only use this when input genomes are known not to have tabs in their headers.")
+            .action(clap::ArgAction::SetTrue))
+        .arg(Arg::new(d.dereplication_reference_genomes_argument.as_str())
+            .long(d.dereplication_reference_genomes_argument.as_str())
+            .help("Reference genomes to cluster against. These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes - so input genomes do not need to be pre-dereplicated. Uses less memory and time than clustering everything together.")
+            .value_delimiter(' ')
+            .num_args(1..)
+            .conflicts_with(d.dereplication_low_memory_argument.as_str())
+            .conflicts_with(d.dereplication_reference_genomes_list_argument.as_str()))
+        .arg(Arg::new(d.dereplication_reference_genomes_list_argument.as_str())
+            .long(d.dereplication_reference_genomes_list_argument.as_str())
+            .help("File containing paths to reference genomes (one per line). These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes - so input genomes do not need to be pre-dereplicated. Uses less memory and time than clustering everything together.")
+            .conflicts_with(d.dereplication_low_memory_argument.as_str())
+            .conflicts_with(d.dereplication_reference_genomes_argument.as_str()))
+        .arg(Arg::new(d.dereplication_skip_input_dereplication_argument.as_str())
+            .long(d.dereplication_skip_input_dereplication_argument.as_str())
+            .help(format!("When used with {}/{}, skip dereplicating input genomes amongst themselves first: compare every input genome directly against the reference set instead, so near-duplicate input genomes are not merged before matching (restores the behaviour prior to this flag's introduction). Has no effect unless reference genomes are given.",
+                f(&d.dereplication_reference_genomes_argument), f(&d.dereplication_reference_genomes_list_argument)))
+            .action(clap::ArgAction::SetTrue))
+}
+
+/// Add galah's output arguments (cluster definition file, representative
+/// directory/copy/list) to a clap command, named according to `definition`.
+/// No `required_unless_present` constraints are applied, as the embedding
+/// command decides when output is required.
+pub fn add_dereplication_output_clap_args(
+    command: clap::Command,
+    definition: &'static GalahClustererCommandDefinition,
+) -> clap::Command {
+    let d = definition;
+    command
+        .arg(Arg::new(d.dereplication_output_cluster_definition_file.as_str())
+            .long(d.dereplication_output_cluster_definition_file.as_str())
+            .help("Output a file of representative<TAB>member lines. Genomes that do not cluster with any other genome are listed as their own representative"))
+        .arg(Arg::new(d.dereplication_output_representative_fasta_directory.as_str())
+            .long(d.dereplication_output_representative_fasta_directory.as_str())
+            .help("Symlink representative genomes into this directory"))
+        .arg(Arg::new(d.dereplication_output_representative_fasta_directory_copy.as_str())
+            .long(d.dereplication_output_representative_fasta_directory_copy.as_str())
+            .help("Copy representative genomes into this directory"))
+        .arg(Arg::new(d.dereplication_output_representative_list.as_str())
+            .long(d.dereplication_output_representative_list.as_str())
+            .help("Print newline separated list of paths to representatives into this file"))
+}
+
 pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
     let mut cluster_subcommand = add_clap_verbosity_flags(Command::new("cluster"))
         .about("Cluster FASTA files by average nucleotide identity")
         .override_help(CLUSTER_HELP.as_str())
         .arg(Arg::new("full-help").long("full-help").action(clap::ArgAction::SetTrue))
         .arg(Arg::new("full-help-roff").long("full-help-roff").action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_ani_argument)
-            .long("ani")
-            .help("Average nucleotide identity threshold for clustering")
-            .value_parser(clap::value_parser!(f32))
-            .default_value(crate::DEFAULT_ANI))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_small_genomes_argument)
-            .long("small-genomes")
-            .help("Use small-genomes settings in skani calculation. Recommended for sequences < 20kb.")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_fraglen_argument)
-            .long(&*GALAH_COMMAND_DEFINITION.dereplication_fraglen_argument)
-            .help("Length of fragment used in FastANI calculation (i.e. --fragLen)")
-            .value_parser(clap::value_parser!(u32))
-            .default_value(crate::DEFAULT_FRAGMENT_LENGTH))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_aligned_fraction_argument)
-            .long("min-aligned-fraction")
-            .help("Min aligned fraction of two genomes for clustering. Specify as a percentage (1-100) or a fraction (0-1)")
-            .value_parser(clap::value_parser!(f32))
-            .default_value(crate::DEFAULT_ALIGNED_FRACTION))
         .arg(Arg::new("checkm-tab-table")
             .long("checkm-tab-table")
             .help("Output of CheckM lineage_wf/taxonomy_wf/qa with --tab_table specified"))
@@ -1752,80 +1924,6 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
             .help("Genomes with greater than this percentage of contamination are excluded")
             .value_parser(clap::value_parser!(f32))
             .default_value("100"))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_quality_formula_argument)
-            .long("quality-formula")
-            .value_parser([
-                "completeness-4contamination",
-                "completeness-5contamination",
-                "Parks2020_reduced",
-                "dRep"])
-            .default_value(crate::DEFAULT_QUALITY_FORMULA))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_run_checkm2_argument)
-            .long("run-checkm2")
-            .help("Run CheckM2 for genome quality scoring during clustering")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_checkm2_db_path_argument)
-            .long("checkm2-db-path")
-            .help("Path to CheckM2 database. If not specified, will use $CHECKM2DB environment variable if set."))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_prethreshold_ani_argument)
-            .long("precluster-ani")
-            .value_parser(clap::value_parser!(f32))
-            .default_value(crate::DEFAULT_PRETHRESHOLD_ANI))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_precluster_method_argument)
-            .long("precluster-method")
-            .help("method of calculating rough ANI. 'finch' for finch MinHash, 'skani' for skani")
-            .value_parser(crate::PRECLUSTER_METHODS)
-            .default_value(crate::DEFAULT_PRECLUSTER_METHOD))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_method_argument)
-            .long("cluster-method")
-            .help("method of calculating ANI. 'fastani' for FastANI, 'skani' for skani")
-            .value_parser(crate::CLUSTER_METHODS)
-            .default_value(crate::DEFAULT_CLUSTER_METHOD))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
-            .long("cluster-contigs")
-            .help("Cluster contigs within a fasta file instead of genomes. When used, either --small-contigs or --large-contigs must be specified.")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_small_contigs_argument)
-            .long("small-contigs")
-            .help("Use small-genomes settings in skani calculation when clustering contigs. Recommended for contigs < 20kb.")
-            .action(clap::ArgAction::SetTrue)
-            .requires(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_large_contigs_argument)
-            .long("large-contigs")
-            .help("Do not use small-genomes settings in skani calculation when clustering contigs. Recommended for contigs >= 20kb.")
-            .action(clap::ArgAction::SetTrue)
-            .requires(&*GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument)
-            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_small_contigs_argument))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_low_memory_argument)
-            .long(&*GALAH_COMMAND_DEFINITION.dereplication_low_memory_argument)
-            .help("Reduce memory by sketching all genomes and searching instead of triangle")
-            .action(clap::ArgAction::SetTrue)
-            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
-            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
-            .long(&*GALAH_COMMAND_DEFINITION.dereplication_both_min_aligned_fraction_argument)
-            .help("Require --min-aligned-fraction to be met by both genomes (skani --both-min-af) rather than either. Useful for e.g. plasmids, to avoid clustering a small sequence with a much larger one that contains it. Requires the skani cluster method.")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
-            .long(&*GALAH_COMMAND_DEFINITION.dereplication_skip_sanitize_headers_argument)
-            .help("Skip checking/rewriting FASTA headers containing tabs before running skani, using genome paths as-is. Mainly for benchmarking against tools (e.g. skDER) which do not sanitize headers. If any input genome has a tab in a header line, skani's TSV output will be silently corrupted, so only use this when input genomes are known not to have tabs in their headers.")
-            .action(clap::ArgAction::SetTrue))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument)
-            .long("reference-genomes")
-            .help("Reference genomes to cluster against. These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes - so input genomes do not need to be pre-dereplicated. Uses less memory and time than clustering everything together.")
-            .value_delimiter(' ')
-            .num_args(1..)
-            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_low_memory_argument)
-            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_list_argument)
-            .long("reference-genomes-list")
-            .help("File containing paths to reference genomes (one per line). These should already be dereplicated amongst themselves. Input genomes are dereplicated amongst themselves first, then only the resulting representative(s) are compared against these reference genomes - so input genomes do not need to be pre-dereplicated. Uses less memory and time than clustering everything together.")
-            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_low_memory_argument)
-            .conflicts_with(&*GALAH_COMMAND_DEFINITION.dereplication_reference_genomes_argument))
-        .arg(Arg::new(&*GALAH_COMMAND_DEFINITION.dereplication_skip_input_dereplication_argument)
-            .long("skip-input-dereplication")
-            .help("When used with --reference-genomes/--reference-genomes-list, skip dereplicating input genomes amongst themselves first: compare every input genome directly against the reference set instead, so near-duplicate input genomes are not merged before matching (restores the behaviour prior to this flag's introduction). Has no effect unless reference genomes are given.")
-            .action(clap::ArgAction::SetTrue))
         .arg(Arg::new("threads")
             .short('t')
             .long("threads")
@@ -1871,6 +1969,8 @@ pub fn add_cluster_subcommand(app: clap::Command) -> clap::Command {
                 "full-help-roff",]));
 
     cluster_subcommand =
+        add_dereplication_clustering_clap_args(cluster_subcommand, &GALAH_COMMAND_DEFINITION);
+    cluster_subcommand =
         bird_tool_utils::clap_utils::add_genome_specification_arguments(cluster_subcommand);
 
     app.subcommand(cluster_subcommand)
@@ -1892,11 +1992,226 @@ fn determine_small_genomes_setting(
         match (small_contigs, large_contigs) {
             (true, false) => Ok(true),
             (false, true) => Ok(false),
-            (false, false) => Err("When --cluster-contigs is used, either --small-contigs or --large-contigs must be specified".to_string()),
-            (true, true) => unreachable!("clap should prevent both flags from being set due to conflicts_with"),
+            (false, false) => Err(format!(
+                "When --{} is used, either --{} or --{} must be specified",
+                argument_definition.dereplication_cluster_contigs_argument,
+                argument_definition.dereplication_small_contigs_argument,
+                argument_definition.dereplication_large_contigs_argument
+            )),
+            (true, true) => {
+                unreachable!("clap should prevent both flags from being set due to conflicts_with")
+            }
         }
     } else {
         // When not clustering contigs, use the regular --small-genomes flag
         Ok(clap_matches.get_flag(&argument_definition.dereplication_small_genomes_argument))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    lazy_static! {
+        static ref PREFIXED: GalahClustererCommandDefinition =
+            GalahClustererCommandDefinition::with_prefix("dereplication-");
+    }
+
+    /// Names that `with_prefix` changes, in their unprefixed (galah) form.
+    fn prefixed_galah_names() -> Vec<String> {
+        let g = GalahClustererCommandDefinition::galah();
+        vec![
+            g.dereplication_ani_argument,
+            g.dereplication_prethreshold_ani_argument,
+            g.dereplication_quality_formula_argument,
+            g.dereplication_precluster_method_argument,
+            g.dereplication_cluster_method_argument,
+            g.dereplication_aligned_fraction_argument,
+            g.dereplication_small_genomes_argument,
+            g.dereplication_small_contigs_argument,
+            g.dereplication_large_contigs_argument,
+            g.dereplication_fraglen_argument,
+            g.dereplication_cluster_contigs_argument,
+            g.dereplication_low_memory_argument,
+            g.dereplication_skip_sanitize_headers_argument,
+            g.dereplication_both_min_aligned_fraction_argument,
+            g.dereplication_reference_genomes_argument,
+            g.dereplication_reference_genomes_list_argument,
+            g.dereplication_skip_input_dereplication_argument,
+            g.dereplication_output_cluster_definition_file,
+            g.dereplication_output_representative_fasta_directory,
+            g.dereplication_output_representative_fasta_directory_copy,
+            g.dereplication_output_representative_list,
+        ]
+    }
+
+    fn rendered_sections(definition: &GalahClustererCommandDefinition) -> String {
+        let manual = Manual::new("test")
+            .about("test")
+            .author(Author::new("test"))
+            .custom(add_dereplication_filtering_parameters_to_section(
+                Section::new("Filtering"),
+                definition,
+            ))
+            .custom(add_dereplication_clustering_parameters_to_section(
+                Section::new("Clustering"),
+                definition,
+            ))
+            .custom(add_dereplication_output_parameters_to_section(
+                Section::new("Output"),
+                definition,
+            ));
+        // ROFF escapes hyphens
+        manual.render().replace("\\-", "-")
+    }
+
+    #[test]
+    fn test_with_prefix_empty_is_galah() {
+        let g = GalahClustererCommandDefinition::galah();
+        assert_eq!(g.dereplication_ani_argument, "ani");
+        assert_eq!(g.dereplication_prethreshold_ani_argument, "precluster-ani");
+        assert_eq!(
+            g.dereplication_skip_sanitize_headers_argument,
+            "skip-sanitise-headers"
+        );
+    }
+
+    #[test]
+    fn test_with_prefix_names() {
+        let d = &*PREFIXED;
+        assert_eq!(d.dereplication_ani_argument, "dereplication-ani");
+        assert_eq!(
+            d.dereplication_prethreshold_ani_argument,
+            "dereplication-precluster-ani"
+        );
+        // CheckM2 execution arguments are not prefixed
+        assert_eq!(d.dereplication_run_checkm2_argument, "run-checkm2");
+        assert_eq!(d.dereplication_checkm2_db_path_argument, "checkm2-db-path");
+    }
+
+    #[test]
+    fn test_help_text_uses_prefixed_names() {
+        let text = rendered_sections(&PREFIXED);
+        for name in prefixed_galah_names() {
+            let bare = format!("--{name}");
+            assert!(
+                !text.contains(&bare),
+                "help text refers to unprefixed {}",
+                bare
+            );
+        }
+        // And the prefixed cross-references are present
+        for expected in [
+            "--dereplication-small-contigs or --dereplication-large-contigs",
+            "--dereplication-reference-genomes-list",
+            "--dereplication-min-aligned-fraction",
+        ] {
+            assert!(text.contains(expected), "missing {}", expected);
+        }
+    }
+
+    #[test]
+    fn test_help_text_galah_names_unchanged() {
+        let text = rendered_sections(&GalahClustererCommandDefinition::galah());
+        assert!(text.contains("--small-contigs or --large-contigs"));
+        assert!(text.contains("--min-aligned-fraction"));
+        assert!(!text.contains("--dereplication-"));
+    }
+
+    #[test]
+    fn test_help_text_custom_checkm2_names() {
+        let mut d = GalahClustererCommandDefinition::with_prefix("x-");
+        d.dereplication_checkm2_db_path_argument = "my-db".to_string();
+        let text = rendered_sections(&d);
+        assert!(text.contains("--my-db or CHECKM2DB"));
+    }
+
+    #[test]
+    fn test_small_genomes_error_uses_definition_names() {
+        let cmd = add_dereplication_clustering_clap_args(Command::new("t"), &PREFIXED);
+        let m = cmd
+            .try_get_matches_from(["t", "--dereplication-cluster-contigs"])
+            .unwrap();
+        let err = determine_small_genomes_setting(&m, &PREFIXED, true).unwrap_err();
+        assert!(err.contains("--dereplication-cluster-contigs"));
+        assert!(err.contains("--dereplication-small-contigs"));
+    }
+
+    #[test]
+    fn test_clap_args_prefixed() {
+        let cmd = add_dereplication_output_clap_args(
+            add_dereplication_clustering_clap_args(Command::new("t"), &PREFIXED),
+            &PREFIXED,
+        );
+        cmd.clone().debug_assert();
+        let m = cmd
+            .try_get_matches_from([
+                "t",
+                "--dereplication-ani",
+                "97",
+                "--dereplication-reference-genomes",
+                "a.fna",
+                "b.fna",
+                "--dereplication-output-cluster-definition",
+                "out.tsv",
+            ])
+            .unwrap();
+        assert_eq!(
+            *m.get_one::<f32>(&PREFIXED.dereplication_ani_argument)
+                .unwrap(),
+            97.0
+        );
+        assert_eq!(
+            m.get_many::<String>(&PREFIXED.dereplication_reference_genomes_argument)
+                .unwrap()
+                .count(),
+            2
+        );
+        assert!(m.contains_id(&PREFIXED.dereplication_output_cluster_definition_file));
+        // Unprefixed names must not be accepted
+        assert!(
+            add_dereplication_clustering_clap_args(Command::new("t"), &PREFIXED)
+                .try_get_matches_from(["t", "--ani", "97"])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn test_clap_arg_relations_prefixed() {
+        let build = || add_dereplication_clustering_clap_args(Command::new("t"), &PREFIXED);
+        // small-contigs requires cluster-contigs
+        assert!(build()
+            .try_get_matches_from(["t", "--dereplication-small-contigs"])
+            .is_err());
+        // small and large contigs conflict
+        assert!(build()
+            .try_get_matches_from([
+                "t",
+                "--dereplication-cluster-contigs",
+                "--dereplication-small-contigs",
+                "--dereplication-large-contigs"
+            ])
+            .is_err());
+        // low-memory conflicts with reference genomes
+        assert!(build()
+            .try_get_matches_from([
+                "t",
+                "--dereplication-low-memory",
+                "--dereplication-reference-genomes-list",
+                "x"
+            ])
+            .is_err());
+    }
+
+    #[test]
+    fn test_clap_args_galah_defaults() {
+        let m =
+            add_dereplication_clustering_clap_args(Command::new("t"), &GALAH_COMMAND_DEFINITION)
+                .try_get_matches_from(["t"])
+                .unwrap();
+        assert_eq!(
+            m.get_one::<String>("precluster-method").unwrap(),
+            crate::DEFAULT_PRECLUSTER_METHOD
+        );
     }
 }
