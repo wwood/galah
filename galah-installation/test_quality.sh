@@ -40,8 +40,8 @@ GENOMES="$DATA/GCF_002008365.1_genomic.fna.gz $DATA/GCA_003139855.1_genomic.fna.
 check_mimag() {
     local f=$1
     [ "$(wc -l < "$f")" -eq 4 ] || { echo "FAIL: $f should have header + 3 genomes"; exit 1; }
-    grep -P 'GCF_002008365.1\tBacteria\t' "$f" >/dev/null || { echo "FAIL: GCF_002008365.1 not Bacteria"; exit 1; }
-    grep -P 'GCA_003139855.1\tArchaea\t' "$f" >/dev/null || { echo "FAIL: GCA_003139855.1 not Archaea"; exit 1; }
+    grep -P 'GCF_002008365.1\S*\tBacteria\t' "$f" >/dev/null || { echo "FAIL: GCF_002008365.1 not Bacteria"; exit 1; }
+    grep -P 'GCA_003139855.1\S*\tArchaea\t' "$f" >/dev/null || { echo "FAIL: GCA_003139855.1 not Archaea"; exit 1; }
     grep -P 'binchicken_co8412\S*\tEukaryota\t' "$f" >/dev/null || { echo "FAIL: euk genome not Eukaryota"; exit 1; }
 }
 
