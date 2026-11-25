@@ -185,6 +185,9 @@ pub const DEFAULT_FRAGMENT_LENGTH: &str = "3000";
 pub const DEFAULT_ANI: &str = "95";
 pub const DEFAULT_PRETHRESHOLD_ANI: &str = "90";
 pub const DEFAULT_QUALITY_FORMULA: &str = "Parks2020_reduced";
+/// Like Parks2020_reduced, but MIMAG High quality genomes always rank above the rest. Needs
+/// MIMAG tiers from the analyse step, so it is only usable from `galah process`.
+pub const HQ_PREFERRED_QUALITY_FORMULA: &str = "Parks2020_reduced_hqpreferred";
 pub const DEFAULT_PRECLUSTER_METHOD: &str = "skani";
 pub const PRECLUSTER_METHODS: [&str; 2] = ["skani", "finch"];
 pub const DEFAULT_CLUSTER_METHOD: &str = "skani";

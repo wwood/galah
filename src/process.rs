@@ -59,6 +59,23 @@ pub fn process_command(
         std::process::exit(1);
     }
 
+    // Reference genomes are not run through analyse, so have no MIMAG tier to rank on. Check
+    // before running analyse so the user isn't left waiting for an error.
+    let quality_formula = cluster_args
+        .get_one::<String>(&cluster_def.dereplication_quality_formula_argument)
+        .map(|s| s.as_str())
+        .unwrap_or(crate::DEFAULT_QUALITY_FORMULA);
+    if quality_formula == crate::HQ_PREFERRED_QUALITY_FORMULA
+        && (cluster_args.contains_id(&cluster_def.dereplication_reference_genomes_argument)
+            || cluster_args.contains_id(&cluster_def.dereplication_reference_genomes_list_argument))
+    {
+        eprintln!(
+            "Error: {}",
+            cluster_argument_parsing::hq_preferred_unavailable_message(cluster_def)
+        );
+        std::process::exit(1);
+    }
+
     // Quality analyser (CheckM2) input directly or with DB path from arg or env
     let checkm2_quality_report = cluster_args
         .get_one::<String>(&process_analyse_def.checkm2_quality_report_argument)
@@ -132,7 +149,7 @@ pub fn process_command(
         .map(|s| s.to_string());
 
     // Run analyse
-    let analysis = crate::analyse::analyse(
+    let mut analysis = crate::analyse::analyse(
         genomes,
         threads,
         &mut quality_finder,
@@ -257,9 +274,17 @@ pub fn process_command(
             .expect("Failed to flush combined quality report");
         let path = combined_quality_file.path().to_string_lossy().into_owned();
         _combined_quality_guard = Some(combined_quality_file);
-        Some(cluster_argument_parsing::InjectedQualityReport::GenomeInfo(
-            path,
-        ))
+        let high_quality_genomes = analysis
+            .iter()
+            .filter(|(_, outputs)| outputs.iter().any(is_high_quality))
+            .map(|(genome_path, _)| genome_path.clone())
+            .collect();
+        Some(
+            cluster_argument_parsing::InjectedQualityReport::GenomeInfoWithMimag {
+                path,
+                high_quality_genomes,
+            },
+        )
     } else {
         output_quality_report_path
             .clone()
@@ -286,5 +311,232 @@ pub fn process_command(
     let clusters = galah.cluster();
     info!("Found {} genome clusters", clusters.len());
 
+    flag_non_high_quality_representatives(
+        &mut analysis,
+        &clusters,
+        &passed_genomes_owned,
+        quality_formula,
+        &cluster_def.dereplication_quality_formula_argument,
+    );
+
     Ok((analysis, clusters, passed_genomes_owned))
+}
+
+fn is_high_quality(output: &GenomeOutput) -> bool {
+    output.mimag_quality == "High quality"
+}
+
+fn append_note(output: &mut GenomeOutput, note: String) {
+    if output.notes.is_empty() {
+        output.notes = note;
+    } else {
+        output.notes = format!("{}; {}", output.notes, note);
+    }
+}
+
+/// Find clusters whose representative is not MIMAG High quality even though one or more of its
+/// members is, record this in the notes of the affected genomes, and warn. Genomes without an
+/// analyse row (e.g. reference genomes) are skipped, since their MIMAG tier is unknown.
+fn flag_non_high_quality_representatives(
+    analysis: &mut HashMap<String, Vec<GenomeOutput>>,
+    clusters: &[Vec<usize>],
+    passed_genomes: &[String],
+    quality_formula: &str,
+    quality_formula_argument: &str,
+) -> usize {
+    let hq_preferred = quality_formula == crate::HQ_PREFERRED_QUALITY_FORMULA;
+    let mut num_affected_clusters = 0;
+    let mut example: Option<(String, String, String)> = None;
+
+    for cluster in clusters {
+        let rep = &passed_genomes[cluster[0]];
+        let rep_quality = match analysis.get(rep).and_then(|o| o.first()) {
+            Some(o) if !is_high_quality(o) => o.mimag_quality.clone(),
+            _ => continue,
+        };
+        let hq_members: Vec<&String> = cluster[1..]
+            .iter()
+            .map(|i| &passed_genomes[*i])
+            .filter(|g| {
+                analysis
+                    .get(*g)
+                    .and_then(|o| o.first())
+                    .is_some_and(is_high_quality)
+            })
+            .collect();
+        if hq_members.is_empty() {
+            continue;
+        }
+
+        num_affected_clusters += 1;
+        if example.is_none() {
+            example = Some((rep.clone(), rep_quality.clone(), hq_members[0].clone()));
+        }
+
+        let suggestion = if hq_preferred {
+            String::new()
+        } else {
+            format!(
+                "; use --{} {} to prefer High quality representatives",
+                quality_formula_argument,
+                crate::HQ_PREFERRED_QUALITY_FORMULA
+            )
+        };
+        let rep_note = format!(
+            "{} cluster representative chosen over High quality genome(s) {}{}",
+            rep_quality,
+            hq_members
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(","),
+            suggestion
+        );
+        let member_note = format!(
+            "High quality, but {} genome {} chosen as cluster representative",
+            rep_quality, rep
+        );
+        for output in analysis.get_mut(rep).unwrap() {
+            append_note(output, rep_note.clone());
+        }
+        for member in hq_members {
+            for output in analysis.get_mut(member).unwrap() {
+                append_note(output, member_note.clone());
+            }
+        }
+    }
+
+    if let Some((rep, rep_quality, hq_member)) = example {
+        let explanation = if hq_preferred {
+            format!(
+                "Even with {}, this can happen because each genome is assigned to its closest \
+                representative, which may not be the High quality representative it was \
+                clustered with.",
+                crate::HQ_PREFERRED_QUALITY_FORMULA
+            )
+        } else {
+            format!(
+                "The {} quality formula ranks genomes by completeness, contamination and assembly \
+                statistics rather than MIMAG tier, so e.g. a slightly more complete genome that is \
+                missing a 16S rRNA gene can be chosen over a High quality genome. If this is a \
+                concern, re-run with --{} {}.",
+                quality_formula,
+                quality_formula_argument,
+                crate::HQ_PREFERRED_QUALITY_FORMULA
+            )
+        };
+        warn!(
+            "{} cluster(s) have a representative that is not MIMAG High quality, although the \
+            cluster contains a High quality genome (e.g. {} genome {} was chosen over High quality \
+            genome {}). Affected genomes are listed in the notes column of the MIMAG summary. {}",
+            num_affected_clusters, rep_quality, rep, hq_member, explanation
+        );
+    }
+
+    num_affected_clusters
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn output(mimag_quality: &str, notes: &str) -> Vec<GenomeOutput> {
+        vec![GenomeOutput {
+            domain: "Bacteria".to_string(),
+            completeness: 0.0,
+            contamination: 0.0,
+            r5s: 0,
+            r16s: 0,
+            r23s: 0,
+            r18s: 0,
+            r28s: 0,
+            r58s: 0,
+            trnas: 0,
+            mimag_quality: mimag_quality.to_string(),
+            notes: notes.to_string(),
+        }]
+    }
+
+    fn notes(analysis: &HashMap<String, Vec<GenomeOutput>>, genome: &str) -> String {
+        analysis[genome][0].notes.clone()
+    }
+
+    #[test]
+    fn test_flag_mq_representative_over_hq() {
+        let genomes: Vec<String> = ["mq", "hq", "hq2", "lq", "hq_rep", "mq2"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let mut analysis: HashMap<String, Vec<GenomeOutput>> = HashMap::new();
+        analysis.insert("mq".into(), output("Medium quality", "existing note"));
+        analysis.insert("hq".into(), output("High quality", ""));
+        analysis.insert("hq2".into(), output("High quality", ""));
+        analysis.insert("lq".into(), output("Low quality", ""));
+        analysis.insert("hq_rep".into(), output("High quality", ""));
+        analysis.insert("mq2".into(), output("Medium quality", ""));
+        // Cluster 1: MQ rep over two HQ members and an LQ member. Cluster 2: HQ rep, not flagged.
+        let clusters = vec![vec![0, 1, 2, 3], vec![4, 5]];
+
+        let n = flag_non_high_quality_representatives(
+            &mut analysis,
+            &clusters,
+            &genomes,
+            "Parks2020_reduced",
+            "quality-formula",
+        );
+        assert_eq!(n, 1);
+        assert_eq!(
+            notes(&analysis, "mq"),
+            "existing note; Medium quality cluster representative chosen over High quality \
+            genome(s) hq,hq2; use --quality-formula Parks2020_reduced_hqpreferred to prefer \
+            High quality representatives"
+        );
+        assert_eq!(
+            notes(&analysis, "hq"),
+            "High quality, but Medium quality genome mq chosen as cluster representative"
+        );
+        assert_eq!(notes(&analysis, "hq2"), notes(&analysis, "hq"));
+        assert_eq!(notes(&analysis, "lq"), "");
+        assert_eq!(notes(&analysis, "hq_rep"), "");
+        assert_eq!(notes(&analysis, "mq2"), "");
+    }
+
+    #[test]
+    fn test_flag_hqpreferred_omits_suggestion() {
+        let genomes: Vec<String> = vec!["lq".into(), "hq".into()];
+        let mut analysis: HashMap<String, Vec<GenomeOutput>> = HashMap::new();
+        analysis.insert("lq".into(), output("Low quality", ""));
+        analysis.insert("hq".into(), output("High quality", ""));
+
+        let n = flag_non_high_quality_representatives(
+            &mut analysis,
+            &[vec![0, 1]],
+            &genomes,
+            crate::HQ_PREFERRED_QUALITY_FORMULA,
+            "quality-formula",
+        );
+        assert_eq!(n, 1);
+        assert_eq!(
+            notes(&analysis, "lq"),
+            "Low quality cluster representative chosen over High quality genome(s) hq"
+        );
+    }
+
+    #[test]
+    fn test_flag_skips_genomes_without_analysis() {
+        // e.g. a reference genome as representative, which has no MIMAG tier.
+        let genomes: Vec<String> = vec!["ref".into(), "hq".into()];
+        let mut analysis: HashMap<String, Vec<GenomeOutput>> = HashMap::new();
+        analysis.insert("hq".into(), output("High quality", ""));
+
+        let n = flag_non_high_quality_representatives(
+            &mut analysis,
+            &[vec![0, 1]],
+            &genomes,
+            "Parks2020_reduced",
+            "quality-formula",
+        );
+        assert_eq!(n, 0);
+        assert_eq!(notes(&analysis, "hq"), "");
+    }
 }
