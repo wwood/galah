@@ -530,6 +530,48 @@ fi
     }
 
     #[test]
+    fn test_analyse_skips_truncated_rrna_in_barrnap_gff() {
+        // Real barrnap output where the only 16S hit is 503 bp (of ~1.5 kb), so it is not counted
+        // and the genome is Medium rather than High quality despite 95.5% completeness.
+        let tmpdir = tempdir().unwrap();
+        let gff_list = tmpdir.path().join("barrnap_gff_list.tsv");
+        fs::write(
+            &gff_list,
+            "tests/data/set1/1mbp.fna\ttests/data/partial_16s/DRP004690_co1_28.bac.gff\n",
+        )
+        .unwrap();
+        let trnascan_list = tmpdir.path().join("trnascan_out_list.tsv");
+        fs::write(
+            &trnascan_list,
+            "tests/data/set1/1mbp.fna\ttests/data/analyse_file_inputs/trnascan1.out\n",
+        )
+        .unwrap();
+
+        Assert::main_binary()
+            .with_args(&[
+                "analyse",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "--checkm2-quality-report",
+                "tests/data/analyse_file_inputs/checkm2_quality_report.tsv",
+                "--barrnap-gff-list",
+                gff_list.to_str().unwrap(),
+                "--trnascan-out-list",
+                trnascan_list.to_str().unwrap(),
+                "--domain-choice",
+                "bac",
+                "--output-mimag-summary",
+                "/dev/stdout",
+            ])
+            .succeeds()
+            .stdout()
+            .is("\
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t95.50\t1.20\t1\t0\t0\t0\t0\t0\t19\tMedium quality\t\n")
+            .unwrap();
+    }
+
+    #[test]
     fn test_analyse_ambiguous_domain_prefers_eukcc_when_higher_completeness() {
         let tmpdir = tempdir().unwrap();
         let genome = "tests/data/set1/1mbp.fna";

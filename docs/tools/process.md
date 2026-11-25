@@ -18,8 +18,9 @@ marker gene search mode for that domain, exactly as `analyse` does:
   If EukCC cannot estimate quality (e.g. no placement marker genes are found), completeness
   and contamination are recorded as 0.
 
-Partial rRNA hits reported by Barrnap (labelled `(partial)`) are not counted towards the High
-quality rRNA requirement.
+rRNA hits shorter than 80% of their Rfam model length (e.g. a 16S truncated at a contig end) are
+not counted towards the High quality rRNA requirement, as MIMAG requires complete genes. Hits
+labelled `(partial)` by older Barrnap versions are also skipped.
 
 ```bash
 # Process a mixed set of genomes: isiteuk classifies domains automatically (default)
