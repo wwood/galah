@@ -12,6 +12,9 @@ marker gene search mode for that domain:
   If EukCC cannot estimate quality (e.g. no placement marker genes are found), completeness
   and contamination are recorded as 0.
 
+Partial rRNA hits reported by Barrnap (labelled `(partial)`) are not counted towards the High
+quality rRNA requirement.
+
 ```bash
 # Classify genomes by domain automatically with isiteuk (default), then run the appropriate tools
 CHECKM2DB=CheckM2_database/uniref100.KO.1.dmnd \

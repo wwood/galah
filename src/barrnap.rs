@@ -88,6 +88,9 @@ pub fn run_barrnap(genome_path: &str, kingdom: &str, threads: usize, out_dir: &P
 
 /// Parse all rRNA types (prokaryotic and eukaryotic) from a barrnap GFF file.
 ///
+/// Partial hits (barrnap labels these `product=... (partial)`) are skipped, since MIMAG requires
+/// complete rRNA genes.
+///
 /// Returns `(r5s, r16s, r23s, r18s, r28s, r58s)`.
 pub fn parse_rrna_types_all(gff_path: &str) -> (usize, usize, usize, usize, usize, usize) {
     let content = std::fs::read_to_string(gff_path).unwrap();
@@ -103,6 +106,9 @@ pub fn parse_rrna_types_all(gff_path: &str) -> (usize, usize, usize, usize, usiz
         }
         let fields: Vec<&str> = line.split('\t').collect();
         if fields.len() < 9 {
+            continue;
+        }
+        if fields[8].contains("(partial)") {
             continue;
         }
         if let Some(name) = fields[8].split(';').find_map(|kv| kv.strip_prefix("Name=")) {
@@ -126,4 +132,28 @@ pub fn parse_rrna_types_all(gff_path: &str) -> (usize, usize, usize, usize, usiz
 pub fn parse_rrna_types(gff_path: &str) -> (usize, usize, usize) {
     let (r5s, r16s, r23s, _, _, _) = parse_rrna_types_all(gff_path);
     (r5s, r16s, r23s)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_rrna_types_all_skips_partial() {
+        let dir = tempfile::tempdir().unwrap();
+        let gff = dir.path().join("x.gff");
+        std::fs::write(
+            &gff,
+            "##gff-version 3\n\
+             c1\tbarrnap:1.10\trRNA\t1\t120\t1e-10\t+\t.\tName=5S_rRNA;product=5S ribosomal RNA\n\
+             c1\tbarrnap:1.10\trRNA\t200\t900\t1e-10\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA (partial);note=aligned only 45 percent of the 16S ribosomal RNA\n\
+             c2\tbarrnap:1.10\trRNA\t1\t1500\t1e-10\t+\t.\tName=16S_rRNA;product=16S ribosomal RNA\n\
+             c2\tbarrnap:1.10\trRNA\t2000\t2800\t1e-10\t+\t.\tName=23S_rRNA;product=23S ribosomal RNA (partial);note=aligned only 30 percent of the 23S ribosomal RNA\n",
+        )
+        .unwrap();
+        assert_eq!(
+            parse_rrna_types_all(gff.to_str().unwrap()),
+            (1, 1, 0, 0, 0, 0)
+        );
+    }
 }

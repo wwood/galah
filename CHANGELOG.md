@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- Partial rRNA hits from Barrnap (those labelled `(partial)`) are no longer counted when assessing MIMAG quality, since High quality requires complete 5S, 16S and 23S (or eukaryotic equivalents) genes. Genomes with only fragmentary rRNA genes may now be called Medium rather than High quality. This also applies to pre-computed `--barrnap-gff-list` files
+
 ### Added
 - `--quality-formula Parks2020_reduced_hqpreferred` (`process` only), which ranks genomes by MIMAG tier (High, then Medium, then Low) before `Parks2020_reduced`, so e.g. a Medium quality genome is never chosen as representative over a High quality one. It is not offered by `cluster` (or tools embedding galah's clustering arguments, e.g. CoverM), and is rejected by `process` with reference genomes, since it needs MIMAG quality from the analyse step
 - `process` now warns when a cluster's representative has a lower MIMAG tier than another genome in the cluster (e.g. a Medium quality representative of a cluster containing a High quality genome), and records this in the MIMAG summary `notes` column for both the representative and the higher quality genome(s)
