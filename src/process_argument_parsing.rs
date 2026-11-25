@@ -331,6 +331,17 @@ pub fn add_process_subcommand(app: clap::Command) -> clap::Command {
         process_subcommand,
         &PROCESS_CLUSTER_COMMAND_DEFINITION,
     );
+    // Only process has MIMAG quality to rank on, so only it accepts the HQ-preferred formula.
+    process_subcommand = process_subcommand.mut_arg(
+        PROCESS_CLUSTER_COMMAND_DEFINITION
+            .dereplication_quality_formula_argument
+            .as_str(),
+        |arg| {
+            let mut formulas = crate::QUALITY_FORMULAS.to_vec();
+            formulas.push(crate::HQ_PREFERRED_QUALITY_FORMULA);
+            arg.value_parser(formulas)
+        },
+    );
     process_subcommand =
         bird_tool_utils::clap_utils::add_genome_specification_arguments(process_subcommand);
 
@@ -401,7 +412,7 @@ pub fn process_full_help(program_basename: &str, program_version: &str) -> Manua
         ),
     );
     manual = manual.custom(
-        crate::cluster_argument_parsing::add_dereplication_clustering_parameters_to_section(
+        crate::cluster_argument_parsing::add_process_clustering_parameters_to_section(
             Section::new("Clustering parameters"),
             &cluster_def_for_manual,
         ),

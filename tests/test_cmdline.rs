@@ -1518,4 +1518,23 @@ mod tests {
             tests/data/set1/1mbp.fna\ttests/data/set1/500kb.fna\n")
             .unwrap();
     }
+
+    #[test]
+    fn test_cluster_hqpreferred_is_rejected() {
+        Assert::main_binary()
+            .with_args(&[
+                "cluster",
+                "--quality-formula",
+                "Parks2020_reduced_hqpreferred",
+                "--genome-fasta-files",
+                "tests/data/set1/500kb.fna",
+                "tests/data/set1/1mbp.fna",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .fails()
+            .stderr()
+            .contains("invalid value 'Parks2020_reduced_hqpreferred'")
+            .unwrap();
+    }
 }

@@ -76,6 +76,40 @@ The `--domain-choice` flag controls how galah determines the biological domain f
 since it produces multiple rows per genome, there is no single quality value left to cluster on. Use
 `galah analyse --domain-choice all` instead if you need that view.
 
+### Representative selection and MIMAG quality
+
+By default, cluster representatives are chosen using the `Parks2020_reduced` quality formula, which
+ranks genomes on completeness, contamination and assembly statistics, not MIMAG tier. A lower tier
+genome can therefore be chosen over a higher tier genome in the same cluster, e.g. a Medium quality
+genome that is slightly more complete than a High quality genome but is missing a 16S rRNA gene.
+When a representative has a lower MIMAG tier than any member of its cluster, galah logs a warning,
+and the `notes` column of the `--output-mimag-summary` records it for both the representative and
+the higher quality genome(s) it was chosen over.
+
+To rank genomes by MIMAG tier first (High, then Medium, then Low), and only then by
+`Parks2020_reduced`, use `--quality-formula Parks2020_reduced_hqpreferred`. This formula is only
+available in `process`, since it needs the MIMAG quality from the analyse step, and it cannot be
+used with reference genomes, which are not assessed.
+
+Even with this formula, a genome can occasionally end up in a cluster with a lower quality
+representative, which is also reported in the warning and `notes` column. A genome becomes a
+representative only if its ANI to every higher-ranked representative is below the threshold, but
+each remaining genome is then assigned to the representative it has the highest ANI to. Since ANI
+is not transitive, a High quality genome X can be within the threshold of High quality
+representative A (so X is not a representative), while a Medium quality genome M is outside the
+threshold of A (so M becomes a representative) but closer to X than A is, in which case X joins
+M's cluster.
+
+```bash
+CHECKM2DB=CheckM2_database/uniref100.KO.1.dmnd \
+galah process \
+    --genome-fasta-files genome1.fna genome2.fna \
+    --domain-choice bac \
+    --quality-formula Parks2020_reduced_hqpreferred \
+    --output-cluster-definition clusters.tsv \
+    --output-mimag-summary mimag_summary.tsv
+```
+
 ### MIMAG quality criteria
 
 **Bacteria / Archaea:**

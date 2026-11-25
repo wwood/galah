@@ -335,6 +335,141 @@ fi
         assert!(output_quality.exists());
     }
 
+    /// Mock tools where lower MIMAG tiers outscore higher ones under Parks2020_reduced. In the
+    /// abisko4 pair, the Medium quality genome (73.20110800_S2M.16: more complete and less
+    /// contaminated, but missing 16S) outscores the High quality genome (73.20120800_S1D.21).
+    /// In the set1 pair, the Low quality genome (500kb: 99% complete but 10% contaminated)
+    /// outscores the Medium quality genome (1mbp: 52% complete, 1% contaminated).
+    fn setup_mq_outscores_hq_mock_bin(dir: &Path) -> String {
+        setup_mock_bin(
+            dir,
+            &[
+                (String::from("73.20120800_S1D.21"), 92.0, 2.0, 1, 1, 1, 20),
+                (String::from("73.20110800_S2M.16"), 97.0, 1.0, 1, 0, 1, 20),
+                (String::from("1mbp"), 52.0, 1.0, 1, 1, 1, 15),
+                (String::from("500kb"), 99.0, 10.0, 0, 1, 0, 10),
+            ],
+        );
+        let path = env::var("PATH").unwrap();
+        format!("{}:{}", dir.display(), path)
+    }
+
+    const MQ_OUTSCORES_HQ_GENOMES: [&str; 4] = [
+        "tests/data/set1/1mbp.fna",
+        "tests/data/set1/500kb.fna",
+        "tests/data/abisko4/73.20120800_S1D.21.fna",
+        "tests/data/abisko4/73.20110800_S2M.16.fna",
+    ];
+
+    #[test]
+    fn test_process_mock_mq_chosen_over_hq_is_flagged() {
+        let tmpdir = tempdir().unwrap();
+        let output_mimag = tmpdir.path().join("mimag_summary.tsv");
+        let new_path = setup_mq_outscores_hq_mock_bin(tmpdir.path());
+
+        let mut args = vec!["process", "--genome-fasta-files"];
+        args.extend(MQ_OUTSCORES_HQ_GENOMES);
+        args.extend([
+            "--output-cluster-definition",
+            "/dev/stdout",
+            "--output-mimag-summary",
+            output_mimag.to_str().unwrap(),
+        ]);
+        Assert::main_binary()
+            .with_env(&[
+                ("PATH", new_path),
+                ("CHECKM2DB", String::from("/tmp/mockdb")),
+            ])
+            .with_args(&args)
+            .succeeds()
+            .stdout()
+            .is("\
+            tests/data/abisko4/73.20110800_S2M.16.fna\ttests/data/abisko4/73.20110800_S2M.16.fna\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\ttests/data/abisko4/73.20120800_S1D.21.fna\n\
+            tests/data/set1/500kb.fna\ttests/data/set1/500kb.fna\n\
+            tests/data/set1/500kb.fna\ttests/data/set1/1mbp.fna\n")
+            .stderr()
+            .contains(
+                "2 cluster(s) have a representative of lower MIMAG quality than another genome",
+            )
+            .stderr()
+            .contains("re-run with --quality-formula Parks2020_reduced_hqpreferred")
+            .unwrap();
+
+        let content = fs::read_to_string(&output_mimag).unwrap();
+        let expected = "\
+            genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
+            tests/data/set1/1mbp.fna\tBacteria\t52.00\t1.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\tMedium quality, but Low quality genome tests/data/set1/500kb.fna chosen as cluster representative\n\
+            tests/data/set1/500kb.fna\tBacteria\t99.00\t10.00\t0\t1\t0\t0\t0\t0\t10\tLow quality\tLow quality cluster representative chosen over higher quality genome(s) tests/data/set1/1mbp.fna (Medium quality); use --quality-formula Parks2020_reduced_hqpreferred to prefer higher quality representatives\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t92.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\tHigh quality, but Medium quality genome tests/data/abisko4/73.20110800_S2M.16.fna chosen as cluster representative\n\
+            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t97.00\t1.00\t1\t0\t1\t0\t0\t0\t20\tMedium quality\tMedium quality cluster representative chosen over higher quality genome(s) tests/data/abisko4/73.20120800_S1D.21.fna (High quality); use --quality-formula Parks2020_reduced_hqpreferred to prefer higher quality representatives\n";
+        assert_eq!(content, expected);
+    }
+
+    /// Higher MIMAG tier wins under Parks2020_reduced_hqpreferred: High over Medium in the
+    /// abisko4 pair, and Medium over Low in the set1 pair.
+    #[test]
+    fn test_process_mock_hqpreferred_chooses_hq() {
+        let tmpdir = tempdir().unwrap();
+        let output_mimag = tmpdir.path().join("mimag_summary.tsv");
+        let new_path = setup_mq_outscores_hq_mock_bin(tmpdir.path());
+
+        let mut args = vec!["process", "--genome-fasta-files"];
+        args.extend(MQ_OUTSCORES_HQ_GENOMES);
+        args.extend([
+            "--quality-formula",
+            "Parks2020_reduced_hqpreferred",
+            "--output-cluster-definition",
+            "/dev/stdout",
+            "--output-mimag-summary",
+            output_mimag.to_str().unwrap(),
+        ]);
+        Assert::main_binary()
+            .with_env(&[
+                ("PATH", new_path),
+                ("CHECKM2DB", String::from("/tmp/mockdb")),
+            ])
+            .with_args(&args)
+            .succeeds()
+            .stdout()
+            .is("\
+            tests/data/abisko4/73.20120800_S1D.21.fna\ttests/data/abisko4/73.20120800_S1D.21.fna\n\
+            tests/data/abisko4/73.20120800_S1D.21.fna\ttests/data/abisko4/73.20110800_S2M.16.fna\n\
+            tests/data/set1/1mbp.fna\ttests/data/set1/1mbp.fna\n\
+            tests/data/set1/1mbp.fna\ttests/data/set1/500kb.fna\n")
+            .stderr()
+            .doesnt_contain("have a representative of lower MIMAG quality")
+            .unwrap();
+
+        // No notes, since the High quality genome is the representative.
+        let content = fs::read_to_string(&output_mimag).unwrap();
+        for line in content.lines().skip(1) {
+            assert!(line.ends_with("quality\t"), "Unexpected note: {}", line);
+        }
+    }
+
+    #[test]
+    fn test_process_hqpreferred_with_reference_genomes_is_rejected() {
+        Assert::main_binary()
+            .with_args(&[
+                "process",
+                "--genome-fasta-files",
+                "tests/data/set1/1mbp.fna",
+                "--reference-genomes",
+                "tests/data/set1/500kb.fna",
+                "--quality-formula",
+                "Parks2020_reduced_hqpreferred",
+                "--output-mimag-summary",
+                "/dev/stdout",
+                "--output-cluster-definition",
+                "/dev/stdout",
+            ])
+            .fails()
+            .stderr()
+            .contains("can only be used with `galah process` (without reference genomes)")
+            .unwrap();
+    }
+
     /// Regression test for https://github.com/wwood/galah/issues/89: `process` ran CheckM2
     /// (and failed on a missing DIAMOND database) even when the user had already supplied
     /// completeness/contamination via `--genome-info`. The mock `checkm2` binary here exits
