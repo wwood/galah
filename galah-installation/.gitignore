@@ -5,3 +5,5 @@ pixi.toml
 pixi.lock
 galah_src/**
 *.build.log
+databases/**
+*.quality.log

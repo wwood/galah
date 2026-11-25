@@ -22,3 +22,6 @@ RUN conda run -n galah galah cluster \
     --genome-fasta-files galah_src/tests/data/set1/1mbp.fna galah_src/tests/data/set1/500kb.fna \
     --output-cluster-definition test_conda_clusters.tsv
 RUN cat test_conda_clusters.tsv
+
+COPY test_quality.sh /app/test_quality.sh
+ENV GALAH_CMD="conda run -n galah --no-capture-output galah" PIXI_CMD="conda run -n galah --no-capture-output pixi"

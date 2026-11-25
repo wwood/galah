@@ -11,7 +11,7 @@ RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86
 
 # Third-party tools (those needed for `galah cluster`; see docs/installation.md for the rest)
 RUN $CONDA_DIR/bin/conda create -y -n galah_deps --override-channels -c conda-forge -c bioconda \
-    'skani>=0.4.0' 'fastani>=1.3'
+    'skani>=0.4.0' 'fastani>=1.3' pixi
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 ENV PATH=/root/.cargo/bin:/opt/conda/envs/galah_deps/bin:$PATH
@@ -26,3 +26,6 @@ RUN galah cluster \
     --genome-fasta-files galah_src/tests/data/set1/1mbp.fna galah_src/tests/data/set1/500kb.fna \
     --output-cluster-definition test_cargo_clusters.tsv
 RUN cat test_cargo_clusters.tsv
+
+COPY test_quality.sh /app/test_quality.sh
+ENV GALAH_CMD="galah" PIXI_CMD="pixi"
