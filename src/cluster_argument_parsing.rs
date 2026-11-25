@@ -354,6 +354,64 @@ pub fn add_dereplication_clustering_parameters_to_section(
     section: Section,
     definition: &GalahClustererCommandDefinition,
 ) -> Section {
+    clustering_parameters_section(section, definition, false)
+}
+
+/// As `add_dereplication_clustering_parameters_to_section`, but also documenting the
+/// `Parks2020_reduced_hqpreferred` quality formula, which only `galah process` accepts.
+pub(crate) fn add_process_clustering_parameters_to_section(
+    section: Section,
+    definition: &GalahClustererCommandDefinition,
+) -> Section {
+    clustering_parameters_section(section, definition, true)
+}
+
+fn quality_formula_help(include_hq_preferred: bool) -> String {
+    let parks = monospace_roff("Parks2020_reduced");
+    let parks_description = format!(
+        "(default) A quality formula described in Parks et. al. 2020 \
+        https://doi.org/10.1038/s41587-020-0501-8 (Supplementary Table 19) but only including those \
+        scoring criteria that can be calculated from the sequence without homology searching: {}",
+        monospace_roff("completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000")
+    );
+    let hq_preferred = monospace_roff(crate::HQ_PREFERRED_QUALITY_FORMULA);
+    let hq_preferred_description = format!(
+        "As {}, but genomes are first ranked by MIMAG quality tier (High, then Medium, then Low), \
+        so e.g. a Medium quality genome that is missing a 16S rRNA gene is never preferred over a \
+        High quality one. Requires the MIMAG quality assessment from the analyse step, so cannot \
+        be used with reference genomes.",
+        parks
+    );
+    let c4 = monospace_roff("completeness-4contamination");
+    let c4_description = monospace_roff("completeness-4*contamination");
+    let c5 = monospace_roff("completeness-5contamination");
+    let c5_description = monospace_roff("completeness-5*contamination");
+    let drep = monospace_roff("dRep");
+    let drep_description = monospace_roff(
+        "completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)",
+    );
+
+    let mut rows: Vec<[&str; 2]> = vec![["formula", "description"], [&parks, &parks_description]];
+    if include_hq_preferred {
+        rows.push([&hq_preferred, &hq_preferred_description]);
+    }
+    rows.push([&c4, &c4_description]);
+    rows.push([&c5, &c5_description]);
+    rows.push([&drep, &drep_description]);
+    let row_refs: Vec<&[&str]> = rows.iter().map(|r| r.as_slice()).collect();
+
+    format!(
+        "Scoring function for genome quality {}. One of: {}",
+        default_roff(crate::DEFAULT_QUALITY_FORMULA),
+        bird_tool_utils::clap_utils::table_roff(&row_refs),
+    )
+}
+
+fn clustering_parameters_section(
+    section: Section,
+    definition: &GalahClustererCommandDefinition,
+    include_hq_preferred: bool,
+) -> Section {
     section
         .option(
             Opt::new("FLOAT")
@@ -397,22 +455,7 @@ pub fn add_dereplication_clustering_parameters_to_section(
                     "--{}",
                     definition.dereplication_quality_formula_argument
                 ))
-                .help(
-                    &format!("Scoring function for genome quality {}. One of: {}",
-                    default_roff(crate::DEFAULT_QUALITY_FORMULA),
-                    bird_tool_utils::clap_utils::table_roff(&[
-                        &["formula","description"],
-                        &[&monospace_roff("Parks2020_reduced"),
-                            &format!("(default) A quality formula described in Parks et. al. 2020 \
-                            https://doi.org/10.1038/s41587-020-0501-8 (Supplementary Table 19) but only including those scoring criteria that can be calculated from the sequence without homology searching: {}", &monospace_roff("completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000"))],
-                        &[&monospace_roff(crate::HQ_PREFERRED_QUALITY_FORMULA),
-                            &format!("As {}, but genomes assessed as MIMAG High quality are always ranked above those that are not, so a Medium quality genome (e.g. one missing a 16S rRNA gene) is never preferred over a High quality one. Only available in {}, since it requires the MIMAG quality assessment from the analyse step.",
-                                &monospace_roff("Parks2020_reduced"), &monospace_roff("galah process"))],
-                        &[&monospace_roff("completeness-4contamination"),&monospace_roff("completeness-4*contamination")],
-                        &[&monospace_roff("completeness-5contamination"),&monospace_roff("completeness-5*contamination")],
-                        &[&monospace_roff("dRep"),&monospace_roff("completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)")],
-                    ]),
-                )),
+                .help(&quality_formula_help(include_hq_preferred)),
         )
         .option(
             Opt::new("FLOAT")
@@ -674,17 +717,6 @@ pub fn run_cluster_subcommand(
         .into_iter()
         .map(|s| s.split('\t').next().unwrap_or("").to_string())
         .collect();
-
-    if m.get_one::<String>(&GALAH_COMMAND_DEFINITION.dereplication_quality_formula_argument)
-        .map(|s| s.as_str())
-        == Some(crate::HQ_PREFERRED_QUALITY_FORMULA)
-    {
-        eprintln!(
-            "Error: {}",
-            hq_preferred_unavailable_message(&GALAH_COMMAND_DEFINITION)
-        );
-        std::process::exit(1);
-    }
 
     let cluster_contigs =
         m.get_flag(&GALAH_COMMAND_DEFINITION.dereplication_cluster_contigs_argument);
@@ -988,12 +1020,22 @@ pub enum InjectedQualityReport {
     /// Path to a genome-info CSV (`genome,completeness,contamination`), as read by
     /// `genome_info_file::read_genome_info_file`.
     GenomeInfo(String),
-    /// As `GenomeInfo`, plus the genome paths (as given in the input) assessed as MIMAG High
-    /// quality, as required by the `Parks2020_reduced_hqpreferred` quality formula.
+    /// As `GenomeInfo`, plus the MIMAG quality tier ("High quality", "Medium quality" or "Low
+    /// quality") of each genome, keyed by genome path as given in the input, as required by
+    /// the `Parks2020_reduced_hqpreferred` quality formula.
     GenomeInfoWithMimag {
         path: String,
-        high_quality_genomes: std::collections::HashSet<String>,
+        mimag_quality: std::collections::HashMap<String, String>,
     },
+}
+
+/// Sort key for a MIMAG quality tier: High (0) before Medium (1) before Low or unknown (2).
+pub fn mimag_tier_rank(mimag_quality: Option<&str>) -> u8 {
+    match mimag_quality {
+        Some("High quality") => 0,
+        Some("Medium quality") => 1,
+        _ => 2,
+    }
 }
 
 /// Error message for the `Parks2020_reduced_hqpreferred` formula being used without MIMAG
@@ -1019,14 +1061,13 @@ pub fn filter_genomes_through_checkm<'a>(
         .get_one::<String>(&argument_definition.dereplication_quality_formula_argument)
         .unwrap()
         .as_str();
-    let high_quality_genomes = match &injected_quality_report {
-        Some(InjectedQualityReport::GenomeInfoWithMimag {
-            high_quality_genomes,
-            ..
-        }) => Some(high_quality_genomes),
+    let mimag_quality = match &injected_quality_report {
+        Some(InjectedQualityReport::GenomeInfoWithMimag { mimag_quality, .. }) => {
+            Some(mimag_quality)
+        }
         _ => None,
     };
-    if quality_formula == crate::HQ_PREFERRED_QUALITY_FORMULA && high_quality_genomes.is_none() {
+    if quality_formula == crate::HQ_PREFERRED_QUALITY_FORMULA && mimag_quality.is_none() {
         return Err(hq_preferred_unavailable_message(argument_definition));
     }
 
@@ -1215,8 +1256,7 @@ pub fn filter_genomes_through_checkm<'a>(
                 "Parks2020_reduced" | crate::HQ_PREFERRED_QUALITY_FORMULA => {
                     if quality_formula == crate::HQ_PREFERRED_QUALITY_FORMULA {
                         info!(
-                            "Ranking {} MIMAG High quality genome(s) above all others, then by Parks2020_reduced",
-                            high_quality_genomes.map_or(0, |hq| hq.len())
+                            "Ranking genomes by MIMAG quality tier (High, then Medium, then Low), then by Parks2020_reduced"
                         );
                     }
                     info!("Calculating num_contigs etc. for genome quality assessment ..");
@@ -1267,8 +1307,10 @@ pub fn filter_genomes_through_checkm<'a>(
                     });
                     if quality_formula == crate::HQ_PREFERRED_QUALITY_FORMULA {
                         // Stable sort, so Parks2020_reduced order is kept within each tier.
-                        let hq = high_quality_genomes.expect("Checked above");
-                        appraisal.sort_by_key(|(f, _)| !hq.contains(f.as_str()));
+                        let tiers = mimag_quality.expect("Checked above");
+                        appraisal.sort_by_key(|(f, _)| {
+                            mimag_tier_rank(tiers.get(f.as_str()).map(|s| s.as_str()))
+                        });
                     }
                     appraisal
                         .into_iter()
@@ -1854,12 +1896,7 @@ pub fn add_dereplication_clustering_clap_args(
             .default_value(crate::DEFAULT_ALIGNED_FRACTION))
         .arg(Arg::new(d.dereplication_quality_formula_argument.as_str())
             .long(d.dereplication_quality_formula_argument.as_str())
-            .value_parser([
-                "completeness-4contamination",
-                "completeness-5contamination",
-                "Parks2020_reduced",
-                crate::HQ_PREFERRED_QUALITY_FORMULA,
-                "dRep"])
+            .value_parser(crate::QUALITY_FORMULAS)
             .default_value(crate::DEFAULT_QUALITY_FORMULA))
         .arg(Arg::new(d.dereplication_run_checkm2_argument.as_str())
             .long(d.dereplication_run_checkm2_argument.as_str())

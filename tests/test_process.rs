@@ -335,17 +335,19 @@ fi
         assert!(output_quality.exists());
     }
 
-    /// Mock tools where, in the abisko4 pair, the Medium quality genome (73.20110800_S2M.16:
-    /// more complete and less contaminated, but missing 16S) outscores the High quality genome
-    /// (73.20120800_S1D.21) under Parks2020_reduced. The set1 pair are both Medium quality.
+    /// Mock tools where lower MIMAG tiers outscore higher ones under Parks2020_reduced. In the
+    /// abisko4 pair, the Medium quality genome (73.20110800_S2M.16: more complete and less
+    /// contaminated, but missing 16S) outscores the High quality genome (73.20120800_S1D.21).
+    /// In the set1 pair, the Low quality genome (500kb: 99% complete but 10% contaminated)
+    /// outscores the Medium quality genome (1mbp: 52% complete, 1% contaminated).
     fn setup_mq_outscores_hq_mock_bin(dir: &Path) -> String {
         setup_mock_bin(
             dir,
             &[
                 (String::from("73.20120800_S1D.21"), 92.0, 2.0, 1, 1, 1, 20),
                 (String::from("73.20110800_S2M.16"), 97.0, 1.0, 1, 0, 1, 20),
-                (String::from("1mbp"), 85.0, 3.0, 1, 1, 1, 15),
-                (String::from("500kb"), 80.0, 4.0, 0, 1, 0, 10),
+                (String::from("1mbp"), 52.0, 1.0, 1, 1, 1, 15),
+                (String::from("500kb"), 99.0, 10.0, 0, 1, 0, 10),
             ],
         );
         let path = env::var("PATH").unwrap();
@@ -384,10 +386,12 @@ fi
             .is("\
             tests/data/abisko4/73.20110800_S2M.16.fna\ttests/data/abisko4/73.20110800_S2M.16.fna\n\
             tests/data/abisko4/73.20110800_S2M.16.fna\ttests/data/abisko4/73.20120800_S1D.21.fna\n\
-            tests/data/set1/1mbp.fna\ttests/data/set1/1mbp.fna\n\
-            tests/data/set1/1mbp.fna\ttests/data/set1/500kb.fna\n")
+            tests/data/set1/500kb.fna\ttests/data/set1/500kb.fna\n\
+            tests/data/set1/500kb.fna\ttests/data/set1/1mbp.fna\n")
             .stderr()
-            .contains("1 cluster(s) have a representative that is not MIMAG High quality")
+            .contains(
+                "2 cluster(s) have a representative of lower MIMAG quality than another genome",
+            )
             .stderr()
             .contains("re-run with --quality-formula Parks2020_reduced_hqpreferred")
             .unwrap();
@@ -395,13 +399,15 @@ fi
         let content = fs::read_to_string(&output_mimag).unwrap();
         let expected = "\
             genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
-            tests/data/set1/1mbp.fna\tBacteria\t85.00\t3.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\t\n\
-            tests/data/set1/500kb.fna\tBacteria\t80.00\t4.00\t0\t1\t0\t0\t0\t0\t10\tMedium quality\t\n\
+            tests/data/set1/1mbp.fna\tBacteria\t52.00\t1.00\t1\t1\t1\t0\t0\t0\t15\tMedium quality\tMedium quality, but Low quality genome tests/data/set1/500kb.fna chosen as cluster representative\n\
+            tests/data/set1/500kb.fna\tBacteria\t99.00\t10.00\t0\t1\t0\t0\t0\t0\t10\tLow quality\tLow quality cluster representative chosen over higher quality genome(s) tests/data/set1/1mbp.fna (Medium quality); use --quality-formula Parks2020_reduced_hqpreferred to prefer higher quality representatives\n\
             tests/data/abisko4/73.20120800_S1D.21.fna\tBacteria\t92.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\tHigh quality, but Medium quality genome tests/data/abisko4/73.20110800_S2M.16.fna chosen as cluster representative\n\
-            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t97.00\t1.00\t1\t0\t1\t0\t0\t0\t20\tMedium quality\tMedium quality cluster representative chosen over High quality genome(s) tests/data/abisko4/73.20120800_S1D.21.fna; use --quality-formula Parks2020_reduced_hqpreferred to prefer High quality representatives\n";
+            tests/data/abisko4/73.20110800_S2M.16.fna\tBacteria\t97.00\t1.00\t1\t0\t1\t0\t0\t0\t20\tMedium quality\tMedium quality cluster representative chosen over higher quality genome(s) tests/data/abisko4/73.20120800_S1D.21.fna (High quality); use --quality-formula Parks2020_reduced_hqpreferred to prefer higher quality representatives\n";
         assert_eq!(content, expected);
     }
 
+    /// Higher MIMAG tier wins under Parks2020_reduced_hqpreferred: High over Medium in the
+    /// abisko4 pair, and Medium over Low in the set1 pair.
     #[test]
     fn test_process_mock_hqpreferred_chooses_hq() {
         let tmpdir = tempdir().unwrap();
@@ -432,7 +438,7 @@ fi
             tests/data/set1/1mbp.fna\ttests/data/set1/1mbp.fna\n\
             tests/data/set1/1mbp.fna\ttests/data/set1/500kb.fna\n")
             .stderr()
-            .doesnt_contain("have a representative that is not MIMAG High quality")
+            .doesnt_contain("have a representative of lower MIMAG quality")
             .unwrap();
 
         // No notes, since the High quality genome is the representative.

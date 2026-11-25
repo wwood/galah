@@ -1534,7 +1534,7 @@ mod tests {
             ])
             .fails()
             .stderr()
-            .contains("requires MIMAG quality from the analyse step, so it can only be used with `galah process`")
+            .contains("invalid value 'Parks2020_reduced_hqpreferred'")
             .unwrap();
     }
 }

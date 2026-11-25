@@ -126,7 +126,6 @@ Scoring function for genome quality [default: `Parks2020_reduced`].
   | formula | description |
   |:---|:---|
   | `Parks2020_reduced` | (default) A quality formula described in Parks et. al. 2020 https://doi.org/10.1038/s41587-020-0501-8 (Supplementary Table 19) but only including those scoring criteria that can be calculated from the sequence without homology searching: `completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000` |
-  | `Parks2020_reduced_hqpreferred` | As `Parks2020_reduced`, but genomes assessed as MIMAG High quality are always ranked above those that are not, so a Medium quality genome (e.g. one missing a 16S rRNA gene) is never preferred over a High quality one. Only available in `galah process`, since it requires the MIMAG quality assessment from the analyse step. |
   | `completeness-4contamination` | `completeness-4*contamination` |
   | `completeness-5contamination` | `completeness-5*contamination` |
   | `dRep` | `completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)` |

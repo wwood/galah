@@ -3,9 +3,9 @@
 ## [Unreleased]
 
 ### Added
-- `--quality-formula Parks2020_reduced_hqpreferred` (`process` only), which always ranks MIMAG High quality genomes above the rest (then by `Parks2020_reduced`), so a Medium quality genome is never chosen as representative over a High quality one. It is rejected by `cluster` and by `process` with reference genomes, since it needs MIMAG quality from the analyse step
-- `process` now warns when a cluster's representative is not High quality but the cluster contains a High quality genome, and records this in the MIMAG summary `notes` column for both the representative and the High quality genome(s)
-- (Library API) `InjectedQualityReport::GenomeInfoWithMimag` variant, carrying the set of High quality genomes
+- `--quality-formula Parks2020_reduced_hqpreferred` (`process` only), which ranks genomes by MIMAG tier (High, then Medium, then Low) before `Parks2020_reduced`, so e.g. a Medium quality genome is never chosen as representative over a High quality one. It is not offered by `cluster` (or tools embedding galah's clustering arguments, e.g. CoverM), and is rejected by `process` with reference genomes, since it needs MIMAG quality from the analyse step
+- `process` now warns when a cluster's representative has a lower MIMAG tier than another genome in the cluster (e.g. a Medium quality representative of a cluster containing a High quality genome), and records this in the MIMAG summary `notes` column for both the representative and the higher quality genome(s)
+- (Library API) `InjectedQualityReport::GenomeInfoWithMimag` variant, carrying each genome's MIMAG quality tier, and `QUALITY_FORMULAS` constant listing the formulas accepted by the shared clustering arguments
 
 ## [0.7.0] - 2026-11-19
 
