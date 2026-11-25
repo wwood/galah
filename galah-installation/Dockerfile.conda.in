@@ -1,0 +1,27 @@
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential wget git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV CONDA_DIR=/opt/conda
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh \
+    && bash /tmp/miniconda.sh -b -p $CONDA_DIR && rm /tmp/miniconda.sh
+ENV PATH=$CONDA_DIR/bin:$PATH
+
+SHELL ["/bin/bash", "--login", "-c"]
+RUN conda init bash
+
+RUN conda create -y -n galah --override-channels -c conda-forge -c bioconda 'galah==GALAH_VERSION'
+
+WORKDIR /app
+RUN git clone --depth 1 --branch vGALAH_VERSION https://github.com/wwood/galah galah_src
+
+RUN conda run -n galah galah --version
+RUN conda run -n galah galah cluster \
+    --genome-fasta-files galah_src/tests/data/set1/1mbp.fna galah_src/tests/data/set1/500kb.fna \
+    --output-cluster-definition test_conda_clusters.tsv
+RUN cat test_conda_clusters.tsv
+
+COPY test_quality.sh /app/test_quality.sh
+ENV GALAH_CMD="conda run -n galah --no-capture-output galah" PIXI_CMD="conda run -n galah --no-capture-output pixi"

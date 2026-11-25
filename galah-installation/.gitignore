@@ -1,0 +1,9 @@
+Dockerfile.pixi
+Dockerfile.conda
+Dockerfile.cargo
+pixi.toml
+pixi.lock
+galah_src/**
+*.build.log
+databases/**
+*.quality.log

@@ -1,0 +1,21 @@
+FROM ghcr.io/prefix-dev/pixi:0.47.0
+
+RUN mkdir /app
+COPY pixi.toml /app/pixi.toml
+WORKDIR /app
+SHELL ["/bin/bash", "--login", "-c"]
+
+RUN pixi install
+RUN pixi global install git wget
+
+# Test data from the tagged release
+RUN git clone --depth 1 --branch vGALAH_VERSION https://github.com/wwood/galah galah_src
+
+RUN pixi run galah --version
+RUN pixi run galah cluster \
+    --genome-fasta-files galah_src/tests/data/set1/1mbp.fna galah_src/tests/data/set1/500kb.fna \
+    --output-cluster-definition test_pixi_clusters.tsv
+RUN cat test_pixi_clusters.tsv
+
+COPY test_quality.sh /app/test_quality.sh
+ENV GALAH_CMD="pixi run galah" PIXI_CMD="pixi"
