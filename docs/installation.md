@@ -136,9 +136,11 @@ pixi install
 version of MetaEuk requiring zlib older than 1.3, whereas isiteuk's `diamond` requires zlib 1.3.1
 or later.
 
-Galah locates each tool using the following priority order:
+Galah locates CheckM2, isiteuk and EukCC (and Barrnap and tRNAscan-SE, which have no environment
+variable override) using the following priority order:
 
-1. `GALAH_CHECKM2_CMD` / `GALAH_ISITEUK_CMD` / `GALAH_EUKCC_CMD` environment variable (if set)
+1. `GALAH_CHECKM2_CMD` / `GALAH_ISITEUK_CMD` / `GALAH_EUKCC_CMD` environment variable (if set;
+   not available for Barrnap and tRNAscan-SE)
 2. Tool found on `PATH`
 3. Automatic installation via `pixi run`, using a pixi manifest bundled with galah (requires
    [pixi](https://pixi.sh) to be installed, and is only supported on Linux)

@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Changed
+- Barrnap and tRNAscan-SE now fall back to galah's bundled pixi manifest when not found on `PATH`, as CheckM2, isiteuk and EukCC already do. The `galah-installation` cargo test no longer installs them explicitly. skani and FastANI must still be on `PATH`
 - High quality for eukaryotes now requires all four eukaryotic rRNAs (18S, 28S, 5.8S and 5S) to be present, rather than any one of them. Eukaryotic genomes previously called High quality on a single rRNA hit may now be called Medium
 
 ### Fixed
