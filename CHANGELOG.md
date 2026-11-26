@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- High quality for eukaryotes now requires all four eukaryotic rRNAs (18S, 28S, 5.8S and 5S) to be present, rather than any one of them. Eukaryotic genomes previously called High quality on a single rRNA hit may now be called Medium
+
 ### Fixed
 - Truncated rRNA hits from Barrnap are no longer counted when assessing MIMAG quality, since High quality requires complete rRNA genes. Barrnap >= 1.0 no longer labels partial hits (its `--lencutoff` is ignored), so a hit now counts only if it spans at least 80% of its Rfam model length (read from the `Dbxref=Rfam:` attribute); hits labelled `(partial)` by older Barrnap are also skipped. Genomes with only fragmentary rRNA genes may now be called Medium rather than High quality. This also applies to pre-computed `--barrnap-gff-list` files; GFF records without a `Dbxref` are not length-filtered
 
