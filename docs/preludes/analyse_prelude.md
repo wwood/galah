@@ -125,6 +125,6 @@ The `--output-mimag-summary` TSV contains one row per genome with these columns:
 
 | Tier | Criteria |
 |---|---|
-| High quality | Completeness ≥ 90%, contamination < 5%, ≥ 1 eukaryotic rRNA (18S/28S/5.8S/5S), ≥ 18 tRNA types |
+| High quality | Completeness ≥ 90%, contamination < 5%, all eukaryotic rRNAs (≥ 1 each of 18S, 28S, 5.8S and 5S), ≥ 18 tRNA types |
 | Medium quality | Completeness ≥ 50%, contamination < 10% (and not High quality) |
 | Low quality | Completeness < 50% or contamination ≥ 10% |

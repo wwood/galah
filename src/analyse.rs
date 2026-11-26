@@ -612,7 +612,10 @@ fn compute_mimag_quality(
                 "Low quality"
             } else if completeness >= 90.0
                 && contamination < 5.0
-                && (r18s >= 1 || r28s >= 1 || r58s >= 1 || r5s >= 1)
+                && r18s >= 1
+                && r28s >= 1
+                && r58s >= 1
+                && r5s >= 1
                 && trnas >= 18
             {
                 "High quality"
@@ -689,4 +692,70 @@ fn parse_trnascan_out_list(list_path: &str) -> Result<HashMap<String, usize>, St
         trna_cache.insert(genome_path, trnas);
     }
     Ok(trna_cache)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // (r5s, r16s, r23s, r18s, r28s, r58s)
+    #[test]
+    fn test_eukaryote_high_quality_requires_all_rrnas() {
+        let euk = Some(&Domain::Eukaryota);
+        assert_eq!(
+            compute_mimag_quality(euk, 95.0, 1.0, (1, 0, 0, 1, 1, 1), 18),
+            "High quality"
+        );
+        // Each single missing rRNA drops it to Medium
+        for rrna in [
+            (0, 0, 0, 1, 1, 1),
+            (1, 0, 0, 0, 1, 1),
+            (1, 0, 0, 1, 0, 1),
+            (1, 0, 0, 1, 1, 0),
+        ] {
+            assert_eq!(
+                compute_mimag_quality(euk, 95.0, 1.0, rrna, 18),
+                "Medium quality",
+                "{rrna:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_eukaryote_high_quality_other_criteria() {
+        let euk = Some(&Domain::Eukaryota);
+        let all = (1, 0, 0, 1, 1, 1);
+        assert_eq!(
+            compute_mimag_quality(euk, 95.0, 1.0, all, 17),
+            "Medium quality"
+        );
+        assert_eq!(
+            compute_mimag_quality(euk, 85.0, 1.0, all, 18),
+            "Medium quality"
+        );
+        assert_eq!(
+            compute_mimag_quality(euk, 95.0, 6.0, all, 18),
+            "Medium quality"
+        );
+        assert_eq!(
+            compute_mimag_quality(euk, 45.0, 1.0, all, 18),
+            "Low quality"
+        );
+        assert_eq!(
+            compute_mimag_quality(euk, 95.0, 10.0, all, 18),
+            "Low quality"
+        );
+    }
+
+    #[test]
+    fn test_prokaryote_high_quality_unchanged() {
+        assert_eq!(
+            compute_mimag_quality(Some(&Domain::Bacteria), 95.0, 1.0, (1, 1, 1, 0, 0, 0), 18),
+            "High quality"
+        );
+        assert_eq!(
+            compute_mimag_quality(Some(&Domain::Bacteria), 95.0, 1.0, (0, 1, 1, 0, 0, 0), 18),
+            "Medium quality"
+        );
+    }
 }

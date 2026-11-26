@@ -631,7 +631,7 @@ fi
             .stdout()
             .is("\
             genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
-            tests/data/set1/1mbp.fna\tEukaryota\t90.00\t2.00\t1\t1\t1\t0\t0\t0\t19\tHigh quality\tno confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota; domain resolved to Eukaryota via higher completeness (CheckM2 40.00% vs EukCC 90.00%)\n")
+            tests/data/set1/1mbp.fna\tEukaryota\t90.00\t2.00\t1\t1\t1\t0\t0\t0\t19\tMedium quality\tno confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota; domain resolved to Eukaryota via higher completeness (CheckM2 40.00% vs EukCC 90.00%)\n")
             .unwrap();
     }
 
@@ -792,7 +792,7 @@ fi
         )
         .unwrap();
 
-        // Barrnap mock: --kingdom fun succeeds with one 18S hit; bac/arc are hard failures.
+        // Barrnap mock: --kingdom fun succeeds with one hit each of 18S, 28S, 5.8S and 5S; bac/arc are hard failures.
         let barrnap_script = "#!/bin/bash\n\
              kingdom=\"\"\n\
              while [[ $# -gt 0 ]]; do\n\
@@ -802,7 +802,7 @@ fi
              \x20\x20esac\n\
              done\n\
              case \"$kingdom\" in\n\
-             \x20\x20fun) echo -e '##gff-version 3\\nmock\\tbarrnap\\trRNA\\t1\\t100\\t.\\t+\\t.\\tName=18S_rRNA;product=18S ribosomal RNA' ;;\n\
+             \x20\x20fun) echo -e '##gff-version 3\\nmock\\tbarrnap\\trRNA\\t1\\t100\\t.\\t+\\t.\\tName=18S_rRNA;product=18S ribosomal RNA\\nmock\\tbarrnap\\trRNA\\t200\\t300\\t.\\t+\\t.\\tName=28S_rRNA;product=28S ribosomal RNA\\nmock\\tbarrnap\\trRNA\\t400\\t500\\t.\\t+\\t.\\tName=5.8S_rRNA;product=5.8S ribosomal RNA\\nmock\\tbarrnap\\trRNA\\t600\\t700\\t.\\t+\\t.\\tName=5S_rRNA;product=5S ribosomal RNA' ;;\n\
              \x20\x20*) echo \"Unexpected barrnap --kingdom $kingdom\" >&2; exit 1 ;;\n\
              esac\n";
         let barrnap = bin_dir.path().join("barrnap");
@@ -875,7 +875,7 @@ fi
             .stdout()
             .is("\
             genome\tdomain\tcompleteness\tcontamination\trRNA_5S\trRNA_16S\trRNA_23S\trRNA_18S\trRNA_28S\trRNA_5.8S\ttRNAs\tMIMAG_quality\tnotes\n\
-            tests/data/set1/1mbp.fna\tEukaryota\t90.00\t2.00\t0\t0\t0\t1\t0\t0\t18\tHigh quality\tno confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota; domain resolved to Eukaryota via higher completeness (CheckM2 40.00% vs EukCC 90.00%)\n")
+            tests/data/set1/1mbp.fna\tEukaryota\t90.00\t2.00\t1\t0\t0\t1\t1\t1\t18\tHigh quality\tno confident isiteuk domain call; assessed under Bacteria, Archaea, Eukaryota; domain resolved to Eukaryota via higher completeness (CheckM2 40.00% vs EukCC 90.00%)\n")
             .unwrap();
     }
 
@@ -1401,11 +1401,14 @@ mock\\tbarrnap\\trRNA\\t400\\t500\\t.\\t+\\t.\\tName=5.8S_rRNA;product=5.8S ribo
         )
         .unwrap();
 
-        // Barrnap GFF for euk genome (kingdom "fun"): 18S.
+        // Barrnap GFF for euk genome (kingdom "fun"): 18S, 28S, 5.8S, 5S.
         fs::write(
             work_dir.path().join(format!("{euk_stem}.fun.gff")),
             "##gff-version 3\n\
-             mock\tbarrnap\trRNA\t1\t1800\t.\t+\t.\tName=18S_rRNA;product=18S ribosomal RNA\n",
+             mock\tbarrnap\trRNA\t1\t1800\t.\t+\t.\tName=18S_rRNA;product=18S ribosomal RNA\n\
+             mock\tbarrnap\trRNA\t2000\t5000\t.\t+\t.\tName=28S_rRNA;product=28S ribosomal RNA\n\
+             mock\tbarrnap\trRNA\t5100\t5250\t.\t+\t.\tName=5.8S_rRNA;product=5.8S ribosomal RNA\n\
+             mock\tbarrnap\trRNA\t5300\t5420\t.\t+\t.\tName=5S_rRNA;product=5S ribosomal RNA\n",
         )
         .unwrap();
 
@@ -1468,7 +1471,7 @@ mock\\tbarrnap\\trRNA\\t400\\t500\\t.\\t+\\t.\\tName=5.8S_rRNA;product=5.8S ribo
                  tests/data/abisko4/73.20120800_S1D.21.fna\t\
                  Bacteria\t95.00\t2.00\t1\t1\t1\t0\t0\t0\t20\tHigh quality\t\n\
                  tests/data/set1/1mbp.fna\t\
-                 Eukaryota\t90.00\t2.00\t0\t0\t0\t1\t0\t0\t18\tHigh quality\t\n",
+                 Eukaryota\t90.00\t2.00\t1\t0\t0\t1\t1\t1\t18\tHigh quality\t\n",
             )
             .unwrap();
     }
