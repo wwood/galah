@@ -3,7 +3,6 @@ use crate::TrnaFinder;
 use flate2::read::MultiGzDecoder;
 use std::io::copy as io_copy;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 pub struct TrnascanAnalyser;
 
@@ -80,7 +79,7 @@ pub fn run_trnascan(genome_path: &str, mode: &str, out_dir: &Path) -> PathBuf {
         info!("Using cached tRNAscan-SE output: {:?}", out_path);
         return out_path;
     }
-    let output = Command::new("tRNAscan-SE")
+    let output = crate::pixi_env::command_with_pixi_fallback("tRNAscan-SE", "default")
         .args([
             &format!("-{mode}"),
             "-o",

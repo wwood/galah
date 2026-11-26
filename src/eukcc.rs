@@ -13,21 +13,7 @@ fn build_eukcc_command() -> Command {
         cmd.args(parts);
         return cmd;
     }
-    if crate::pixi_env::is_on_path("eukcc") {
-        return Command::new("eukcc");
-    }
-    info!("eukcc not found on PATH, falling back to bundled pixi manifest");
-    let manifest = crate::pixi_env::galah_manifest_path();
-    let mut cmd = Command::new("pixi");
-    cmd.args([
-        "run",
-        "--manifest-path",
-        manifest.to_str().unwrap(),
-        "-e",
-        "eukcc",
-        "eukcc",
-    ]);
-    cmd
+    crate::pixi_env::command_with_pixi_fallback("eukcc", "eukcc")
 }
 
 pub struct EukccAnalyser {

@@ -2,7 +2,6 @@ use crate::Domain;
 use crate::RrnaFinder;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 pub struct BarrnapAnalyser;
 
@@ -60,7 +59,7 @@ pub fn run_barrnap(genome_path: &str, kingdom: &str, threads: usize, out_dir: &P
         info!("Using cached Barrnap output: {:?}", gff_path);
         return gff_path;
     }
-    let output = Command::new("barrnap")
+    let output = crate::pixi_env::command_with_pixi_fallback("barrnap", "default")
         .args([
             "--kingdom",
             kingdom,

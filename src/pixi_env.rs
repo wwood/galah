@@ -43,3 +43,51 @@ pub fn is_on_path(name: &str) -> bool {
         false
     }
 }
+
+/// Build a `Command` for `exe`: use it directly if on `PATH`, otherwise run it through
+/// `pixi run -e <env>` using the bundled pixi manifest.
+pub fn command_with_pixi_fallback(exe: &str, env: &str) -> std::process::Command {
+    if is_on_path(exe) {
+        return std::process::Command::new(exe);
+    }
+    info!(
+        "{} not found on PATH, falling back to bundled pixi manifest",
+        exe
+    );
+    let manifest = galah_manifest_path();
+    let mut cmd = std::process::Command::new("pixi");
+    cmd.args([
+        "run",
+        "--manifest-path",
+        manifest.to_str().unwrap(),
+        "-e",
+        env,
+        exe,
+    ]);
+    cmd
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_command_on_path_is_direct() {
+        // `sh` is always on PATH
+        let cmd = command_with_pixi_fallback("sh", "default");
+        assert_eq!(cmd.get_program(), "sh");
+    }
+
+    #[test]
+    fn test_command_missing_uses_pixi() {
+        let cmd = command_with_pixi_fallback("galah_no_such_tool_xyz", "default");
+        assert_eq!(cmd.get_program(), "pixi");
+        let args: Vec<_> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().to_string())
+            .collect();
+        assert_eq!(args[0], "run");
+        assert!(args.windows(2).any(|w| w == ["-e", "default"]));
+        assert_eq!(args.last().unwrap(), "galah_no_such_tool_xyz");
+    }
+}

@@ -18,21 +18,7 @@ fn build_checkm2_command() -> Command {
         cmd.args(parts);
         return cmd;
     }
-    if crate::pixi_env::is_on_path("checkm2") {
-        return Command::new("checkm2");
-    }
-    info!("checkm2 not found on PATH, falling back to bundled pixi manifest");
-    let manifest = crate::pixi_env::galah_manifest_path();
-    let mut cmd = Command::new("pixi");
-    cmd.args([
-        "run",
-        "--manifest-path",
-        manifest.to_str().unwrap(),
-        "-e",
-        "checkm2",
-        "checkm2",
-    ]);
-    cmd
+    crate::pixi_env::command_with_pixi_fallback("checkm2", "checkm2")
 }
 
 pub struct CheckM2Analyser {

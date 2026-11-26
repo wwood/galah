@@ -14,21 +14,7 @@ fn build_isiteuk_command() -> Command {
         cmd.args(parts);
         return cmd;
     }
-    if crate::pixi_env::is_on_path("isiteuk") {
-        return Command::new("isiteuk");
-    }
-    info!("isiteuk not found on PATH, falling back to bundled pixi manifest");
-    let manifest = crate::pixi_env::galah_manifest_path();
-    let mut cmd = Command::new("pixi");
-    cmd.args([
-        "run",
-        "--manifest-path",
-        manifest.to_str().unwrap(),
-        "-e",
-        "isiteuk",
-        "isiteuk",
-    ]);
-    cmd
+    crate::pixi_env::command_with_pixi_fallback("isiteuk", "isiteuk")
 }
 
 pub struct IsiTeukAnalyser {
