@@ -43,8 +43,9 @@ crates.io for the respective methods.
 - `test_quality.sh` downloads databases with the latest CheckM2 and isiteuk from Bioconda (via
   `pixi exec`) and EukCC DB v1.1 from the EBI FTP. The assertions only check domain assignment
   and the output shape, not completeness/contamination values.
-- The Cargo method installs only skani, FastANI and pixi explicitly; CheckM2, isiteuk, EukCC, Barrnap
-  and tRNAscan-SE rely on Galah's automatic pixi installation, as for the other methods.
+- The Cargo method installs skani, FastANI, Barrnap, tRNAscan-SE and pixi explicitly (these must be on
+  `PATH`); CheckM2, isiteuk and EukCC rely on Galah's automatic pixi installation, as for the other
+  methods.
 - Bioconda builds are unpinned beyond Galah's version, so dependency versions drift over time.
   Record `pixi list` / `conda list` output if you need exact versions.
 
