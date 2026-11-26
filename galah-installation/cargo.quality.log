@@ -1,0 +1,46 @@
+CHECKM2DB=/db/checkm2/CheckM2_database/uniref100.KO.1.dmnd ISITEUK_METAPACKAGE_PATH=/db/isiteuk/isiteuk-backpack-0.0.1 EUKCC2_DB=/db/eukcc/eukcc2_db_ver_1.1
+[2026-11-26T21:31:00Z INFO  bird_tool_utils::clap_utils] galah version 0.7.0
+[2026-11-26T21:31:00Z INFO  galah::analyse_argument_parsing] Analysing 3 genomes ..
+[2026-11-26T21:31:00Z INFO  galah::isiteuk] Running isiteuk on 3 genomes...
+[2026-11-26T21:31:00Z INFO  galah::isiteuk] isiteuk not found on PATH, falling back to bundled pixi manifest
+[2026-11-26T21:33:25Z INFO  galah::analyse] Running CheckM2 on 2 genome(s), EukCC on 1 genome(s), Barrnap and tRNAscan-SE on 3 provided genome(s)...
+[2026-11-26T21:33:25Z INFO  galah::checkm2] Running CheckM2 on provided genomes...
+[2026-11-26T21:33:25Z INFO  galah::checkm2] checkm2 not found on PATH, falling back to bundled pixi manifest
+[2026-11-26T21:37:45Z INFO  galah::eukcc] Running EukCC on 1 eukaryotic genomes...
+[2026-11-26T21:37:45Z INFO  galah::eukcc] eukcc not found on PATH, falling back to bundled pixi manifest
+[2026-11-26T21:56:09Z INFO  galah::analyse_argument_parsing] Finished printing genome analysis
+genome	domain	completeness	contamination	rRNA_5S	rRNA_16S	rRNA_23S	rRNA_18S	rRNA_28S	rRNA_5.8S	tRNAs	MIMAG_quality	notes
+/app/galah_src/tests/data/domain_examples/GCF_002008365.1_genomic.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+/app/galah_src/tests/data/domain_examples/GCA_003139855.1_genomic.fna.gz	Archaea	84.95	0.03	1	1	1	0	0	1	20	Medium quality	
+/app/galah_src/tests/data/domain_examples/binchicken_co8412.34_euk.fna.gz	Eukaryota	99.25	1.88	7	0	0	0	0	0	17	Medium quality	
+[2026-11-26T21:56:09Z INFO  bird_tool_utils::clap_utils] galah version 0.7.0
+[2026-11-26T21:56:09Z INFO  galah::process_argument_parsing] Processing 3 genomes ..
+[2026-11-26T21:56:09Z INFO  galah::isiteuk] Running isiteuk on 3 genomes...
+[2026-11-26T21:56:09Z INFO  galah::isiteuk] isiteuk not found on PATH, falling back to bundled pixi manifest
+[2026-11-26T21:57:51Z INFO  galah::analyse] Running CheckM2 on 2 genome(s), EukCC on 1 genome(s), Barrnap and tRNAscan-SE on 3 provided genome(s)...
+[2026-11-26T21:57:51Z INFO  galah::checkm2] Running CheckM2 on provided genomes...
+[2026-11-26T21:57:51Z INFO  galah::checkm2] checkm2 not found on PATH, falling back to bundled pixi manifest
+[2026-11-26T22:02:00Z INFO  galah::eukcc] Running EukCC on 1 eukaryotic genomes...
+[2026-11-26T22:02:00Z INFO  galah::eukcc] eukcc not found on PATH, falling back to bundled pixi manifest
+[2026-11-26T22:18:36Z INFO  bird_tool_utils::external_command_checker] Found skani version 0.4.0 
+[2026-11-26T22:18:36Z INFO  galah::cluster_argument_parsing] Reading injected combined quality report ..
+[2026-11-26T22:18:36Z INFO  galah::cluster_argument_parsing] Calculating num_contigs etc. for genome quality assessment ..
+[2026-11-26T22:18:36Z INFO  galah::cluster_argument_parsing] Read in genome qualities for 3 genomes. 3 passed quality thresholds
+[2026-11-26T22:18:36Z INFO  galah::process] Clustering 3 genomes ..
+[2026-11-26T22:18:36Z INFO  galah::skani] Running skani to get distances ..
+[2026-11-26T22:18:36Z INFO  galah::skani] Finished skani triangle.
+[2026-11-26T22:18:36Z INFO  galah::clusterer] Preclustering with skani and clustering with skani
+[2026-11-26T22:18:36Z INFO  galah::clusterer] Preclustering and clustering methods are the same, so reusing ANI values
+[2026-11-26T22:18:36Z INFO  galah::clusterer] Preclustering ..
+[2026-11-26T22:18:36Z INFO  galah::clusterer] Found 3 preclusters. The largest contained 1 genomes
+[2026-11-26T22:18:36Z INFO  galah::clusterer] Finding representative genomes and assigning all genomes to these ..
+[2026-11-26T22:18:36Z INFO  galah::process] Found 3 genome clusters
+[2026-11-26T22:18:36Z INFO  galah::process_argument_parsing] Finished processing genomes
+genome	domain	completeness	contamination	rRNA_5S	rRNA_16S	rRNA_23S	rRNA_18S	rRNA_28S	rRNA_5.8S	tRNAs	MIMAG_quality	notes
+/app/galah_src/tests/data/domain_examples/GCF_002008365.1_genomic.fna.gz	Bacteria	100.00	0.85	1	1	1	0	0	0	20	High quality	
+/app/galah_src/tests/data/domain_examples/GCA_003139855.1_genomic.fna.gz	Archaea	84.95	0.03	1	1	1	0	0	1	20	Medium quality	
+/app/galah_src/tests/data/domain_examples/binchicken_co8412.34_euk.fna.gz	Eukaryota	99.25	1.88	7	0	0	0	0	0	17	Medium quality	
+/app/galah_src/tests/data/domain_examples/GCF_002008365.1_genomic.fna.gz	/app/galah_src/tests/data/domain_examples/GCF_002008365.1_genomic.fna.gz
+/app/galah_src/tests/data/domain_examples/GCA_003139855.1_genomic.fna.gz	/app/galah_src/tests/data/domain_examples/GCA_003139855.1_genomic.fna.gz
+/app/galah_src/tests/data/domain_examples/binchicken_co8412.34_euk.fna.gz	/app/galah_src/tests/data/domain_examples/binchicken_co8412.34_euk.fna.gz
+cargo: analyse/process OK

@@ -1,0 +1,103 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.pixi
+#1 transferring dockerfile: 678B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for ghcr.io/prefix-dev/pixi:0.47.0
+#2 DONE 1.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 3.01kB done
+#4 DONE 0.0s
+
+#5 [ 1/11] FROM ghcr.io/prefix-dev/pixi:0.47.0@sha256:f9f4331c11fe8ecec4b0bda19c3863af1f372dc988b024ddec1a512f4f6b0068
+#5 resolve ghcr.io/prefix-dev/pixi:0.47.0@sha256:f9f4331c11fe8ecec4b0bda19c3863af1f372dc988b024ddec1a512f4f6b0068 0.0s done
+#5 CACHED
+
+#6 [ 2/11] RUN mkdir /app
+#6 DONE 0.4s
+
+#7 [ 3/11] COPY pixi.toml /app/pixi.toml
+#7 DONE 0.1s
+
+#8 [ 4/11] WORKDIR /app
+#8 DONE 0.1s
+
+#9 [ 5/11] RUN pixi install
+#9 15.60 The default environment has been installed.
+#9 DONE 17.3s
+
+#10 [ 6/11] RUN pixi global install git wget
+#10 9.921 Global environments as specified in '/root/.pixi/manifests/pixi-global.toml'
+#10 9.921 ├── git: 2.56.1 (installed)
+#10 9.921 │   └─ exposes: git, git-cvsserver, git-receive-pack, git-shell, git-upload-archive, git-upload-pack, gitk, scalar
+#10 9.921 └── wget: 1.25.0 (installed)
+#10 9.921     └─ exposes: wget
+#10 DONE 10.4s
+
+#11 [ 7/11] RUN git clone --depth 1 --branch v0.7.0 https://github.com/wwood/galah galah_src
+#11 0.390 Cloning into 'galah_src'...
+#11 2.365 Note: switching to '5720c850d284f3132ffceaecb64564bcd5f80504'.
+#11 2.365 
+#11 2.365 You are in 'detached HEAD' state. You can look around, make experimental
+#11 2.365 changes and commit them, and you can discard any commits you make in this
+#11 2.365 state without impacting any branches by switching back to a branch.
+#11 2.365 
+#11 2.365 If you want to create a new branch to retain commits you create, you may
+#11 2.365 do so (now or later) by using -c with the switch command. Example:
+#11 2.365 
+#11 2.365   git switch -c <new-branch-name>
+#11 2.365 
+#11 2.365 Or undo this operation with:
+#11 2.365 
+#11 2.365   git switch -
+#11 2.365 
+#11 2.365 Turn off this advice by setting config variable advice.detachedHead to false
+#11 2.365 
+#11 DONE 2.8s
+
+#12 [ 8/11] RUN pixi run galah --version
+#12 0.572 galah 0.7.0
+#12 DONE 0.6s
+
+#13 [ 9/11] RUN pixi run galah cluster     --genome-fasta-files galah_src/tests/data/set1/1mbp.fna galah_src/tests/data/set1/500kb.fna     --output-cluster-definition test_pixi_clusters.tsv
+#13 0.392 [2026-11-25T22:18:47Z INFO  bird_tool_utils::clap_utils] galah version 0.7.0
+#13 0.397 [2026-11-25T22:18:47Z INFO  bird_tool_utils::external_command_checker] Found skani version 0.4.0 
+#13 0.397 [2026-11-25T22:18:47Z WARN  galah::cluster_argument_parsing] Since CheckM input has not been provided and CheckM2 has been disabled, genomes are not being ordered by quality. Instead the order of their input is being used
+#13 0.397 [2026-11-25T22:18:47Z INFO  galah::cluster_argument_parsing] Clustering 2 genomes ..
+#13 0.399 [2026-11-25T22:18:47Z INFO  galah::skani] Running skani to get distances ..
+#13 0.412 [2026-11-25T22:18:47Z INFO  galah::skani] Finished skani triangle.
+#13 0.412 [2026-11-25T22:18:47Z INFO  galah::clusterer] Preclustering with skani and clustering with skani
+#13 0.412 [2026-11-25T22:18:47Z INFO  galah::clusterer] Preclustering and clustering methods are the same, so reusing ANI values
+#13 0.412 [2026-11-25T22:18:47Z INFO  galah::clusterer] Preclustering ..
+#13 0.412 [2026-11-25T22:18:47Z INFO  galah::clusterer] Found 1 preclusters. The largest contained 2 genomes
+#13 0.412 [2026-11-25T22:18:47Z INFO  galah::clusterer] Finding representative genomes and assigning all genomes to these ..
+#13 0.412 [2026-11-25T22:18:47Z INFO  galah::cluster_argument_parsing] Found 1 genome clusters
+#13 0.412 [2026-11-25T22:18:47Z INFO  galah::cluster_argument_parsing] Finished printing genome clusters
+#13 DONE 0.5s
+
+#14 [10/11] RUN cat test_pixi_clusters.tsv
+#14 0.320 galah_src/tests/data/set1/1mbp.fna	galah_src/tests/data/set1/1mbp.fna
+#14 0.320 galah_src/tests/data/set1/1mbp.fna	galah_src/tests/data/set1/500kb.fna
+#14 DONE 0.4s
+
+#15 [11/11] COPY test_quality.sh /app/test_quality.sh
+#15 DONE 0.1s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 128.5s done
+#16 exporting manifest sha256:3a482a58046f63debf632d69b8a32830a26eec7f1cffe2c8832ce3777d263dbb 0.0s done
+#16 exporting config sha256:190a47ec7c1a983676d8cdd733d15e1e4ecfb9447ba573bf5dc6f746247f79c7 0.0s done
+#16 exporting attestation manifest sha256:cba583438c7cfaa01a0df34262e60bda0365d746b4938ad0268653c2fc3e267d 0.0s done
+#16 exporting manifest list sha256:076a6cbda999fc868964d012320c2a8ba1d980f76f4445d079fbccc6eb812b93 0.0s done
+#16 naming to docker.io/library/galah-install-pixi:latest
+#16 naming to docker.io/library/galah-install-pixi:latest done
+#16 unpacking to docker.io/library/galah-install-pixi:latest
+#16 unpacking to docker.io/library/galah-install-pixi:latest 72.8s done
+#16 DONE 201.4s
