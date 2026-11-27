@@ -11,3 +11,4 @@ site/
 
 # test logs
 tests/*log
+admin/__pycache__/

@@ -23,16 +23,16 @@ See the [Clustering](/#clustering) section of the docs for the full algorithm de
 
 ## Benchmarking
 
-We benchmarked galah against [skDER](https://github.com/raufs/skDER) (greedy clustering with skani), [dRep](https://drep.readthedocs.io/) (using skani), and [pyani](https://github.com/widdowquinn/pyani) (ANIm) at 100, 500, 1,000, 5,000, 10,000 and 50,000 genomes, using 32 CPUs, 250GB memory, and a 48-hour walltime limit.
+We benchmarked galah against [skDER](https://github.com/raufs/skDER) (greedy clustering with skani), [gemsparcl](https://doi.org/10.64898/2025.12.30.695181) (MinHash ANI and nearest-neighbour graph clustering), [dRep](https://drep.readthedocs.io/) (using skani), and [pyani](https://github.com/widdowquinn/pyani) (ANIm) at 100, 500, 1,000, 5,000, 10,000 and 50,000 genomes, using 32 CPUs, 250GB memory, and a 48-hour walltime limit.
 
-![Benchmarking of galah against skDER, dRep and pyani across genome catalogue sizes](/benchmarking_summary_figure.png)
+![Benchmarking of galah against skDER, dRep, pyani and gemsparcl across genome catalogue sizes](/benchmarking_summary_figure_lines.png)
 
-**Wall-clock time (a), CPU time (b) and peak memory (c) across catalogue sizes.**
+**Wall-clock time (a), CPU time (b) and peak memory (c) across catalogue sizes.** Points represent mean ± standard error of (a) total walltime, (b) CPU time, and (c) peak memory for each process. Jobs that exceeded either total RAM or walltime are not shown.
 
-pyani (ANIm) is dramatically slower than the other tools even at small scale, 1,000 genomes alone took over 20 hours wall-clock time, so it did not complete the larger benchmarks.
-dRep also becomes comparatively slow at larger scale, and was unable to complete within the resource limits at 50,000 genomes.
-galah, galah's low-memory mode, and skDER remain fast across the full range tested.
-At 50,000 genomes, galah's low-memory mode uses substantially less peak memory than either galah's default mode or skDER, at some cost to wall-clock/CPU time.
+Only galah, gemsparcl and skDER completed the full range within 48 hours.
+At 50,000 genomes, galah was faster (0.6 min, 15-16 GB) than both skDER (1.3-1.8 min, 47-50 GB) and gemsparcl (0.9 min, 0.4-0.5 GB), while gemsparcl used substantially less memory than either.
+dRep became progressively slower and more memory-hungry (55-96 min and 10-14 GB at 10,000 genomes) and did not complete within 48 hours at 50,000 genomes, while pyani exhausted memory at 5,000 genomes and above.
+galah's low-memory mode did not pay off at this scale: at 50,000 genomes it had both higher peak memory (18-19 GB) than galah's default mode and a longer runtime (6.7-6.9 min), suggesting any benefit would only emerge at genome counts beyond those tested here.
 
 Note that galah's preclustering step (grouping genomes roughly by ANI before fine-grained comparison) was previously important for performance with the older FastANI backend, but is no longer necessary now that skani is the default comparison method — skani itself is fast enough that comparing all genome pairs directly is practical at these scales.
 
@@ -41,21 +41,24 @@ Note that galah's preclustering step (grouping genomes roughly by ANI before fin
 Growing a genome catalogue over time usually means re-dereplicating everything from scratch against the new batch of genomes.
 Galah's `--reference-genomes` option instead lets new genomes be clustered directly against an already-dereplicated reference set: the new genomes are first dereplicated amongst themselves (so they don't need to be pre-dereplicated by the caller), and only the resulting representative(s) are then compared against the reference set - reference-vs-reference comparisons are never made, so only a small number of input-vs-reference comparisons are needed, rather than all-vs-all.
 
-We benchmarked this by clustering 100 to 50,000 input genomes against all 346,233 genomes in [GlobDB](https://globdb.org/) r232 as reference genomes, comparing galah's low-memory mode (clustering the input genomes together with all reference genomes) against galah's `--reference-genomes` mode (clustering the new genomes against the pre-existing reference set). No other tool benchmarked above was able to complete this comparison under the same resource limits.
+We benchmarked this by clustering 100 to 50,000 input genomes against all 346,233 genomes in [GlobDB](https://globdb.org/) r232 as reference genomes, comparing galah's low-memory mode (clustering the input genomes together with all reference genomes) against galah's `--reference-genomes` mode (clustering the new genomes against the pre-existing reference set) and gemsparcl.
 
-![Benchmarking galah low-memory mode against galah --reference-genomes mode with 346,233 GlobDB r232 reference genomes](/benchmarking_summary_figure_globdb.png)
+![Benchmarking galah low-memory mode against galah --reference-genomes mode and gemsparcl with 346,233 GlobDB r232 reference genomes](/benchmarking_summary_figure_lines_globdb.png)
 
-**Wall-clock time (a), CPU time (b) and peak memory (c) when clustering against 346,233 reference genomes.**
-`--reference-genomes` is several-fold faster in both wall-clock and CPU time than clustering all genomes together, and uses substantially less peak memory, since it avoids repeating comparisons among the reference genomes themselves.
+**Wall-clock time (a), CPU time (b) and peak memory (c) when clustering against 346,233 reference genomes.** Points represent mean ± standard error of (a) total walltime, (b) CPU time, and (c) peak memory for each process. Jobs that exceeded either total RAM or walltime are not shown.
+
+Only gemsparcl, galah in low-memory mode and galah in `--reference-genomes` mode completed the analysis; dRep exceeded the walltime limit, while skDER and galah's default mode exhausted available memory.
+galah's `--reference-genomes` mode was the fastest (11-13 min and 89-93 GB at 50,000 input genomes), but gemsparcl required the least memory (16 min and 1.3-4.8 GB at 50,000 input genomes).
+`--reference-genomes` mode was also substantially faster and required considerably less memory than galah's low-memory mode (372-408 min and 155 GB at 50,000 input genomes), because it greatly reduces the number of pairwise comparisons required.
 
 ## Consistency of cluster assignments
 
-Despite the large resource differences, cluster assignments are highly consistent between tools across both benchmarks, with the exception of pyani which uses a different clustering method:
+Cluster counts were fairly stable across tools in both benchmarks, with the exception of pyani, which uses a different clustering method and reported more clusters on average than the other tools (3% more, normalised by the mean across tools):
 
 ![Normalised cluster counts relative to the mean across tools](/benchmarking_clusters_summary_figure.png)
 
-**Cluster counts, normalised as (n − mean) / mean across tools, for (a) the benchmark above and (b) the reference-genome benchmark below.**
-galah, galah (low memory), skDER and dRep all agree to within a fraction of a percent. pyani is the outlier, consistently producing more clusters than the ANI/skani-based tools. galah (low memory) and galah (reference genomes) are also highly consistent, with only a few clusters differing between the two methods.
+**Cluster counts, normalised by the mean across tools, for (a) the first benchmark and (b) the GlobDB reference-genome benchmark.** Points represent mean ± standard error.
+In (a), galah, galah (low memory), skDER, dRep and gemsparcl agree to within a fraction of a percent. In (b), galah (low memory), galah (reference genomes) and gemsparcl are also highly consistent.
 
 ## Eukaryotic genomes
 
