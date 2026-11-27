@@ -128,7 +128,7 @@ galah process \
 | Medium quality | Completeness ≥ 50%, contamination < 10% (and not High quality) |
 | Low quality | Completeness < 50% or contamination ≥ 10% |
 
-> **Note:** MIMAG defines its quality criteria for bacteria and archaea only. Galah extends MIMAG to eukaryotes by requiring eukaryotic rRNA genes (18S, 28S, 5.8S and 5S) in place of the bacterial/archaeal 5S/16S/23S rRNAs for High quality, and otherwise keeping the thresholds the same (completeness, contamination and tRNA count).
+**Note:** MIMAG defines its quality criteria for bacteria and archaea only. Galah extends MIMAG to eukaryotes by requiring eukaryotic rRNA genes (18S, 28S, 5.8S and 5S) in place of the bacterial/archaeal 5S/16S/23S rRNAs for High quality, and otherwise keeping the thresholds the same (completeness, contamination and tRNA count).
 
 See `galah analyse --full-help` for a full description of the `--output-mimag-summary` output format,
 and `galah cluster --full-help` for clustering-specific parameters.

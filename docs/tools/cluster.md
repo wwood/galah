@@ -125,10 +125,10 @@ Scoring function for genome quality [default: `Parks2020_reduced`].
 
 | formula | description |
 |:---|:---|
-| `Parks2020_reduced` | (default) A quality formula described in Parks et. al. 2020 https://doi.org/10.1038/s41587-020-0501-8 (Supplementary Table 19) but only including those scoring criteria that can be calculated from the sequence without homology searching: `completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000` |
+| `Parks2020_reduced` | (default) A quality formula described in Parks et. al. 2020 https://doi.org/10.1038/s41587-020-0501-8 (Supplementary Table 19) but only including those scoring criteria that can be calculated from the sequence without homology searching: <code>completeness-<wbr>5*<wbr>contamination-<wbr>5*<wbr>num_contigs/<wbr>100-<wbr>5*<wbr>num_ambiguous_bases/<wbr>100000</code> |
 | `completeness-4contamination` | `completeness-4*contamination` |
 | `completeness-5contamination` | `completeness-5*contamination` |
-| `dRep` | `completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)` |
+| `dRep` | <code>completeness-<wbr>5*<wbr>contamination+<wbr>contamination*<wbr>(strain_heterogeneity/<wbr>100)+<wbr>0.5*<wbr>log10(N50)</code> |
 
 **\--precluster-ani** *FLOAT*
 
