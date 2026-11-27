@@ -136,6 +136,8 @@ galah process \
 | Medium quality | Completeness ≥ 50%, contamination < 10% (and not High quality) |
 | Low quality | Completeness < 50% or contamination ≥ 10% |
 
+> **Note:** MIMAG defines its quality criteria for bacteria and archaea only. Galah extends MIMAG to eukaryotes by requiring eukaryotic rRNA genes (18S, 28S, 5.8S and 5S) in place of the bacterial/archaeal 5S/16S/23S rRNAs for High quality, and otherwise keeping the thresholds the same (completeness, contamination and tRNA count).
+
 See `galah analyse --full-help` for a full description of the `--output-mimag-summary` output format,
 and `galah cluster --full-help` for clustering-specific parameters.
 
@@ -319,13 +321,13 @@ Length of fragment used in FastANI calculation (i.e. `--fragLen`).
 Scoring function for genome quality [default: `Parks2020_reduced`].
   One of:
 
-  | formula | description |
-  |:---|:---|
-  | `Parks2020_reduced` | (default) A quality formula described in Parks et. al. 2020 https://doi.org/10.1038/s41587-020-0501-8 (Supplementary Table 19) but only including those scoring criteria that can be calculated from the sequence without homology searching: `completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000` |
-  | `Parks2020_reduced_hqpreferred` | As `Parks2020_reduced`, but genomes are first ranked by MIMAG quality tier (High, then Medium, then Low), so e.g. a Medium quality genome that is missing a 16S rRNA gene is never preferred over a High quality one. Requires the MIMAG quality assessment from the analyse step, so cannot be used with reference genomes. |
-  | `completeness-4contamination` | `completeness-4*contamination` |
-  | `completeness-5contamination` | `completeness-5*contamination` |
-  | `dRep` | `completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)` |
+| formula | description |
+|:---|:---|
+| `Parks2020_reduced` | (default) A quality formula described in Parks et. al. 2020 https://doi.org/10.1038/s41587-020-0501-8 (Supplementary Table 19) but only including those scoring criteria that can be calculated from the sequence without homology searching: `completeness-5*contamination-5*num_contigs/100-5*num_ambiguous_bases/100000` |
+| `Parks2020_reduced_hqpreferred` | As `Parks2020_reduced`, but genomes are first ranked by MIMAG quality tier (High, then Medium, then Low), so e.g. a Medium quality genome that is missing a 16S rRNA gene is never preferred over a High quality one. Requires the MIMAG quality assessment from the analyse step, so cannot be used with reference genomes. |
+| `completeness-4contamination` | `completeness-4*contamination` |
+| `completeness-5contamination` | `completeness-5*contamination` |
+| `dRep` | `completeness-5*contamination+contamination*(strain_heterogeneity/100)+0.5*log10(N50)` |
 
 **\--precluster-ani** *FLOAT*
 

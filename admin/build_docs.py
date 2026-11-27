@@ -25,6 +25,20 @@ def get_version(relpath):
                 return line.split("'")[1]
 
 
+def fix_indented_tables(markdown):
+    """Pandoc indents option tables by two spaces under the option paragraph, which Markdown
+    renderers (e.g. Doctave) then treat as paragraph text. Dedent them to a standalone table."""
+    out = []
+    lines = markdown.split("\n")
+    for i, line in enumerate(lines):
+        if line.startswith("  |"):
+            if not lines[i - 1].startswith("  |") and out and out[-1].strip() != "":
+                out.append("")
+            line = line[2:]
+        out.append(line)
+    return "\n".join(out)
+
+
 if __name__ == '__main__':
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument('--quiet', help='only output errors', action="store_true")
@@ -48,7 +62,7 @@ if __name__ == '__main__':
         for subcommand in commands:
             cmd_stub = f"cargo run -- {subcommand} --full-help-roff |pandoc - -t markdown-multiline_tables-simple_tables-grid_tables -f man |sed 's/\\\\\\[/[/g; s/\\\\\\]/]/g; s/^: //'"
             logging.debug("May need to install pandoc (e.g. conda install pandoc)")
-            man_usage = extern.run(cmd_stub)
+            man_usage = fix_indented_tables(extern.run(cmd_stub))
 
             subcommand_prelude = f"docs/preludes/{subcommand}_prelude.md"
             if os.path.exists(subcommand_prelude):
